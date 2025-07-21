@@ -11,6 +11,12 @@
 #include <MaterialXGenShader/ShaderStage.h>
 #include <MaterialXGenShader/ShaderGenerator.h>
 
+// pybind11 for Python integration
+#include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+
 MATERIALX_NAMESPACE_BEGIN
 
 ShaderNodeImplPtr MetashadeNode::create()
@@ -44,12 +50,33 @@ void MetashadeNode::emitFunctionDefinition(const ShaderNode& node, GenContext& c
 {
     const ShaderGenerator& shadergen = context.getShaderGenerator();
     
-    // Emit a simple function that returns purple color
-    shadergen.emitLine("vec3 mx_metashade_purple()", stage, false);
-    shadergen.emitScopeBegin(stage);
-    shadergen.emitLine("return vec3(0.5, 0.0, 1.0); // Purple color", stage);
-    shadergen.emitScopeEnd(stage);
-    shadergen.emitLineBreak(stage);
+    try {
+        // Ensure Python interpreter is initialized
+        if (!Py_IsInitialized()) {
+            py::initialize_interpreter();
+        }
+        
+        // Import the metashade_mtlx module and call get_purple_glsl_function
+        py::module_ metashade_module = py::module_::import("metashade_mtlx");
+        py::object get_purple_func = metashade_module.attr("get_purple_glsl_function");
+        
+        // Call the Python function and get the GLSL code
+        py::str glsl_code = get_purple_func();
+        std::string glsl_string = glsl_code.cast<std::string>();
+        
+        // Emit the GLSL code returned from Python
+        shadergen.emitLine(glsl_string, stage, false);
+        shadergen.emitLineBreak(stage);
+        
+    } catch (const py::error_already_set& e) {
+        // Log Python error
+        std::cerr << "MetashadeNode: Python error occurred: " << e.what() << std::endl;
+        throw ExceptionShaderGenError("Failed to call Python function get_purple_glsl_function: " + std::string(e.what()));
+    } catch (const std::exception& e) {
+        // Log general error
+        std::cerr << "MetashadeNode: Exception occurred: " << e.what() << std::endl;
+        throw ExceptionShaderGenError("Failed to generate shader code from Python: " + std::string(e.what()));
+    }
 }
 
 void MetashadeNode::emitFunctionCall(const ShaderNode& node, GenContext& context, ShaderStage& stage) const
