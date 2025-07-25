@@ -1,16 +1,28 @@
 file(GLOB_RECURSE materialx_source "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE materialx_headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h*")
 
-# Add Python and pybind11 support if Python is enabled
-if(MATERIALX_BUILD_PYTHON)
-    # Find Python components
-    find_package(Python COMPONENTS Interpreter Development REQUIRED)
-    
-    # Add pybind11 subdirectory if not already added
-    if(NOT TARGET pybind11::headers)
-        add_subdirectory(${CMAKE_SOURCE_DIR}/source/PyMaterialX/External/PyBind11 
-                         ${CMAKE_BINARY_DIR}/pybind11 EXCLUDE_FROM_ALL)
+# Add Python and pybind11 support if Python is enabled# Apply Python version and location requests from the user.
+set(PYBIND11_PYTHON_VERSION ${MATERIALX_PYTHON_VERSION})
+set(PYTHON_EXECUTABLE ${MATERIALX_PYTHON_EXECUTABLE})
+
+# First look for a PyBind11 package via CMake.
+if(MATERIALX_PYTHON_PYBIND11_DIR STREQUAL "")
+    find_package(pybind11 QUIET)
+    if(pybind11_FOUND)
+        include_directories(${PYBIND11_INCLUDE_DIR})
+    else()
+        set(MATERIALX_PYTHON_PYBIND11_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../PyMaterialX/External/PyBind11")
     endif()
+endif()
+
+# Then look for PyBind11 at its native or user-specified location.
+if(NOT pybind11_FOUND)
+    add_subdirectory(${MATERIALX_PYTHON_PYBIND11_DIR})
+    include_directories(${PYBIND11_INCLUDE_DIR})
+endif()
+
+if(NOT MATERIALX_PYTHON_LTO)
+    set(PYBIND11_MODULE_FLAGS "NO_EXTRAS")
 endif()
 
 mx_add_library(MaterialXMetashade
@@ -25,13 +37,3 @@ mx_add_library(MaterialXMetashade
     EXPORT_DEFINE
         MATERIALX_METASHADE_EXPORTS)
 
-# Link Python and pybind11 if available
-if(MATERIALX_BUILD_PYTHON AND TARGET pybind11::headers)
-    target_link_libraries(MaterialXMetashade PUBLIC 
-        Python::Python 
-        pybind11::headers
-    )
-    target_include_directories(MaterialXMetashade PRIVATE 
-        ${Python_INCLUDE_DIRS}
-    )
-endif()
