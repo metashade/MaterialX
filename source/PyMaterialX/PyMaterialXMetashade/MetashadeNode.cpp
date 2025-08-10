@@ -14,6 +14,12 @@
 // Standard library includes
 #include <iostream>
 
+// pybind11 for Python integration
+#include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
+
 MATERIALX_NAMESPACE_BEGIN
 
 ShaderNodeImplPtr MetashadeNode::create()
@@ -23,6 +29,14 @@ ShaderNodeImplPtr MetashadeNode::create()
 
 void MetashadeNode::registerImplementations(ShaderGenerator& generator)
 {
+    // Initialize Python interpreter if not already done
+    static bool pythonInitialized = false;
+    if (!pythonInitialized)
+    {
+        py::initialize_interpreter();
+        pythonInitialized = true;
+    }
+    
     // Register MetashadeNode for specific node types
     // You can register it for multiple node categories/names as needed
     
@@ -45,15 +59,43 @@ void MetashadeNode::initialize(const InterfaceElement& element, GenContext& cont
 
 void MetashadeNode::emitFunctionDefinition(const ShaderNode& node, GenContext& context, ShaderStage& stage) const
 {
-    const ShaderGenerator& shadergen = context.getShaderGenerator();
-    
-    // Simple C++ implementation - emits a placeholder function
-    // This can be overridden by the Python-enabled version or enhanced later
-    shadergen.emitLine("vec3 mx_metashade_function()", stage, false);
-    shadergen.emitScopeBegin(stage);
-    shadergen.emitLine("return vec3(0.5, 0.0, 0.5); // Placeholder purple color", stage);
-    shadergen.emitScopeEnd(stage);
-    shadergen.emitLineBreak(stage);
+    try
+    {
+        // Import the metashade module and call the function
+        py::module_ metashade_module = py::module_::import("metashade_mtlx");
+        py::object get_purple_func = metashade_module.attr("get_purple_glsl_function");
+
+        // Call the Python function to get GLSL code
+        py::str glsl_code = get_purple_func();
+
+        // Convert to C++ string and emit
+        std::string cppGlslCode = glsl_code.cast<std::string>();
+        stage.addString(cppGlslCode);
+    }
+    catch (const py::error_already_set& e)
+    {
+        std::cerr << "Python error in MetashadeNode: " << e.what() << std::endl;
+        
+        // Fallback implementation
+        const ShaderGenerator& shadergen = context.getShaderGenerator();
+        shadergen.emitLine("vec3 mx_metashade_function()", stage, false);
+        shadergen.emitScopeBegin(stage);
+        shadergen.emitLine("return vec3(0.5, 0.0, 0.5); // Fallback purple color", stage);
+        shadergen.emitScopeEnd(stage);
+        shadergen.emitLineBreak(stage);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error in MetashadeNode: " << e.what() << std::endl;
+        
+        // Fallback implementation
+        const ShaderGenerator& shadergen = context.getShaderGenerator();
+        shadergen.emitLine("vec3 mx_metashade_function()", stage, false);
+        shadergen.emitScopeBegin(stage);
+        shadergen.emitLine("return vec3(0.5, 0.0, 0.5); // Fallback purple color", stage);
+        shadergen.emitScopeEnd(stage);
+        shadergen.emitLineBreak(stage);
+    }
 }
 
 void MetashadeNode::emitFunctionCall(const ShaderNode& node, GenContext& context, ShaderStage& stage) const

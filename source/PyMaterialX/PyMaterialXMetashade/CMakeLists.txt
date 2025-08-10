@@ -12,6 +12,7 @@ add_library(MaterialXMetashade STATIC
 
 target_link_libraries(MaterialXMetashade
     PUBLIC MaterialXGenShader MaterialXCore
+    PRIVATE pybind11::embed
 )
 
 target_include_directories(MaterialXMetashade
