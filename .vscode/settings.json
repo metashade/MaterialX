@@ -1,0 +1,47 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "files.associations": {
+        "xlocale": "cpp",
+        "xlocmon": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp",
+        "future": "cpp",
+        "memory": "cpp",
+        "random": "cpp",
+        "ratio": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "variant": "cpp",
+        "xmemory0": "cpp",
+        "xtr1common": "cpp",
+        "xutility": "cpp",
+        "array": "cpp",
+        "compare": "cpp",
+        "format": "cpp",
+        "xmemory": "cpp",
+        "xstring": "cpp",
+        "deque": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "queue": "cpp",
+        "set": "cpp",
+        "stack": "cpp",
+        "vector": "cpp",
+        "xhash": "cpp",
+        "xtree": "cpp",
+        "algorithm": "cpp",
+        "xiosbase": "cpp"
+    },
+    "python.testing.pytestArgs": [
+        "python/MaterialXTest"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.testing.cwd": "${workspaceFolder}",
+    "python.defaultInterpreterPath": "C:\\Users\\tripc\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/build/python",
+        "${workspaceFolder}/python"
+    ]
+}
