@@ -1,0 +1,22 @@
+# Copy adsk libraries to output
+
+add_custom_target(Contrib_libraries ALL)
+
+add_custom_command(TARGET Contrib_libraries
+        POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libraries)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+        DESTINATION "${MATERIALX_INSTALL_STDLIB_PATH}" MESSAGE_NEVER
+        PATTERN "CMakeLists.txt" EXCLUDE)
+
+if(MATERIALX_BUILD_PYTHON)
+    set(MATERIALX_PYTHON_LIBRARIES_PATH "${MATERIALX_PYTHON_FOLDER_NAME}/${MATERIALX_INSTALL_STDLIB_PATH}")
+    if(SKBUILD)
+        set(MATERIALX_PYTHON_LIBRARIES_PATH "${SKBUILD_PLATLIB_DIR}/MaterialX/libraries")
+    endif()
+
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+            DESTINATION "${MATERIALX_PYTHON_LIBRARIES_PATH}"
+            PATTERN "CMakeLists.txt" EXCLUDE)
+endif()
