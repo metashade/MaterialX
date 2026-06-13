@@ -56,6 +56,7 @@ def pytest_addoption(parser):
     )
 
 
+
 @pytest.fixture(scope="session")
 def baseline_dir(request) -> Path:
     """Path to the baseline directory, or None if not specified."""
@@ -83,11 +84,33 @@ def output_dir(request, repo_root) -> Path:
 
 @pytest.fixture(scope="session")
 def search_path(repo_root) -> mx.FileSearchPath:
-    """MaterialX search path including adsk libraries."""
-    sp = mx.getDefaultDataSearchPath()
+    """MaterialX search path including standard, adsk and metashade libraries."""
+    sp = mx.FileSearchPath()
+    
+    # Add repo_root so that local "libraries" folder is checked first
+    sp.append(repo_root.as_posix())
+    
+    # Add source-tree libraries path and all target subdirectories
+    # (e.g. genglsl) as absolute paths to match standard library include resolution
+    import glob
+    libraries_dir = repo_root / "libraries"
+    sp.append(libraries_dir.as_posix())
+    
+    pattern = str(libraries_dir / "**" / "genglsl")
+    for target_dir in glob.glob(pattern, recursive=True):
+        sp.append(Path(target_dir).as_posix())
+        
     adsk_path = repo_root / "contrib" / "adsk" / "libraries"
     if adsk_path.exists():
-        sp.append(str(adsk_path))
+        sp.append(adsk_path.as_posix())
+        
+    metashade_mtlx_path = repo_root / "contrib" / "metashade" / "tests" / "ref" / "mtlx"
+    if metashade_mtlx_path.exists():
+        sp.append(metashade_mtlx_path.as_posix())
+        
+    # Append default data search path at the end as fallback
+    sp.append(mx.getDefaultDataSearchPath())
+    
     return sp
 
 
