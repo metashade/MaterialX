@@ -25,7 +25,7 @@
                 },
                 {
                     "name": "PYTHONPATH",
-                    "value": "${workspaceFolder}/python/External"
+                    "value": "${workspaceFolder}/contrib"
                 }
             ],
             "console": "internalConsole"
@@ -39,14 +39,14 @@
                 "--library",
                 "${workspaceFolder}/build/installed/libraries",
                 "--library",
-                "${workspaceFolder}/python/External/metashade/tests/ref/mtlx"
+                "${workspaceFolder}/contrib/metashade/tests/ref/mtlx"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/bin/Debug",
             "environment": [
                 {
                     "name": "PYTHONPATH",
-                    "value": "${workspaceFolder}/python/External"
+                    "value": "${workspaceFolder}/contrib"
                 }
             ],
             "console": "internalConsole"
