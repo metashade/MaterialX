@@ -12,7 +12,7 @@ import MaterialX.PyMaterialXGenShader as mx_gen_shader
 from pathlib import Path
 from typing import List
 
-from conftest import (
+from render_test_utils import (
     get_repo_root,
     get_stdlib_files,
     get_adsk_files,
@@ -126,7 +126,7 @@ class TestRenderStdlibMaterials:
                     # Generate heatmap in the same directory as rendered file
                     heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
                     
-                    from conftest import compare_rendered_image
+                    from render_test_utils import compare_rendered_image
                     res = compare_rendered_image(rendered_file, baseline_file, heatmap_path=heatmap_file)
                     if not res['success']:
                         assert False, f"Image comparison failed: {res['error']}"
@@ -202,7 +202,7 @@ class TestRenderAdskMaterials:
                     # Generate heatmap in the same directory as rendered file
                     heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
                     
-                    from conftest import compare_rendered_image
+                    from render_test_utils import compare_rendered_image
                     res = compare_rendered_image(rendered_file, baseline_file, heatmap_path=heatmap_file)
                     if not res['success']:
                         assert False, f"Image comparison failed: {res['error']}"

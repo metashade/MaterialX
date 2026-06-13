@@ -8,7 +8,7 @@ by document insertion order.
 from pathlib import Path
 import pytest
 import MaterialX as mx
-from conftest import (
+from render_test_utils import (
     get_repo_root,
     should_skip_element,
     get_element_skip_reason,
@@ -152,7 +152,7 @@ class TestRenderMetashadeSchlickOverride:
                     # Generate heatmap in the same directory as rendered file
                     heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
                     
-                    from conftest import compare_rendered_image
+                    from render_test_utils import compare_rendered_image
                     res = compare_rendered_image(rendered_file, baseline_file, heatmap_path=heatmap_file)
                     if not res['success']:
                         assert False, f"Image comparison failed: {res['error']}"

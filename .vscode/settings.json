@@ -5,7 +5,10 @@
     "cmake.automaticReconfigure": false,
     "python.testing.pytestArgs": [
         "python/MaterialXTest",
-        "contrib/metashade/tests"
+        "contrib/tests",
+        "contrib/metashade/tests",
+        "-n",
+        "auto"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
