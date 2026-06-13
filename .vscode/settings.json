@@ -5,7 +5,7 @@
     "cmake.automaticReconfigure": false,
     "python.testing.pytestArgs": [
         "python/MaterialXTest",
-        "python/External/metashade/tests"
+        "contrib/metashade/tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
@@ -13,7 +13,7 @@
     "python.analysis.extraPaths": [
         "${workspaceFolder}/build/python",
         "${workspaceFolder}/python",
-        "${workspaceFolder}/python/External/metashade"
+        "${workspaceFolder}/contrib/metashade"
     ],
     "testMate.cpp.test.executables": "${workspaceFolder}/build/bin/Debug/MaterialXTest.exe",
     "testMate.cpp.test.workingDirectory": "${workspaceFolder}",
