@@ -111,7 +111,7 @@ def search_path(repo_root) -> mx.FileSearchPath:
     if adsk_path.exists():
         sp.append(adsk_path.as_posix())
         
-    metashade_mtlx_path = repo_root / "contrib" / "metashade" / "tests" / "ref" / "mtlx"
+    metashade_mtlx_path = repo_root / "contrib" / "tests" / "metashade_ref"
     if metashade_mtlx_path.exists():
         sp.append(metashade_mtlx_path.as_posix())
         

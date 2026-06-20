@@ -54,7 +54,7 @@ class TestRenderMetashadeSchlickOverride:
         lib = mx.createDocument()
         
         # 1. Load Metashade Schlick override first
-        override_mtlx = repo_root / "contrib" / "metashade" / "tests" / "ref" / "mtlx" / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
+        override_mtlx = repo_root / "contrib" / "tests" / "metashade_ref" / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
         if override_mtlx.exists():
             mx.readFromXmlFile(lib, override_mtlx.as_posix())
             
