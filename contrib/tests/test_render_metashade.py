@@ -33,7 +33,13 @@ def get_schlick_test_files():
         mtlx_file = materials_root / rel_path_str
         if mtlx_file.exists():
             files.append(pytest.param(mtlx_file, id=rel_path_str))
-            
+
+    if not files:
+        pytest.skip(
+            f"No targeted Schlick test files found under {materials_root}. "
+            "Check that the MaterialX resources are present."
+        )
+
     return files
 
 
@@ -77,9 +83,13 @@ class TestRenderMetashadeSchlickOverride:
             
         # 2. Add Metashade override path
         metashade_mtlx_path = repo_root / "contrib" / "tests" / "metashade_ref"
-        if metashade_mtlx_path.exists():
-            custom_sp.append(metashade_mtlx_path.as_posix())
-            
+        if not metashade_mtlx_path.exists():
+            pytest.skip(
+                f"Metashade override directory not found: {metashade_mtlx_path}. "
+                "Ensure the metashade_ref directory is present in contrib/tests."
+            )
+        custom_sp.append(metashade_mtlx_path.as_posix())
+
         return custom_sp
 
     @pytest.fixture(scope="class")
@@ -88,9 +98,16 @@ class TestRenderMetashadeSchlickOverride:
         lib = mx.createDocument()
         
         # 1. Load Metashade Schlick override first
-        override_mtlx = repo_root / "contrib" / "tests" / "metashade_ref" / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
-        if override_mtlx.exists():
-            mx.readFromXmlFile(lib, override_mtlx.as_posix())
+        override_mtlx = (
+            repo_root / "contrib" / "tests" / "metashade_ref"
+            / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
+        )
+        if not override_mtlx.exists():
+            pytest.skip(
+                f"Metashade Schlick override file not found: {override_mtlx}. "
+                "The test cannot validate override behavior without it."
+            )
+        mx.readFromXmlFile(lib, override_mtlx.as_posix())
             
         # 2. Load standard libraries second
         library_folders = mx.getDefaultDataLibraryFolders()

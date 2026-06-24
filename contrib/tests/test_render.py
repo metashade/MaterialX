@@ -12,7 +12,6 @@ import MaterialX.PyMaterialXGenShader as mx_gen_shader
 import MaterialX.PyMaterialXRender as mx_render
 import struct as struct_module
 from pathlib import Path
-from typing import List
 
 from rendertest.mtlxutils.render_material import render_material
 
