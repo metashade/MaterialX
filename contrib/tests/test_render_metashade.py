@@ -8,18 +8,12 @@ by document insertion order.
 from pathlib import Path
 import pytest
 import MaterialX as mx
-from render_test_utils import (
-    get_repo_root,
-    should_skip_element,
-    get_element_skip_reason,
-    add_additional_test_streams,
-)
-from test_render import find_renderable_elements, render_element
+from test_render import run_render_test_file
 
 
 def get_schlick_test_files():
     """Get list of .mtlx files that directly or transitively test Schlick BSDF."""
-    repo_root = get_repo_root()
+    repo_root = Path(__file__).parent.parent.parent
     materials_root = repo_root / "resources" / "Materials"
     
     # Targeted files for direct / transitive Schlick BSDF testing
@@ -49,7 +43,46 @@ class TestRenderMetashadeSchlickOverride:
     """
     
     @pytest.fixture(scope="class")
-    def schlick_stdlib(self, search_path, repo_root):
+    def schlick_search_path(self, search_path, repo_root):
+        """Create a custom search path including standard library source files and Metashade overrides."""
+        custom_sp = mx.FileSearchPath(search_path.asString())
+        
+        # 1. Add the specific standard library folder needed by the Schlick BSDF implementation.
+        # Find pbrlib/genglsl under the search_path directories to match standard library include resolution.
+        import os
+        sep = ';' if os.name == 'nt' else ':'
+        for p_str in search_path.asString().split(sep):
+            p = Path(p_str)
+            pbrlib_genglsl = p / "libraries" / "pbrlib" / "genglsl"
+            if pbrlib_genglsl.exists():
+                custom_sp.append(pbrlib_genglsl.as_posix())
+                break
+            # Fallback if standard libraries are in checkout
+            pbrlib_genglsl_local = p / "pbrlib" / "genglsl"
+            if pbrlib_genglsl_local.exists():
+                custom_sp.append(pbrlib_genglsl_local.as_posix())
+                break
+            
+        # 2. Add Metashade override path
+        metashade_mtlx_path = repo_root / "contrib" / "tests" / "metashade_ref"
+        if metashade_mtlx_path.exists():
+            custom_sp.append(metashade_mtlx_path.as_posix())
+            
+        return custom_sp
+
+    @pytest.fixture(scope="session")
+    def output_dir(self, request, repo_root) -> Path:
+        """Override output_dir to place Metashade results under their own root."""
+        opt = request.config.getoption("--output-dir")
+        if opt:
+            path = Path(opt) / "metashade_schlick"
+        else:
+            path = repo_root / "contrib" / "renders" / "metashade_schlick"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @pytest.fixture(scope="class")
+    def schlick_stdlib(self, schlick_search_path, repo_root):
         """Create a custom stdlib document with Metashade Schlick override loaded first."""
         lib = mx.createDocument()
         
@@ -60,11 +93,11 @@ class TestRenderMetashadeSchlickOverride:
             
         # 2. Load standard libraries second
         library_folders = mx.getDefaultDataLibraryFolders()
-        mx.loadLibraries(library_folders, search_path, lib)
+        mx.loadLibraries(library_folders, schlick_search_path, lib)
         return lib
         
     @pytest.fixture(scope="class")
-    def schlick_renderer(self, schlick_stdlib, search_path, repo_root):
+    def schlick_renderer(self, schlick_stdlib, schlick_search_path, repo_root):
         """Create a custom renderer initialized with the overridden stdlib."""
         # IBL paths
         lights_path = repo_root / "resources" / "Lights"
@@ -81,7 +114,7 @@ class TestRenderMetashadeSchlickOverride:
         
         renderer = mxrenderer.initializeRenderer(
             schlick_stdlib,
-            search_path,
+            schlick_search_path,
             str(radiance_path),
             str(irradiance_path),
             width,
@@ -90,6 +123,7 @@ class TestRenderMetashadeSchlickOverride:
         )
         
         # Add test geometry streams
+        from test_render import add_additional_test_streams
         geom_handler = renderer.renderer.getGeometryHandler()
         for mesh in geom_handler.getMeshes():
             add_additional_test_streams(mesh)
@@ -103,66 +137,17 @@ class TestRenderMetashadeSchlickOverride:
         subtests,
         schlick_renderer,
         schlick_stdlib,
-        search_path,
+        schlick_search_path,
         output_dir,
-        baseline_dir,
-        flip_threshold
+        assert_image_matches_baseline
     ):
         """Test all renderable elements in a stdlib material file using the Schlick override."""
-        doc = mx.createDocument()
-        mx.readFromXmlFile(doc, str(mtlx_file))
-        doc.setDataLibrary(schlick_stdlib)
-        
-        valid, msg = doc.validate()
-        assert valid, f"Document validation failed: {msg}"
-        
-        # Set up search path
-        file_search_path = mx.FileSearchPath(search_path.asString())
-        file_search_path.append(str(mtlx_file.parent.resolve()))
-        
-        # Test each renderable element as a subtest
-        elements = find_renderable_elements(doc)
-        if not elements:
-            pytest.skip("No renderable elements in file")
-        
-        repo_root = get_repo_root()
-        materials_root = repo_root / "resources" / "Materials"
-        rel_path = mtlx_file.relative_to(materials_root)
-        
-        # Construct output directory for this material file to match MaterialXTest layout
-        output_path = output_dir / "metashade_schlick" / rel_path.parent / mtlx_file.stem
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        for elem, elem_name in elements:
-            with subtests.test(msg=elem_name):
-                if should_skip_element(rel_path, elem_name):
-                    pytest.skip(get_element_skip_reason(rel_path, elem_name))
-                
-                success, error, rendered_file = render_element(
-                    schlick_renderer, doc, elem, file_search_path, output_path=output_path
-                )
-                assert success, f"Render failed: {error}"
-                
-                if baseline_dir and rendered_file:
-                    rel_rendered = rendered_file.relative_to(output_dir)
-                    # Baselines are stored without the "metashade_schlick" prefix, compare against standard renders
-                    clean_rel_path = Path(*rel_rendered.parts[1:])
-                    baseline_file = baseline_dir / clean_rel_path
-                    
-                    # Generate heatmap in the same directory as rendered file
-                    heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
-                    
-                    from render_test_utils import compare_rendered_image
-                    res = compare_rendered_image(rendered_file, baseline_file, heatmap_path=heatmap_file)
-                    if not res['success']:
-                        assert False, f"Image comparison failed: {res['error']}"
-                    else:
-                        mean_flip = res['mean_flip']
-                        max_flip = res['max_flip']
-                        pct_diff = res['pct_diff_pixels']
-                        
-                        assert mean_flip < flip_threshold, (
-                            f"Image comparison failed! Mean FLIP: {mean_flip:.4f} "
-                            f"(threshold: {flip_threshold}), Max FLIP: {max_flip:.4f}, "
-                            f"{pct_diff:.1f}% pixels differ. Heatmap saved to {heatmap_file.name}"
-                        )
+        run_render_test_file(
+            mtlx_file=mtlx_file,
+            subtests=subtests,
+            renderer=schlick_renderer,
+            data_library=schlick_stdlib,
+            search_path=schlick_search_path,
+            output_dir=output_dir,
+            assert_image_matches_baseline=assert_image_matches_baseline
+        )
