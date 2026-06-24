@@ -3,8 +3,10 @@
     "cmake.configureOnOpen": false,
     "cmake.configureOnEdit": false,
     "cmake.automaticReconfigure": false,
+    "python.envFile": "${workspaceFolder}/.env",
     "python.testing.pytestArgs": [
         "python/MaterialXTest",
+        "contrib/tests",
         "contrib/metashade/tests"
     ],
     "python.testing.unittestEnabled": false,
