@@ -8,12 +8,16 @@ by document insertion order.
 from pathlib import Path
 import pytest
 import MaterialX as mx
+from conftest import (
+    get_repo_root,
+    add_additional_test_streams,
+)
 from test_render import run_render_test_file
 
 
 def get_schlick_test_files():
     """Get list of .mtlx files that directly or transitively test Schlick BSDF."""
-    repo_root = Path(__file__).parent.parent.parent
+    repo_root = get_repo_root()
     materials_root = repo_root / "resources" / "Materials"
     
     # Targeted files for direct / transitive Schlick BSDF testing
@@ -123,7 +127,7 @@ class TestRenderMetashadeSchlickOverride:
         )
         
         # Add test geometry streams
-        from test_render import add_additional_test_streams
+        from conftest import add_additional_test_streams
         geom_handler = renderer.renderer.getGeometryHandler()
         for mesh in geom_handler.getMeshes():
             add_additional_test_streams(mesh)
