@@ -35,7 +35,7 @@ def get_schlick_test_files():
             files.append(pytest.param(mtlx_file, id=rel_path_str))
 
     if not files:
-        pytest.skip(
+        pytest.fail(
             f"No targeted Schlick test files found under {materials_root}. "
             "Check that the MaterialX resources are present."
         )
@@ -84,7 +84,7 @@ class TestRenderMetashadeSchlickOverride:
         # 2. Add Metashade override path
         metashade_mtlx_path = repo_root / "contrib" / "tests" / "metashade_ref"
         if not metashade_mtlx_path.exists():
-            pytest.skip(
+            pytest.fail(
                 f"Metashade override directory not found: {metashade_mtlx_path}. "
                 "Ensure the metashade_ref directory is present in contrib/tests."
             )
@@ -103,7 +103,7 @@ class TestRenderMetashadeSchlickOverride:
             / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
         )
         if not override_mtlx.exists():
-            pytest.skip(
+            pytest.fail(
                 f"Metashade Schlick override file not found: {override_mtlx}. "
                 "The test cannot validate override behavior without it."
             )
