@@ -37,6 +37,18 @@ def get_schlick_test_files():
     return files
 
 
+@pytest.fixture(scope="session")
+def output_dir(request, repo_root) -> Path:
+    """Override output_dir to place Metashade results under their own root."""
+    opt = request.config.getoption("--output-dir")
+    if opt:
+        path = Path(opt) / "metashade_schlick"
+    else:
+        path = repo_root / "contrib" / "renders" / "metashade_schlick"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 class TestRenderMetashadeSchlickOverride:
     """
     Test rendering of standard MaterialX library materials with Metashade Schlick override.
@@ -69,17 +81,6 @@ class TestRenderMetashadeSchlickOverride:
             custom_sp.append(metashade_mtlx_path.as_posix())
             
         return custom_sp
-
-    @pytest.fixture(scope="session")
-    def output_dir(self, request, repo_root) -> Path:
-        """Override output_dir to place Metashade results under their own root."""
-        opt = request.config.getoption("--output-dir")
-        if opt:
-            path = Path(opt) / "metashade_schlick"
-        else:
-            path = repo_root / "contrib" / "renders" / "metashade_schlick"
-        path.mkdir(parents=True, exist_ok=True)
-        return path
 
     @pytest.fixture(scope="class")
     def schlick_stdlib(self, schlick_search_path, repo_root):

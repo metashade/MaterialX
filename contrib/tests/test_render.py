@@ -107,9 +107,10 @@ def add_additional_test_streams(mesh):
     """
     Add additional test streams required by MaterialX test suite.
     
-    This mirrors the C++ addAdditionalTestStreams() in RenderUtil.cpp,
-    adding geometry attributes needed by geompropvalue, streams, and
-    struct_texcoord tests.
+    This is a Python equivalent of the C++ addAdditionalTestStreams() in
+    RenderUtil.cpp, adding geometry attributes needed by geompropvalue,
+    streams, and struct_texcoord tests. Note that the generated patterns
+    may not have exact bit-for-bit parity with the C++ implementation.
     """
     n = mesh.getVertexCount()
     if n < 1:
