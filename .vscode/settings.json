@@ -6,9 +6,7 @@
     "python.testing.pytestArgs": [
         "python/MaterialXTest",
         "contrib/tests",
-        "contrib/metashade/tests",
-        "-n",
-        "auto"
+        "contrib/metashade/tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
