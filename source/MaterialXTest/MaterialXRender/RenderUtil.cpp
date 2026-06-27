@@ -132,19 +132,16 @@ void ShaderRenderTester::loadDependentLibraries(TestRunState& runState)
 {
     runState.dependLib = mx::createDocument();
 
-    // Load extra libraries BEFORE standard libraries so that extra
-    // implementations take priority. NodeDef::getImplementation() returns
-    // the first matching target, using document insertion order.
+    mx::loadLibraries({ "libraries" }, runState.searchPath, runState.dependLib);
     for (size_t i = 0; i < runState.options.extraLibraryPaths.size(); i++)
     {
         const mx::FilePath& libraryPath = runState.options.extraLibraryPaths[i];
         for (const mx::FilePath& libraryFile : libraryPath.getFilesInDirectory("mtlx"))
         {
-            std::cout << "Extra library path (override): " << (libraryPath / libraryFile).asString() << std::endl;
+            std::cout << "Extra library path: " << (libraryPath / libraryFile).asString() << std::endl;
             mx::loadLibrary((libraryPath / libraryFile), runState.dependLib);
         }
     }
-    mx::loadLibraries({ "libraries" }, runState.searchPath, runState.dependLib);
 
     // Load any additional per-renderer libraries
     loadAdditionalLibraries(runState.dependLib, runState.options);
@@ -510,16 +507,6 @@ void ShaderRenderTester::initializeGeneratorContext(TestRunState& runState, Test
     runState.context->registerSourceCodeSearchPath(runState.searchPath);
     runState.context->registerSourceCodeSearchPath(runState.searchPath.find("libraries/stdlib/genosl/include"));
 
-    // Register extra library paths as source code search paths so that
-    // wrapper GLSL files in extra libraries can resolve #include directives
-    // for standard library source files.
-    for (size_t i = 0; i < runState.options.extraLibraryPaths.size(); i++)
-    {
-        runState.context->registerSourceCodeSearchPath(runState.options.extraLibraryPaths[i]);
-    }
-    // Also register the standard pbrlib genglsl source directory so that
-    // extra library wrappers can #include standard pbrlib GLSL files.
-    runState.context->registerSourceCodeSearchPath(runState.searchPath.find("libraries/pbrlib/genglsl"));
 
     // Set target unit space
     runState.context->getOptions().targetDistanceUnit = "meter";
