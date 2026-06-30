@@ -437,7 +437,6 @@ jobs:
   javascript:
     name: JavaScript
     runs-on: ubuntu-latest
-    if: github.repository == 'AcademySoftwareFoundation/MaterialX'
     permissions:
       contents: write
 
@@ -483,8 +482,11 @@ jobs:
 
     # Disable the gh-pages deploy as we protect the gh-pages branch
     #- name: Deploy Web Viewer
-    #  if: github.event_name != 'pull_request'
-    #  uses: JamesIves/github-pages-deploy-action@6c2d9db40f9296374acc17b90404b6e8864128c8 # v4.7.3
+    #  if: >-
+    #    github.event_name != 'pull_request' &&
+    #    (github.repository == 'AcademySoftwareFoundation/MaterialX' ||
+    #     github.event_name == 'workflow_dispatch')
+    #  uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
     #  with:
     #    branch: gh-pages
     #    folder: javascript/MaterialXView/dist
