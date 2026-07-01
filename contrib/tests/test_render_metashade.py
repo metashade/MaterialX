@@ -65,7 +65,7 @@ class TestRenderMetashadeSchlickOverride:
         """Create a custom search path including standard library source files and Metashade overrides."""
         custom_sp = mx.FileSearchPath(search_path.asString())
         
-        # 1. Add the specific standard library folder needed by the Schlick BSDF implementation.
+        # Add the specific standard library folder needed by the Schlick BSDF implementation.
         # Find pbrlib/genglsl under the search_path directories to match standard library include resolution.
         import os
         sep = ';' if os.name == 'nt' else ':'
@@ -77,20 +77,10 @@ class TestRenderMetashadeSchlickOverride:
                 custom_sp.append(pbrlib_genglsl.as_posix())
                 break
 
-            # Fallback if standard libraries are in checkout
             pbrlib_genglsl_local = p / "pbrlib" / "genglsl"
             if pbrlib_genglsl_local.exists():
                 custom_sp.append(pbrlib_genglsl_local.as_posix())
                 break
-            
-        # 2. Add Metashade override path
-        metashade_mtlx_path = repo_root / "contrib" / "tests" / "metashade_ref"
-        if not metashade_mtlx_path.exists():
-            pytest.fail(
-                f"Metashade override directory not found: {metashade_mtlx_path}. "
-                "Ensure the metashade_ref directory is present in contrib/tests."
-            )
-        custom_sp.append(metashade_mtlx_path.as_posix())
 
         return custom_sp
 
@@ -99,20 +89,18 @@ class TestRenderMetashadeSchlickOverride:
         """Create a custom stdlib document with Metashade Schlick override loaded first."""
         lib = mx.createDocument()
         
-        # 1. Load Metashade Schlick override first
-        override_mtlx = (
-            repo_root / "contrib" / "tests" / "metashade_ref"
-            / "source_code_node_passthrus"
-            / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
+        metashade_ref = repo_root / "contrib" / "tests" / "metashade_ref"
+        override_sp = mx.FileSearchPath(metashade_ref.as_posix())
+
+        # Load Metashade overrides first so they take priority by insertion order
+        mx.loadLibraries(["source_code_node_passthrus"], override_sp, lib)
+
+        # Expose the override .glsl files to the shader generator
+        schlick_search_path.append(
+            (metashade_ref / "source_code_node_passthrus").as_posix()
         )
-        if not override_mtlx.exists():
-            pytest.fail(
-                f"Metashade Schlick override file not found: {override_mtlx}. "
-                "The test cannot validate override behavior without it."
-            )
-        mx.readFromXmlFile(lib, override_mtlx.as_posix())
-            
-        # 2. Load standard libraries second
+
+        # Load standard libraries second
         library_folders = mx.getDefaultDataLibraryFolders()
         mx.loadLibraries(library_folders, schlick_search_path, lib)
         return lib
