@@ -69,12 +69,14 @@ class TestRenderMetashadeSchlickOverride:
         # Find pbrlib/genglsl under the search_path directories to match standard library include resolution.
         import os
         sep = ';' if os.name == 'nt' else ':'
+
         for p_str in search_path.asString().split(sep):
             p = Path(p_str)
             pbrlib_genglsl = p / "libraries" / "pbrlib" / "genglsl"
             if pbrlib_genglsl.exists():
                 custom_sp.append(pbrlib_genglsl.as_posix())
                 break
+
             # Fallback if standard libraries are in checkout
             pbrlib_genglsl_local = p / "pbrlib" / "genglsl"
             if pbrlib_genglsl_local.exists():
@@ -100,6 +102,7 @@ class TestRenderMetashadeSchlickOverride:
         # 1. Load Metashade Schlick override first
         override_mtlx = (
             repo_root / "contrib" / "tests" / "metashade_ref"
+            / "source_code_node_passthrus"
             / "mx_generalized_schlick_bsdf_metashade_genglsl_impl.mtlx"
         )
         if not override_mtlx.exists():
