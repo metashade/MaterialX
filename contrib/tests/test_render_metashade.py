@@ -10,6 +10,9 @@ import pytest
 import MaterialX as mx
 from test_render import run_render_test_file, add_additional_test_streams
 
+_SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
+_METASHADE_REF_DIR = Path("contrib") / "tests" / "metashade_ref"
+
 
 def get_schlick_test_files():
     """Get list of .mtlx files that directly or transitively test Schlick BSDF."""
@@ -48,9 +51,9 @@ def output_dir(request, repo_root) -> Path:
     """Override output_dir to place Metashade results under their own root."""
     opt = request.config.getoption("--output-dir")
     if opt:
-        path = Path(opt) / "metashade_schlick"
+        path = Path(opt) / "metashade" / _SOURCE_CODE_NODE_PASSTHRUS
     else:
-        path = repo_root / "contrib" / "renders" / "metashade_schlick"
+        path = repo_root / "contrib" / "renders" / "metashade" / _SOURCE_CODE_NODE_PASSTHRUS
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -89,15 +92,15 @@ class TestRenderMetashadeSchlickOverride:
         """Create a custom stdlib document with Metashade Schlick override loaded first."""
         lib = mx.createDocument()
         
-        metashade_ref = repo_root / "contrib" / "tests" / "metashade_ref"
+        metashade_ref = repo_root / _METASHADE_REF_DIR
         override_sp = mx.FileSearchPath(metashade_ref.as_posix())
 
         # Load Metashade overrides first so they take priority by insertion order
-        mx.loadLibraries(["source_code_node_passthrus"], override_sp, lib)
+        mx.loadLibraries([_SOURCE_CODE_NODE_PASSTHRUS], override_sp, lib)
 
         # Expose the override .glsl files to the shader generator
         schlick_search_path.append(
-            (metashade_ref / "source_code_node_passthrus").as_posix()
+            (metashade_ref / _SOURCE_CODE_NODE_PASSTHRUS).as_posix()
         )
 
         # Load standard libraries second
