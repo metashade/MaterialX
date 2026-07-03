@@ -67,7 +67,9 @@ def get_stdlib_files():
 
 def get_adsk_files():
     """Autodesk contributed .mtlx files."""
-    materials_dir = get_repo_root() / "contrib" / "adsk" / "resources" / "Materials"
+    materials_dir = (
+        get_repo_root() / "contrib" / "adsk" / "resources" / "Materials"
+    )
     return collect_mtlx_files(materials_dir)
 
 
@@ -177,6 +179,8 @@ def add_additional_test_streams(mesh):
         for i in range(n):
             d[i*4], d[i*4+1], d[i*4+2], d[i*4+3] = uv[i*2], uv[i*2+1], 1.0, 1.0
     _add_stream_if_missing(mesh, f"i_{GEOMPROP}_geompropvalue_color4", GEOMPROP, 1, 4, fill_color4)
+
+
 def find_renderable_elements(doc):
     """
     Find all renderable elements in a document.
