@@ -97,6 +97,10 @@ class TestRenderMetashadeSchlickOverride:
 
         # Load Metashade overrides first so they take priority by insertion order
         mx.loadLibraries([_SOURCE_CODE_NODE_PASSTHRUS], override_sp, lib)
+        override_dir = metashade_ref / _SOURCE_CODE_NODE_PASSTHRUS
+        assert lib.getChildren(), (
+            f"loadLibraries loaded nothing from {override_dir}"
+        )
 
         # Expose the override .glsl files to the shader generator
         schlick_search_path.append(

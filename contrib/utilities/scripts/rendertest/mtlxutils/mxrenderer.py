@@ -544,8 +544,8 @@ def initializeRenderer(stdlib, searchPath,
     glslRenderer.initializeLights(lightDocument, enableDirectLighting, 
                                   radianceMapFileName, irrandianceMapFileName, enableReferenceQuality)
     lightHandler = glslRenderer.getLightHandler()
-    lightHandler.setEnvSampleCount(envSampleCount)
     if lightHandler:
+        lightHandler.setEnvSampleCount(envSampleCount)
         glslRenderer.addToRenderLog('- Setup lighting:')
         radMap = lightHandler.getEnvRadianceMap()
         irradMap = lightHandler.getEnvIrradianceMap()

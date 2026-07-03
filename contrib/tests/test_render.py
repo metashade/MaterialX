@@ -212,7 +212,7 @@ def render_element(renderer, doc, elem, search_path, output_path=None):
         return False, result.error or result.shader_errors or "Unknown error", None
 
 
-_seen_stems: set[str] = set()
+_seen_stems: dict[str, set[str]] = {}
 
 
 def run_render_test_file(
@@ -232,11 +232,13 @@ def run_render_test_file(
     assert valid, f"Document validation failed: {msg}"
     
     stem = mtlx_file.stem
-    assert stem not in _seen_stems, (
+    dir_key = str(output_dir)
+    stems_for_dir = _seen_stems.setdefault(dir_key, set())
+    assert stem not in stems_for_dir, (
         f"Output directory collision: '{stem}' was already used by another .mtlx file. "
         f"Current file: {mtlx_file}"
     )
-    _seen_stems.add(stem)
+    stems_for_dir.add(stem)
 
     # Set up search path
     file_search_path = mx.FileSearchPath(search_path.asString())
