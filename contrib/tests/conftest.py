@@ -182,19 +182,12 @@ def renderer(glsl_renderer):
 
 
 def get_output_path_for_file(mtlx_file: Path, output_dir: Path) -> Path:
-    """Derive the output directory path for a given material file."""
-    repo_root = get_repo_root()
-    materials_root = repo_root / "resources" / "Materials"
-    materials_dir = repo_root / "contrib" / "adsk" / "resources" / "Materials"
-    
-    if mtlx_file.is_relative_to(materials_root):
-        rel_path = mtlx_file.relative_to(materials_root)
-    elif mtlx_file.is_relative_to(materials_dir):
-        rel_path = mtlx_file.relative_to(materials_dir)
-    else:
-        return None
-        
-    return output_dir / rel_path.parent / mtlx_file.stem
+    """Derive the output directory path for a given material file.
+
+    Uses a flat layout (just the file stem) to match MaterialXTest's
+    output convention and enable baseline image comparisons.
+    """
+    return output_dir / mtlx_file.stem
 
 
 from collections import defaultdict

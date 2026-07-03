@@ -510,7 +510,8 @@ def debugStages(shader, doc, filter='Public'):
                             print('   - Unit:%s, ColorSpace:%s' % (unit,colorspace))
 
 def initializeRenderer(stdlib, searchPath, 
-                       radianceMapFileName, irrandianceMapFileName, w, h, desiredGeometry):
+                       radianceMapFileName, irrandianceMapFileName, w, h, desiredGeometry,
+                       envSampleCount=1024):
     glslRenderer = GlslRenderer([w,h])
     glslRenderer.initialize(mx_render.BaseType.UINT8)
     glslRenderer.addToRenderLog('- Initialized renderer')
@@ -541,8 +542,9 @@ def initializeRenderer(stdlib, searchPath,
     enableDirectLighting = False
     lightDocument = None
     glslRenderer.initializeLights(lightDocument, enableDirectLighting, 
-                                  radianceMapFileName, irrandianceMapFileName, enableReferenceQuality)    
+                                  radianceMapFileName, irrandianceMapFileName, enableReferenceQuality)
     lightHandler = glslRenderer.getLightHandler()
+    lightHandler.setEnvSampleCount(envSampleCount)
     if lightHandler:
         glslRenderer.addToRenderLog('- Setup lighting:')
         radMap = lightHandler.getEnvRadianceMap()
