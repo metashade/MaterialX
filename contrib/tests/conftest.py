@@ -260,15 +260,24 @@ def pytest_runtest_logreport(report):
             return
             
         # Extract the RenderEnvironment from funcargs
+        from test_render import RenderEnvironment
         env = None
         for arg_val in funcargs.values():
-            if type(arg_val).__name__ == "RenderEnvironment":
+            if isinstance(arg_val, RenderEnvironment):
                 env = arg_val
                 break
         if not env:
             return
             
-        output_dir = env.output_dir
+        # Resolve output_dir using global config option fallback
+        output_dir = None
+        if _pytest_config:
+            output_dir_opt = _pytest_config.getoption("--output-dir")
+            if output_dir_opt:
+                output_dir = Path(output_dir_opt)
+        if not output_dir:
+            repo_root = Path(__file__).parent.parent.parent
+            output_dir = repo_root / "contrib" / "renders"
         
         # Resolve baseline_dir using global config option
         baseline_dir = None
