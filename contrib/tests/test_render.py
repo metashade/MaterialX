@@ -228,8 +228,8 @@ def run_render_test_file(
     renderer,
     data_library,
     search_path,
-    output_dir,
-    assert_image_matches_baseline
+    assert_image_matches_baseline,
+    output_path: Path
 ):
     doc = mx.createDocument()
     mx.readFromXmlFile(doc, str(mtlx_file))
@@ -239,7 +239,7 @@ def run_render_test_file(
     assert valid, f"Document validation failed: {msg}"
     
     stem = mtlx_file.stem
-    dir_key = str(output_dir.resolve())
+    dir_key = str(output_path.parent.resolve())
     stems_for_dir = _seen_stems.setdefault(dir_key, set())
     assert stem not in stems_for_dir, (
         f"Output directory collision: '{stem}' was already used by another .mtlx file. "
@@ -270,7 +270,6 @@ def run_render_test_file(
         rel_path = Path(mtlx_file.name)
         is_adsk = False
         
-    output_path = output_dir / stem
     output_path.mkdir(parents=True, exist_ok=True)
     
     for elem, elem_name in elements:
@@ -291,6 +290,55 @@ def run_render_test_file(
             assert_image_matches_baseline(rendered_file)
 
 
+class RenderEnvironment:
+    """Encapsulates a specific MaterialX render execution environment."""
+    
+    def __init__(
+        self,
+        renderer,
+        data_library: mx.Document,
+        search_path: mx.FileSearchPath,
+        output_dir: Path,
+        assert_image_matches_baseline,
+        flat_layout: bool = True,
+    ):
+        self.renderer = renderer
+        self.data_library = data_library
+        self.search_path = search_path
+        self.output_dir = output_dir
+        self.assert_image_matches_baseline = assert_image_matches_baseline
+        self.flat_layout = flat_layout
+
+    def get_output_path(self, mtlx_file: Path) -> Path:
+        if self.flat_layout:
+            return self.output_dir / mtlx_file.stem
+            
+        repo_root = get_repo_root()
+        materials_root = repo_root / "resources" / "Materials"
+        materials_dir = repo_root / "contrib" / "adsk" / "resources" / "Materials"
+        
+        if mtlx_file.is_relative_to(materials_dir):
+            rel_path = mtlx_file.relative_to(materials_dir)
+        elif mtlx_file.is_relative_to(materials_root):
+            rel_path = mtlx_file.relative_to(materials_root)
+        else:
+            rel_path = Path(mtlx_file.name)
+            
+        return self.output_dir / rel_path.parent / mtlx_file.stem
+
+    def run_test(self, mtlx_file: Path, subtests):
+        """Run the render test for a single MaterialX file."""
+        run_render_test_file(
+            mtlx_file=mtlx_file,
+            subtests=subtests,
+            renderer=self.renderer,
+            data_library=self.data_library,
+            search_path=self.search_path,
+            assert_image_matches_baseline=self.assert_image_matches_baseline,
+            output_path=self.get_output_path(mtlx_file)
+        )
+
+
 class TestRenderStdlibMaterials:
     """
     Test rendering of standard MaterialX library materials.
@@ -304,22 +352,10 @@ class TestRenderStdlibMaterials:
         self,
         mtlx_file: Path,
         subtests,
-        renderer,
-        stdlib,
-        search_path,
-        output_dir,
-        assert_image_matches_baseline
+        stdlib_env: RenderEnvironment
     ):
         """Test all renderable elements in a stdlib material file."""
-        run_render_test_file(
-            mtlx_file=mtlx_file,
-            subtests=subtests,
-            renderer=renderer,
-            data_library=stdlib,
-            search_path=search_path,
-            output_dir=output_dir,
-            assert_image_matches_baseline=assert_image_matches_baseline
-        )
+        stdlib_env.run_test(mtlx_file, subtests)
 
 
 class TestRenderAdskMaterials:
@@ -330,19 +366,7 @@ class TestRenderAdskMaterials:
         self,
         mtlx_file: Path,
         subtests,
-        renderer,
-        data_library,
-        search_path,
-        output_dir,
-        assert_image_matches_baseline
+        adsk_env: RenderEnvironment
     ):
         """Test all renderable elements in an Autodesk material file."""
-        run_render_test_file(
-            mtlx_file=mtlx_file,
-            subtests=subtests,
-            renderer=renderer,
-            data_library=data_library,
-            search_path=search_path,
-            output_dir=output_dir,
-            assert_image_matches_baseline=assert_image_matches_baseline
-        )
+        adsk_env.run_test(mtlx_file, subtests)

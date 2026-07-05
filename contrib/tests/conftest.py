@@ -181,6 +181,35 @@ def renderer(glsl_renderer):
     return glsl_renderer
 
 
+@pytest.fixture(scope="session")
+def stdlib_env(renderer, stdlib, search_path, output_dir, assert_image_matches_baseline):
+    """RenderEnvironment for standard library materials tests."""
+    from test_render import RenderEnvironment
+    return RenderEnvironment(
+        renderer=renderer,
+        data_library=stdlib,
+        search_path=search_path,
+        output_dir=output_dir,
+        assert_image_matches_baseline=assert_image_matches_baseline
+    )
+
+
+@pytest.fixture(scope="session")
+def adsk_env(renderer, data_library, search_path, output_dir, assert_image_matches_baseline):
+    """RenderEnvironment for Autodesk materials tests."""
+    from test_render import RenderEnvironment
+    adsk_output = output_dir / "adsk"
+    adsk_output.mkdir(parents=True, exist_ok=True)
+    return RenderEnvironment(
+        renderer=renderer,
+        data_library=data_library,
+        search_path=search_path,
+        output_dir=adsk_output,
+        assert_image_matches_baseline=assert_image_matches_baseline,
+        flat_layout=False
+    )
+
+
 def get_output_path_for_file(mtlx_file: Path, output_dir: Path) -> Path:
     """Derive the output directory path for a given material file.
 
