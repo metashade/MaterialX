@@ -145,7 +145,7 @@ class MetashadeOverrideTestBase:
         # Skip image baseline matching for broken_schlick to avoid failing tests
         env_assert = assert_image_matches_baseline
         if request.cls.OVERRIDE_SUBDIR == "broken_schlick":
-            env_assert = lambda rendered_file: None
+            env_assert = lambda rendered_file, *args, **kwargs: None
             
         return RenderEnvironment(
             renderer=override_renderer,

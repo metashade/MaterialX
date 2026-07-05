@@ -210,13 +210,7 @@ def adsk_env(renderer, data_library, search_path, output_dir, assert_image_match
     )
 
 
-def get_output_path_for_file(mtlx_file: Path, output_dir: Path) -> Path:
-    """Derive the output directory path for a given material file.
-
-    Uses a flat layout (just the file stem) to match MaterialXTest's
-    output convention and enable baseline image comparisons.
-    """
-    return output_dir / mtlx_file.stem
+# (Deleted get_output_path_for_file helper as logreport now queries env.get_output_path() directly)
 
 
 from collections import defaultdict
@@ -476,11 +470,12 @@ def assert_image_matches_baseline(baseline_dir, flip_threshold, output_dir):
     """
     Fixture that returns a function to assert a rendered image matches its baseline.
     """
-    def _assert(rendered_file: Path):
+    def _assert(rendered_file: Path, base_dir: Path = None):
         if not (baseline_dir and rendered_file):
             return
             
-        rel_rendered = rendered_file.relative_to(output_dir)
+        rel_base = base_dir or output_dir
+        rel_rendered = rendered_file.relative_to(rel_base)
         baseline_file = baseline_dir / rel_rendered
         
         # Generate heatmap in the same directory as rendered file

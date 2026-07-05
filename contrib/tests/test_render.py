@@ -229,7 +229,8 @@ def run_render_test_file(
     data_library,
     search_path,
     assert_image_matches_baseline,
-    output_path: Path
+    output_path: Path,
+    relative_base_dir: Path = None
 ):
     doc = mx.createDocument()
     mx.readFromXmlFile(doc, str(mtlx_file))
@@ -287,7 +288,7 @@ def run_render_test_file(
             )
             assert success, f"Render failed: {error}"
             
-            assert_image_matches_baseline(rendered_file)
+            assert_image_matches_baseline(rendered_file, base_dir=relative_base_dir)
 
 
 class RenderEnvironment:
@@ -335,7 +336,8 @@ class RenderEnvironment:
             data_library=self.data_library,
             search_path=self.search_path,
             assert_image_matches_baseline=self.assert_image_matches_baseline,
-            output_path=self.get_output_path(mtlx_file)
+            output_path=self.get_output_path(mtlx_file),
+            relative_base_dir=self.output_dir
         )
 
 
