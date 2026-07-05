@@ -263,15 +263,7 @@ def pytest_runtest_logreport(report):
         if not env:
             return
             
-        # Resolve output_dir using global config option fallback
-        output_dir = None
-        if _pytest_config:
-            output_dir_opt = _pytest_config.getoption("--output-dir")
-            if output_dir_opt:
-                output_dir = Path(output_dir_opt)
-        if not output_dir:
-            repo_root = Path(__file__).parent.parent.parent
-            output_dir = repo_root / "contrib" / "renders"
+        output_dir = env.output_dir
         
         # Resolve baseline_dir using global config option
         baseline_dir = None
@@ -470,7 +462,7 @@ def assert_image_matches_baseline(baseline_dir, flip_threshold, output_dir):
     """
     Fixture that returns a function to assert a rendered image matches its baseline.
     """
-    def _assert(rendered_file: Path, base_dir: Path = None):
+    def _assert(rendered_file: Path, base_dir: Path | None = None):
         if not (baseline_dir and rendered_file):
             return
             

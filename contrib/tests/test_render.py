@@ -230,7 +230,7 @@ def run_render_test_file(
     search_path,
     assert_image_matches_baseline,
     output_path: Path,
-    relative_base_dir: Path = None
+    relative_base_dir: Path | None = None
 ):
     doc = mx.createDocument()
     mx.readFromXmlFile(doc, str(mtlx_file))
