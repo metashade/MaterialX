@@ -256,11 +256,26 @@ def pytest_runtest_logreport(report):
             return
             
         mtlx_file = funcargs.get("mtlx_file")
-        output_dir = funcargs.get("output_dir")
-        baseline_dir = funcargs.get("baseline_dir")
-        
-        if not mtlx_file or not output_dir:
+        if not mtlx_file:
             return
+            
+        # Extract the RenderEnvironment from funcargs
+        env = None
+        for arg_val in funcargs.values():
+            if type(arg_val).__name__ == "RenderEnvironment":
+                env = arg_val
+                break
+        if not env:
+            return
+            
+        output_dir = env.output_dir
+        
+        # Resolve baseline_dir using global config option
+        baseline_dir = None
+        if _pytest_config:
+            baseline_dir_opt = _pytest_config.getoption("--baseline-dir")
+            if baseline_dir_opt:
+                baseline_dir = Path(baseline_dir_opt)
             
         # Extract subtest name from report context
         context = getattr(report, "context", None)
@@ -268,7 +283,7 @@ def pytest_runtest_logreport(report):
         if not subtest_name:
             return
             
-        output_path = get_output_path_for_file(mtlx_file, output_dir)
+        output_path = env.get_output_path(mtlx_file)
         if not output_path or not output_path.exists():
             return
             

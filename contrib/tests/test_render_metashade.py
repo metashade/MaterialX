@@ -5,10 +5,11 @@ This test file runs standard library materials against a MaterialX standard libr
 where Metashade implementations are loaded first, forcing them to take priority
 by document insertion order.
 """
+import os
 from pathlib import Path
 import pytest
 import MaterialX as mx
-from test_render import run_render_test_file, add_additional_test_streams, RenderEnvironment
+from test_render import add_additional_test_streams, RenderEnvironment
 
 _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
 _METASHADE_REF_DIR = Path("contrib") / "tests" / "metashade_ref"
@@ -57,9 +58,7 @@ class MetashadeOverrideTestBase:
         custom_sp = mx.FileSearchPath(search_path.asString())
         
         # Find pbrlib/genglsl under the search_path directories to match standard library include resolution.
-        import os
-        sep = ';' if os.name == 'nt' else ':'
-        for p_str in search_path.asString().split(sep):
+        for p_str in search_path.asString().split(os.pathsep):
             p = Path(p_str)
             pbrlib_genglsl = p / "libraries" / "pbrlib" / "genglsl"
             if pbrlib_genglsl.exists():
@@ -78,6 +77,8 @@ class MetashadeOverrideTestBase:
         lib = mx.createDocument()
         
         subdir = request.cls.OVERRIDE_SUBDIR
+        assert subdir is not None, "OVERRIDE_SUBDIR must be defined in the test class subclassing MetashadeOverrideTestBase"
+        
         metashade_ref = repo_root / _METASHADE_REF_DIR
         override_sp = mx.FileSearchPath(metashade_ref.as_posix())
 
@@ -131,11 +132,14 @@ class MetashadeOverrideTestBase:
 
     @pytest.fixture(scope="class")
     def override_env(self, request, override_renderer, override_stdlib, override_search_path, repo_root, assert_image_matches_baseline):
+        output_subdir = request.cls.OUTPUT_SUBDIR
+        assert output_subdir is not None, "OUTPUT_SUBDIR must be defined in the test class subclassing MetashadeOverrideTestBase"
+        
         opt = request.config.getoption("--output-dir")
         if opt:
-            path = Path(opt) / "metashade" / request.cls.OUTPUT_SUBDIR
+            path = Path(opt) / "metashade" / output_subdir
         else:
-            path = repo_root / "contrib" / "renders" / "metashade" / request.cls.OUTPUT_SUBDIR
+            path = repo_root / "contrib" / "renders" / "metashade" / output_subdir
         path.mkdir(parents=True, exist_ok=True)
         
         # Skip image baseline matching for broken_schlick to avoid failing tests
@@ -153,13 +157,13 @@ class MetashadeOverrideTestBase:
 
 
 class TestRenderMetashadePassthru(MetashadeOverrideTestBase):
-    """Test rendering of standard MaterialX library materials with Metashade Schlick override."""
+    """Test rendering of standard MaterialX library materials with Metashade passthrough override."""
     OVERRIDE_SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
     OUTPUT_SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
 
     @pytest.mark.parametrize("mtlx_file", get_schlick_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
-        """Test all renderable elements in a stdlib material file using the Schlick override."""
+        """Test all renderable elements in a stdlib material file using the passthrough override."""
         override_env.run_test(mtlx_file, subtests)
 
 
