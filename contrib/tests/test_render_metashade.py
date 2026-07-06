@@ -142,17 +142,12 @@ class MetashadeOverrideTestBase:
             path = repo_root / "contrib" / "renders" / "metashade" / output_subdir
         path.mkdir(parents=True, exist_ok=True)
         
-        # Skip image baseline matching for broken_schlick to avoid failing tests
-        env_assert = assert_image_matches_baseline
-        if request.cls.OVERRIDE_SUBDIR == "broken_schlick":
-            env_assert = lambda rendered_file, *args, **kwargs: None
-            
         return RenderEnvironment(
             renderer=override_renderer,
             data_library=override_stdlib,
             search_path=override_search_path,
             output_dir=path,
-            assert_image_matches_baseline=env_assert
+            assert_image_matches_baseline=assert_image_matches_baseline
         )
 
 

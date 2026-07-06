@@ -50,6 +50,38 @@
                 }
             ],
             "console": "internalConsole"
+        },
+        {
+            "name": "pytest: Metashade Passthru (with FLIP diffs)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "contrib/tests/test_render_metashade.py::TestRenderMetashadePassthru",
+                "-n", "auto",
+                "--baseline-dir", "contrib/renders/baselines",
+                "--html", "contrib/renders/metashade_passthru_report.html",
+                "-v"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "pytest: Metashade Broken Schlick (with FLIP diffs)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "contrib/tests/test_render_metashade.py::TestRenderMetashadeBrokenSchlick",
+                "-n", "auto",
+                "--baseline-dir", "contrib/renders/baselines",
+                "--html", "contrib/renders/metashade_broken_report.html",
+                "-v"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
