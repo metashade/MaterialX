@@ -21,6 +21,82 @@ def get_repo_root() -> Path:
     return Path(__file__).parent.parent.parent
 
 
+def _get_options_mtlx_path() -> Path:
+    return (
+        get_repo_root()
+        / "resources"
+        / "Materials"
+        / "TestSuite"
+        / "_options.mtlx"
+    )
+
+
+def parse_options_mtlx(options_path: Path | None = None) -> dict:
+    """Parse ``_options.mtlx`` and return the test-suite configuration.
+
+    Returns a dict with keys ``renderTestPaths``, ``renderTestExcludeFiles``,
+    ``overrideFiles``, and ``envSampleCount``.
+    """
+    if options_path is None:
+        options_path = _get_options_mtlx_path()
+
+    doc = mx.createDocument()
+    mx.readFromXmlFile(doc, str(options_path))
+    nodedef = doc.getNodeDef("TestSuiteOptions")
+
+    def _split(name: str) -> list[str]:
+        raw = nodedef.getInput(name).getValueString()
+        return [s.strip() for s in raw.split(",") if s.strip()]
+
+    return {
+        "renderTestPaths": _split("renderTestPaths"),
+        "renderTestExcludeFiles": _split("renderTestExcludeFiles"),
+        "overrideFiles": _split("overrideFiles"),
+        "envSampleCount": nodedef.getInput("envSampleCount").getValue(),
+    }
+
+
+def collect_render_test_files(
+    options: dict | None = None,
+    repo_root: Path | None = None,
+) -> list:
+    """Collect ``.mtlx`` files matching ``_options.mtlx`` render test scope.
+
+    Mirrors the C++ ``ShaderRenderTester::collectTestFiles()`` logic:
+    walk each ``renderTestPaths`` entry, apply ``overrideFiles`` as a whitelist
+    (when non-empty) or ``renderTestExcludeFiles`` as a basename exclude list.
+    """
+    if options is None:
+        options = parse_options_mtlx()
+    if repo_root is None:
+        repo_root = get_repo_root()
+
+    render_paths = options["renderTestPaths"]
+    exclude_files = set(options["renderTestExcludeFiles"])
+    override_files = set(options["overrideFiles"])
+
+    files: list = []
+    materials_root = repo_root / "resources" / "Materials"
+
+    for rel_root in render_paths:
+        root = repo_root / rel_root
+        if not root.exists():
+            continue
+        for mtlx_file in sorted(root.rglob("*.mtlx")):
+            if mtlx_file.name.startswith("_"):
+                continue
+            if override_files:
+                if mtlx_file.name not in override_files:
+                    continue
+            elif mtlx_file.name in exclude_files:
+                continue
+            rel_path = mtlx_file.relative_to(materials_root)
+            file_id = str(rel_path).replace("\\", "/")
+            files.append(pytest.param(mtlx_file, id=file_id))
+
+    return files
+
+
 def collect_mtlx_files(
     materials_root: Path,
     subdirs: list[str] | None = None,
@@ -345,8 +421,9 @@ class TestRenderStdlibMaterials:
     """
     Test rendering of standard MaterialX library materials.
     
-    Covers resources/Materials/TestSuite and resources/Materials/Examples,
-    matching the same test cases run by MaterialXTest/Catch2/CTest.
+    Covers all ``.mtlx`` files under ``resources/Materials/TestSuite`` and
+    ``resources/Materials/Examples`` (a superset of the curated paths in
+    ``_options.mtlx`` used by the C++ MaterialXTest suite).
     """
     
     @pytest.mark.parametrize("mtlx_file", get_stdlib_files())

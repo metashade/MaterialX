@@ -9,42 +9,14 @@ import os
 from pathlib import Path
 import pytest
 import MaterialX as mx
-from test_render import add_additional_test_streams, RenderEnvironment
+from test_render import (
+    add_additional_test_streams,
+    collect_render_test_files,
+    RenderEnvironment,
+)
 
 _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
 _METASHADE_REF_DIR = Path("contrib") / "tests" / "metashade_ref"
-
-
-def get_schlick_test_files():
-    """Get list of .mtlx files that directly or transitively test Schlick BSDF."""
-    repo_root = Path(__file__).parent.parent.parent
-    materials_root = repo_root / "resources" / "Materials"
-    
-    # Targeted files for direct / transitive Schlick BSDF testing
-    targeted = [
-        "TestSuite/pbrlib/bsdf/generalized_schlick.mtlx",
-        "TestSuite/pbrlib/edf/generalized_schlick_edf.mtlx",
-        "TestSuite/pbrlib/surfaceshader/lama/lama_generalized_schlick.mtlx",
-        "TestSuite/pbrlib/bsdf/thin_film_bsdf.mtlx",
-        "TestSuite/pbrlib/surfaceshader/surface_ops.mtlx",
-        "Examples/StandardSurface/standard_surface_default.mtlx",
-        "Examples/StandardSurface/standard_surface_gold.mtlx",
-        "Examples/StandardSurface/standard_surface_plastic.mtlx",
-    ]
-    
-    files = []
-    for rel_path_str in targeted:
-        mtlx_file = materials_root / rel_path_str
-        if mtlx_file.exists():
-            files.append(pytest.param(mtlx_file, id=rel_path_str))
-
-    if not files:
-        pytest.fail(
-            f"No targeted Schlick test files found under {materials_root}. "
-            "Check that the MaterialX resources are present."
-        )
-
-    return files
 
 
 class MetashadeOverrideTestBase:
@@ -98,7 +70,7 @@ class MetashadeOverrideTestBase:
         return lib
         
     @pytest.fixture(scope="class")
-    def override_renderer(self, override_stdlib, override_search_path, repo_root):
+    def override_renderer(self, override_stdlib, override_search_path, repo_root, test_suite_options):
         """Create a custom renderer initialized with the overridden stdlib."""
         # IBL paths
         lights_path = repo_root / "resources" / "Lights"
@@ -120,7 +92,8 @@ class MetashadeOverrideTestBase:
             str(irradiance_path),
             width,
             height,
-            str(geometry_path)
+            str(geometry_path),
+            envSampleCount=test_suite_options["envSampleCount"],
         )
         
         # Add test geometry streams
@@ -152,22 +125,32 @@ class MetashadeOverrideTestBase:
 
 
 class TestRenderMetashadePassthru(MetashadeOverrideTestBase):
-    """Test rendering of standard MaterialX library materials with Metashade passthrough override."""
+    """Test rendering with Metashade passthrough overrides.
+
+    Scope matches MaterialXTest's ``_options.mtlx`` render test paths so
+    that every material with a C++ baseline is also validated through the
+    Metashade override pipeline.
+    """
     OVERRIDE_SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
     OUTPUT_SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
 
-    @pytest.mark.parametrize("mtlx_file", get_schlick_test_files())
+    @pytest.mark.parametrize("mtlx_file", collect_render_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
-        """Test all renderable elements in a stdlib material file using the passthrough override."""
+        """Test all renderable elements in a material file using the passthrough override."""
         override_env.run_test(mtlx_file, subtests)
 
 
 class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
-    """Test rendering of standard MaterialX library materials with Broken Schlick override."""
+    """Test rendering with the Broken Schlick diagnostic override.
+
+    Uses the same ``_options.mtlx``-driven scope.  Materials that use
+    ``generalized_schlick_bsdf`` will show visual diffs; others render
+    identically to the baseline.
+    """
     OVERRIDE_SUBDIR = "broken_schlick"
     OUTPUT_SUBDIR = "broken_schlick"
 
-    @pytest.mark.parametrize("mtlx_file", get_schlick_test_files())
+    @pytest.mark.parametrize("mtlx_file", collect_render_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
-        """Test rendering with Broken Schlick (asserting success but skipping baseline check)."""
+        """Test rendering with Broken Schlick override."""
         override_env.run_test(mtlx_file, subtests)

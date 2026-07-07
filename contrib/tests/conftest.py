@@ -133,7 +133,14 @@ def data_library(stdlib, adsklib):
 
 
 @pytest.fixture(scope="session")
-def glsl_renderer(stdlib, search_path, repo_root):
+def test_suite_options():
+    """Parsed ``_options.mtlx`` configuration, shared across fixtures."""
+    from test_render import parse_options_mtlx
+    return parse_options_mtlx()
+
+
+@pytest.fixture(scope="session")
+def glsl_renderer(stdlib, search_path, repo_root, test_suite_options):
     """
     Initialize GLSL renderer once per worker process.
     
@@ -157,7 +164,8 @@ def glsl_renderer(stdlib, search_path, repo_root):
         str(irradiance_path),
         width,
         height,
-        str(geometry_path)
+        str(geometry_path),
+        envSampleCount=test_suite_options["envSampleCount"],
     )
     
     # Add test geometry streams for geompropvalue, streams, and struct_texcoord tests
