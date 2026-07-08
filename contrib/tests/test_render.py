@@ -40,20 +40,25 @@ def parse_options_mtlx(options_path: Path | None = None) -> dict:
     if options_path is None:
         options_path = _get_options_mtlx_path()
 
-    doc = mx.createDocument()
-    mx.readFromXmlFile(doc, str(options_path))
-    nodedef = doc.getNodeDef("TestSuiteOptions")
+    try:
+        doc = mx.createDocument()
+        mx.readFromXmlFile(doc, str(options_path))
+        nodedef = doc.getNodeDef("TestSuiteOptions")
 
-    def _split(name: str) -> list[str]:
-        raw = nodedef.getInput(name).getValueString()
-        return [s.strip() for s in raw.split(",") if s.strip()]
+        def _split(name: str) -> list[str]:
+            raw = nodedef.getInput(name).getValueString()
+            return [s.strip() for s in raw.split(",") if s.strip()]
 
-    return {
-        "renderTestPaths": _split("renderTestPaths"),
-        "renderTestExcludeFiles": _split("renderTestExcludeFiles"),
-        "overrideFiles": _split("overrideFiles"),
-        "envSampleCount": nodedef.getInput("envSampleCount").getValue(),
-    }
+        return {
+            "renderTestPaths": _split("renderTestPaths"),
+            "renderTestExcludeFiles": _split("renderTestExcludeFiles"),
+            "overrideFiles": _split("overrideFiles"),
+            "envSampleCount": nodedef.getInput("envSampleCount").getValue(),
+        }
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to parse _options.mtlx at {options_path}"
+        ) from exc
 
 
 def collect_render_test_files(
@@ -78,22 +83,35 @@ def collect_render_test_files(
     files: list = []
     materials_root = repo_root / "resources" / "Materials"
 
+    def _accept(mtlx_file: Path) -> bool:
+        """Mirror C++ ShaderRenderTester::collectTestFiles() filtering:
+        skip ``_``-prefixed files, then apply ``overrideFiles`` as a whitelist
+        (when non-empty) or ``renderTestExcludeFiles`` as a blacklist."""
+        if mtlx_file.name.startswith("_"):
+            return False
+        if override_files:
+            return mtlx_file.name in override_files
+        return mtlx_file.name not in exclude_files
+
     for rel_root in render_paths:
         root = repo_root / rel_root
-        if not root.exists():
-            continue
-        for mtlx_file in sorted(root.rglob("*.mtlx")):
-            if mtlx_file.name.startswith("_"):
-                continue
-            if override_files:
-                if mtlx_file.name not in override_files:
+        if root.is_file():
+            if root.suffix == ".mtlx" and _accept(root):
+                rel_path = root.relative_to(materials_root)
+                file_id = str(rel_path).replace("\\", "/")
+                files.append(pytest.param(root, id=file_id))
+        elif root.is_dir():
+            for mtlx_file in sorted(root.rglob("*.mtlx")):
+                if not _accept(mtlx_file):
                     continue
-            elif mtlx_file.name in exclude_files:
-                continue
-            rel_path = mtlx_file.relative_to(materials_root)
-            file_id = str(rel_path).replace("\\", "/")
-            files.append(pytest.param(mtlx_file, id=file_id))
+                rel_path = mtlx_file.relative_to(materials_root)
+                file_id = str(rel_path).replace("\\", "/")
+                files.append(pytest.param(mtlx_file, id=file_id))
 
+    assert files, (
+        f"collect_render_test_files found no .mtlx files. "
+        f"renderTestPaths={render_paths}, repo_root={repo_root}"
+    )
     return files
 
 
