@@ -68,8 +68,8 @@ def collect_render_test_files(
     """Collect ``.mtlx`` files matching ``_options.mtlx`` render test scope.
 
     Mirrors the C++ ``ShaderRenderTester::collectTestFiles()`` logic:
-    walk each ``renderTestPaths`` entry, apply ``overrideFiles`` as a whitelist
-    (when non-empty) or ``renderTestExcludeFiles`` as a basename exclude list.
+    walk each ``renderTestPaths`` entry, apply ``overrideFiles`` as an include
+    filter (when non-empty) or ``renderTestExcludeFiles`` as an exclude filter.
     """
     if options is None:
         options = parse_options_mtlx()
@@ -84,13 +84,9 @@ def collect_render_test_files(
     materials_root = repo_root / "resources" / "Materials"
 
     def _accept(mtlx_file: Path) -> bool:
-        """Apply ``overrideFiles`` as a whitelist (when non-empty) or
-        ``renderTestExcludeFiles`` as a blacklist, mirroring C++
-        ``ShaderRenderTester::collectTestFiles()``.  The ``_``-prefix
-        guard is a Python-side safety net (C++ avoids root-level files
-        via its subdirectory-only traversal pattern instead)."""
-        if mtlx_file.name.startswith("_"):
-            return False
+        """Apply ``overrideFiles`` as an include filter (when non-empty)
+        or ``renderTestExcludeFiles`` as an exclude filter, mirroring C++
+        ``ShaderRenderTester::collectTestFiles()``."""
         if override_files:
             return mtlx_file.name in override_files
         return mtlx_file.name not in exclude_files
