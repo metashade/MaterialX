@@ -84,9 +84,11 @@ def collect_render_test_files(
     materials_root = repo_root / "resources" / "Materials"
 
     def _accept(mtlx_file: Path) -> bool:
-        """Mirror C++ ShaderRenderTester::collectTestFiles() filtering:
-        skip ``_``-prefixed files, then apply ``overrideFiles`` as a whitelist
-        (when non-empty) or ``renderTestExcludeFiles`` as a blacklist."""
+        """Apply ``overrideFiles`` as a whitelist (when non-empty) or
+        ``renderTestExcludeFiles`` as a blacklist, mirroring C++
+        ``ShaderRenderTester::collectTestFiles()``.  The ``_``-prefix
+        guard is a Python-side safety net (C++ avoids root-level files
+        via its subdirectory-only traversal pattern instead)."""
         if mtlx_file.name.startswith("_"):
             return False
         if override_files:
