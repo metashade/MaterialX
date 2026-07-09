@@ -5,8 +5,9 @@ This module encapsulates the per-material render logic so it can be called from
 pytest test cases (parametrized tests).
 """
 import MaterialX as mx
+import MaterialX.PyMaterialXGenShader as mx_gen_shader
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List
 
 
@@ -18,6 +19,7 @@ class RenderResult:
     output_path: Optional[Path] = None
     error: Optional[str] = None
     shader_errors: Optional[str] = None
+    shader_dump_paths: dict = field(default_factory=dict)
 
 
 def find_renderable_materials(doc) -> List:
@@ -28,6 +30,25 @@ def find_renderable_materials(doc) -> List:
     return gen.findRenderableElements(doc)
 
 
+def _dump_shader_stages(shader, output_path: Path, material_name: str, target: str) -> dict:
+    """Write vertex and pixel stage GLSL to files, matching MaterialXTest naming.
+
+    Returns a dict mapping stage name to the written file path.
+    """
+    suffix = target.removeprefix("gen") if target else target
+    base = output_path / f"{mx.createValidName(material_name)}_{suffix}"
+    paths = {}
+    for stage_name, ext in [(mx_gen_shader.VERTEX_STAGE, "_vs.glsl"),
+                            (mx_gen_shader.PIXEL_STAGE, "_ps.glsl")]:
+        src = shader.getSourceCode(stage_name)
+        if src:
+            p = Path(str(base) + ext)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(src, encoding="utf-8")
+            paths[stage_name] = p
+    return paths
+
+
 def render_material(
     renderer,
     doc,
@@ -35,7 +56,8 @@ def render_material(
     output_path: Optional[Path] = None,
     search_path=None,
     target_colorspace: str = 'lin_rec709',
-    target_distance_unit: str = 'centimeter'
+    target_distance_unit: str = 'centimeter',
+    dump_shaders: bool = False,
 ) -> RenderResult:
     """
     Render a single material node.
@@ -49,6 +71,9 @@ def render_material(
             and images (optional)
         target_colorspace: Target colorspace override
         target_distance_unit: Target distance unit
+        dump_shaders: Write generated GLSL to ``_vs.glsl`` / ``_ps.glsl``
+            files alongside the rendered image.  Shaders are always
+            dumped on render failure regardless of this flag.
         
     Returns:
         RenderResult with success status and any errors
@@ -82,22 +107,36 @@ def render_material(
             material_name=material_name,
             shader_errors=renderer.getActiveShaderErrors()
         )
-    
+
+    context = renderer.getCodeGenerator().getContext()
+    target = context.getShaderGenerator().getTarget()
+
+    # Dump shaders when requested
+    shader_dump_paths = {}
+    if dump_shaders and output_path:
+        shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
+
     # Create program
     if not renderer.createProgram():
+        if output_path and not shader_dump_paths:
+            shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
         return RenderResult(
             success=False,
             material_name=material_name,
-            error="Failed to create GPU program"
+            error="Failed to create GPU program",
+            shader_dump_paths=shader_dump_paths,
         )
     
     # Render
     rendered, errors = renderer.render()
     if not rendered:
+        if output_path and not shader_dump_paths:
+            shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
         return RenderResult(
             success=False,
             material_name=material_name,
-            error=str(errors)
+            error=str(errors),
+            shader_dump_paths=shader_dump_paths,
         )
     
     # Capture and optionally save
@@ -105,13 +144,11 @@ def render_material(
     
     result = RenderResult(
         success=True,
-        material_name=material_name
+        material_name=material_name,
+        shader_dump_paths=shader_dump_paths,
     )
     
     if output_path:
-        context = renderer.getCodeGenerator().getContext()
-        target = context.getShaderGenerator().getTarget()
-        # Map target generator names to match ASWF MaterialXTest's suffix conventions (e.g., genglsl -> glsl)
         suffix = target.removeprefix("gen") if target else target
         output_file = output_path / f"{mx.createValidName(material_name)}_{suffix}.png"
         renderer.saveCapture(str(output_file), True)

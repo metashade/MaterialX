@@ -295,14 +295,16 @@ def find_renderable_elements(doc):
     return elements
 
 
-def render_element(renderer, doc, elem, search_path, output_path=None):
+def render_element(renderer, doc, elem, search_path, output_path=None,
+                   dump_shaders=False):
     """Render a single element and return (success, error_msg, output_file)."""
     result = render_material(
         renderer,
         doc,
         elem,
         output_path=output_path,
-        search_path=search_path
+        search_path=search_path,
+        dump_shaders=dump_shaders,
     )
     
     if result.success:
@@ -322,7 +324,8 @@ def run_render_test_file(
     search_path,
     assert_image_matches_baseline,
     output_path: Path,
-    relative_base_dir: Path | None = None
+    relative_base_dir: Path | None = None,
+    dump_shaders: bool = False,
 ):
     doc = mx.createDocument()
     mx.readFromXmlFile(doc, str(mtlx_file))
@@ -376,7 +379,8 @@ def run_render_test_file(
                     pytest.skip(get_element_skip_reason(rel_path, elem_name))
                     
             success, error, rendered_file = render_element(
-                renderer, doc, elem, file_search_path, output_path=output_path
+                renderer, doc, elem, file_search_path, output_path=output_path,
+                dump_shaders=dump_shaders,
             )
             assert success, f"Render failed: {error}"
             
@@ -394,6 +398,7 @@ class RenderEnvironment:
         output_dir: Path,
         assert_image_matches_baseline,
         flat_layout: bool = True,
+        dump_shaders: bool = False,
     ):
         self.renderer = renderer
         self.data_library = data_library
@@ -401,6 +406,7 @@ class RenderEnvironment:
         self.output_dir = output_dir
         self.assert_image_matches_baseline = assert_image_matches_baseline
         self.flat_layout = flat_layout
+        self.dump_shaders = dump_shaders
 
     def get_output_path(self, mtlx_file: Path) -> Path:
         if self.flat_layout:
@@ -429,7 +435,8 @@ class RenderEnvironment:
             search_path=self.search_path,
             assert_image_matches_baseline=self.assert_image_matches_baseline,
             output_path=self.get_output_path(mtlx_file),
-            relative_base_dir=self.output_dir
+            relative_base_dir=self.output_dir,
+            dump_shaders=self.dump_shaders,
         )
 
 
