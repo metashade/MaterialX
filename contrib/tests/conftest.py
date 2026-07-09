@@ -54,6 +54,12 @@ def pytest_addoption(parser):
         default=None,
         help="Path to directory where rendered images will be saved."
     )
+    parser.addoption(
+        "--dump-shaders",
+        action="store_true",
+        default=False,
+        help="Dump generated GLSL shader source alongside rendered images."
+    )
 
 
 @pytest.fixture(scope="session")
@@ -190,7 +196,14 @@ def renderer(glsl_renderer):
 
 
 @pytest.fixture(scope="session")
-def stdlib_env(renderer, stdlib, search_path, output_dir, assert_image_matches_baseline):
+def dump_shaders(request) -> bool:
+    """Whether to dump generated GLSL source alongside rendered images."""
+    return request.config.getoption("--dump-shaders")
+
+
+@pytest.fixture(scope="session")
+def stdlib_env(renderer, stdlib, search_path, output_dir, assert_image_matches_baseline,
+               dump_shaders):
     """RenderEnvironment for standard library materials tests."""
     from test_render import RenderEnvironment
     return RenderEnvironment(
@@ -198,12 +211,14 @@ def stdlib_env(renderer, stdlib, search_path, output_dir, assert_image_matches_b
         data_library=stdlib,
         search_path=search_path,
         output_dir=output_dir,
-        assert_image_matches_baseline=assert_image_matches_baseline
+        assert_image_matches_baseline=assert_image_matches_baseline,
+        dump_shaders=dump_shaders,
     )
 
 
 @pytest.fixture(scope="session")
-def adsk_env(renderer, data_library, search_path, output_dir, assert_image_matches_baseline):
+def adsk_env(renderer, data_library, search_path, output_dir, assert_image_matches_baseline,
+             dump_shaders):
     """RenderEnvironment for Autodesk materials tests."""
     from test_render import RenderEnvironment
     adsk_output = output_dir / "adsk"
@@ -214,7 +229,8 @@ def adsk_env(renderer, data_library, search_path, output_dir, assert_image_match
         search_path=search_path,
         output_dir=adsk_output,
         assert_image_matches_baseline=assert_image_matches_baseline,
-        flat_layout=False
+        flat_layout=False,
+        dump_shaders=dump_shaders,
     )
 
 
@@ -308,11 +324,17 @@ def pytest_runtest_logreport(report):
         
         # Determine HTML report directory to compute relative paths for images
         import os
-        htmlpath_str = _pytest_config.getoption("htmlpath") if _pytest_config else None
+        try:
+            htmlpath_str = _pytest_config.getoption("htmlpath") if _pytest_config else None
+        except ValueError:
+            htmlpath_str = None
         html_dir = Path(htmlpath_str).parent.resolve() if htmlpath_str else None
         
         # Fall back to base64 encoding only if we are generating a self-contained HTML report
-        is_self_contained = _pytest_config.getoption("self_contained_html") if _pytest_config else False
+        try:
+            is_self_contained = _pytest_config.getoption("self_contained_html") if _pytest_config else False
+        except ValueError:
+            is_self_contained = False
         
         def get_image_src(path: Path) -> str:
             if not path or not path.exists():

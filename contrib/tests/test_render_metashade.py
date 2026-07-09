@@ -104,7 +104,7 @@ class MetashadeOverrideTestBase:
         return renderer
 
     @pytest.fixture(scope="class")
-    def override_env(self, request, override_renderer, override_stdlib, override_search_path, repo_root, assert_image_matches_baseline):
+    def override_env(self, request, override_renderer, override_stdlib, override_search_path, repo_root, assert_image_matches_baseline, dump_shaders):
         output_subdir = request.cls.OUTPUT_SUBDIR
         assert output_subdir is not None, "OUTPUT_SUBDIR must be defined in the test class subclassing MetashadeOverrideTestBase"
         
@@ -120,7 +120,8 @@ class MetashadeOverrideTestBase:
             data_library=override_stdlib,
             search_path=override_search_path,
             output_dir=path,
-            assert_image_matches_baseline=assert_image_matches_baseline
+            assert_image_matches_baseline=assert_image_matches_baseline,
+            dump_shaders=dump_shaders,
         )
 
 
