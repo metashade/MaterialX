@@ -16,7 +16,6 @@ import MaterialX as mx
 from test_render import (
     add_additional_test_streams,
     collect_render_test_files,
-    PytestOptions,
     RenderEnvironment,
 )
 
@@ -125,7 +124,7 @@ class MetashadeOverrideTestBase:
     @pytest.fixture(scope="class")
     def override_env(
         self, request, override_renderer, override_stdlib,
-        override_search_path, repo_root, pytest_options,
+        override_search_path, repo_root, cli_options,
     ):
         """Build a :class:`RenderEnvironment` with Metashade overrides."""
         output_subdir = request.cls.OUTPUT_SUBDIR
@@ -134,13 +133,13 @@ class MetashadeOverrideTestBase:
             "subclassing MetashadeOverrideTestBase"
         )
         
-        path = pytest_options.output_dir / "metashade" / output_subdir
+        path = cli_options.output_dir / "metashade" / output_subdir
         path.mkdir(parents=True, exist_ok=True)
         
         renders_dir = repo_root / _RefPaths.RENDERS / output_subdir
 
         override_options = replace(
-            pytest_options,
+            cli_options,
             output_dir=path,
             shader_baseline_dir=renders_dir,
         )

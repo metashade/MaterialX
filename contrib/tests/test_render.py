@@ -38,7 +38,7 @@ class MaterialXTestOptions:
 
 
 @dataclass
-class PytestOptions:
+class CliOptions:
     """CLI-derived options that govern test execution.
 
     Bundles all pytest command-line options (output paths, comparison
@@ -452,7 +452,7 @@ class _RefDiffer:
 _seen_stems: dict[str, set[str]] = {}
 
 
-def _handle_shader_baselines(result, stem: str, opts: PytestOptions):
+def _handle_shader_baselines(result, stem: str, opts: CliOptions):
     """Route dumped shaders to baselines (update) or compare (CI).
 
     * **Update mode** (no ``render_output_dir``): copy dumped shaders into
@@ -556,7 +556,7 @@ class RenderEnvironment:
         renderer,
         data_library: mx.Document,
         search_path: mx.FileSearchPath,
-        options: PytestOptions,
+        options: CliOptions,
     ):
         self.renderer = renderer
         self.data_library = data_library

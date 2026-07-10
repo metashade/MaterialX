@@ -83,9 +83,9 @@ def mtlx_test_options():
 
 
 @pytest.fixture(scope="session")
-def pytest_options(request, repo_root):
-    """CLI-derived options bundled into a :class:`PytestOptions`."""
-    from test_render import PytestOptions
+def cli_options(request, repo_root):
+    """CLI-derived options bundled into a :class:`CliOptions`."""
+    from test_render import CliOptions
 
     output_opt = request.config.getoption("--output-dir")
     output_dir = Path(output_opt) if output_opt else repo_root / "contrib" / "renders"
@@ -94,7 +94,7 @@ def pytest_options(request, repo_root):
     baseline_opt = request.config.getoption("--baseline-dir")
     render_output_opt = request.config.getoption("--render-output-dir")
 
-    return PytestOptions(
+    return CliOptions(
         output_dir=output_dir,
         baseline_dir=Path(baseline_opt) if baseline_opt else None,
         flip_threshold=request.config.getoption("--flip-threshold"),
@@ -217,24 +217,24 @@ def renderer(glsl_renderer):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def stdlib_env(renderer, stdlib, search_path, pytest_options):
+def stdlib_env(renderer, stdlib, search_path, cli_options):
     """RenderEnvironment for standard library materials tests."""
     from test_render import RenderEnvironment
     return RenderEnvironment(
         renderer=renderer,
         data_library=stdlib,
         search_path=search_path,
-        options=pytest_options,
+        options=cli_options,
     )
 
 
 @pytest.fixture(scope="session")
-def adsk_env(renderer, data_library, search_path, pytest_options):
+def adsk_env(renderer, data_library, search_path, cli_options):
     """RenderEnvironment for Autodesk materials tests."""
     from test_render import RenderEnvironment
     adsk_options = replace(
-        pytest_options,
-        output_dir=pytest_options.output_dir / "adsk",
+        cli_options,
+        output_dir=cli_options.output_dir / "adsk",
         flat_layout=False,
     )
     adsk_options.output_dir.mkdir(parents=True, exist_ok=True)
