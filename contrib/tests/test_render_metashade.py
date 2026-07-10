@@ -168,17 +168,40 @@ class TestRenderMetashadePassthru(MetashadeOverrideTestBase):
         override_env.run_test(mtlx_file, subtests)
 
 
+_SCHLICK_TEST_PATHS = (
+    "TestSuite/pbrlib/bsdf/generalized_schlick.mtlx",
+    "TestSuite/pbrlib/edf/generalized_schlick_edf.mtlx",
+    "TestSuite/pbrlib/surfaceshader/lama/lama_generalized_schlick.mtlx",
+    "TestSuite/pbrlib/bsdf/thin_film_bsdf.mtlx",
+    "TestSuite/pbrlib/surfaceshader/surface_ops.mtlx",
+    "Examples/StandardSurface/standard_surface_default.mtlx",
+    "Examples/StandardSurface/standard_surface_gold.mtlx",
+    "Examples/StandardSurface/standard_surface_plastic.mtlx",
+)
+
+
+def _get_schlick_test_files():
+    """Collect .mtlx files that directly or transitively exercise Schlick BSDF."""
+    from test_render import get_repo_root
+    materials_root = get_repo_root() / "resources" / "Materials"
+    files = []
+    for rel in _SCHLICK_TEST_PATHS:
+        mtlx_file = materials_root / rel
+        if mtlx_file.exists():
+            files.append(pytest.param(mtlx_file, id=rel))
+    return files
+
+
 class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
     """Test rendering with the Broken Schlick diagnostic override.
 
-    Uses the same ``_options.mtlx``-driven scope.  Materials that use
-    ``generalized_schlick_bsdf`` will show visual diffs; others render
-    identically to the baseline.
+    Scoped to materials that directly or transitively exercise
+    ``generalized_schlick_bsdf``, so visual diffs are meaningful.
     """
     OVERRIDE_SUBDIR = "broken_schlick"
     OUTPUT_SUBDIR = "broken_schlick"
 
-    @pytest.mark.parametrize("mtlx_file", collect_render_test_files())
+    @pytest.mark.parametrize("mtlx_file", _get_schlick_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
         """Test rendering with Broken Schlick override."""
         override_env.run_test(mtlx_file, subtests)
