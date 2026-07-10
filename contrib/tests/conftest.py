@@ -4,13 +4,14 @@ pytest configuration and fixtures for MaterialX rendering tests.
 Fixtures are session-scoped to amortize setup cost across test cases.
 Each pytest-xdist worker process gets its own fixture instances.
 """
+from __future__ import annotations
+
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-# Add rendertest and mtlxutils to import path
-# Note: mxrenderer.py uses `from mtlxutils import ...` so we need both paths
 _rendertest_path = Path(__file__).parent.parent / "utilities" / "scripts"
 _mtlxutils_path = _rendertest_path / "rendertest"
 sys.path.insert(0, str(_rendertest_path))
@@ -33,59 +34,77 @@ def repo_root() -> Path:
     return get_repo_root()
 
 
+# ---------------------------------------------------------------------------
+# CLI options
+# ---------------------------------------------------------------------------
+
 def pytest_addoption(parser):
     """Register custom command-line options for MaterialX render tests."""
     parser.addoption(
         "--baseline-dir",
         action="store",
         default=None,
-        help="Path to directory containing baseline images for comparison."
+        help="Path to directory containing baseline images for comparison.",
     )
     parser.addoption(
         "--flip-threshold",
         action="store",
         type=float,
         default=0.05,
-        help="Mean FLIP error threshold above which a comparison fails."
+        help="Mean FLIP error threshold above which a comparison fails.",
     )
     parser.addoption(
         "--output-dir",
         action="store",
         default=None,
-        help="Path to directory where rendered images will be saved."
+        help="Path to directory where rendered images will be saved.",
     )
     parser.addoption(
-        "--dump-shaders",
-        action="store_true",
-        default=False,
-        help="Dump generated GLSL shader source alongside rendered images."
+        "--render-output-dir",
+        action="store",
+        default=None,
+        help=(
+            "CI mode: dump shaders to DIR and compare against committed "
+            "baselines.  When absent, shaders are written directly to the "
+            "committed baseline directory (update mode)."
+        ),
     )
 
 
-@pytest.fixture(scope="session")
-def baseline_dir(request) -> Path:
-    """Path to the baseline directory, or None if not specified."""
-    opt = request.config.getoption("--baseline-dir")
-    return Path(opt) if opt else None
-
+# ---------------------------------------------------------------------------
+# Dataclass fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def flip_threshold(request) -> float:
-    """Mean FLIP error threshold for comparison gating."""
-    return request.config.getoption("--flip-threshold")
+def mtlx_test_options():
+    """Parsed ``_options.mtlx`` configuration (MaterialXTest settings)."""
+    from test_render import parse_options_mtlx
+    return parse_options_mtlx()
 
 
 @pytest.fixture(scope="session")
-def output_dir(request, repo_root) -> Path:
-    """Derived output directory for rendered images, which is gitignored."""
-    opt = request.config.getoption("--output-dir")
-    if opt:
-        path = Path(opt)
-    else:
-        path = repo_root / "contrib" / "renders"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+def pytest_options(request, repo_root):
+    """CLI-derived options bundled into a :class:`PytestOptions`."""
+    from test_render import PytestOptions
 
+    output_opt = request.config.getoption("--output-dir")
+    output_dir = Path(output_opt) if output_opt else repo_root / "contrib" / "renders"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    baseline_opt = request.config.getoption("--baseline-dir")
+    render_output_opt = request.config.getoption("--render-output-dir")
+
+    return PytestOptions(
+        output_dir=output_dir,
+        baseline_dir=Path(baseline_opt) if baseline_opt else None,
+        flip_threshold=request.config.getoption("--flip-threshold"),
+        render_output_dir=Path(render_output_opt) if render_output_opt else None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# MaterialX library fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
 def search_path(repo_root) -> mx.FileSearchPath:
@@ -127,10 +146,11 @@ def libraries(stdlib, adsklib):
 def data_library(stdlib, adsklib):
     """Combined data library (stdlib + adsklib) as a single document.
 
-    Mirrors the C++ tests' single ``dependLib`` document. Test documents
-    reference it via ``Document.setDataLibrary`` rather than merging libraries
-    in with ``importLibrary`` -- merging before upgrading old-syntax documents
-    can produce spurious "too many bindings" validation errors.
+    Mirrors the C++ tests' single ``dependLib`` document.  Test documents
+    reference it via ``Document.setDataLibrary`` rather than merging
+    libraries in with ``importLibrary`` -- merging before upgrading
+    old-syntax documents can produce spurious "too many bindings"
+    validation errors.
     """
     lib = mx.createDocument()
     lib.importLibrary(stdlib)
@@ -138,15 +158,12 @@ def data_library(stdlib, adsklib):
     return lib
 
 
-@pytest.fixture(scope="session")
-def test_suite_options():
-    """Parsed ``_options.mtlx`` configuration, shared across fixtures."""
-    from test_render import parse_options_mtlx
-    return parse_options_mtlx()
-
+# ---------------------------------------------------------------------------
+# Renderer fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def glsl_renderer(stdlib, search_path, repo_root, test_suite_options):
+def glsl_renderer(stdlib, search_path, repo_root, mtlx_test_options):
     """
     Initialize GLSL renderer once per worker process.
     
@@ -171,7 +188,7 @@ def glsl_renderer(stdlib, search_path, repo_root, test_suite_options):
         width,
         height,
         str(geometry_path),
-        envSampleCount=test_suite_options["envSampleCount"],
+        envSampleCount=mtlx_test_options.env_sample_count,
     )
     
     # Add test geometry streams for geompropvalue, streams, and struct_texcoord tests
@@ -195,47 +212,43 @@ def renderer(glsl_renderer):
     return glsl_renderer
 
 
-@pytest.fixture(scope="session")
-def dump_shaders(request) -> bool:
-    """Whether to dump generated GLSL source alongside rendered images."""
-    return request.config.getoption("--dump-shaders")
-
+# ---------------------------------------------------------------------------
+# RenderEnvironment fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def stdlib_env(renderer, stdlib, search_path, output_dir, assert_image_matches_baseline,
-               dump_shaders):
+def stdlib_env(renderer, stdlib, search_path, pytest_options):
     """RenderEnvironment for standard library materials tests."""
     from test_render import RenderEnvironment
     return RenderEnvironment(
         renderer=renderer,
         data_library=stdlib,
         search_path=search_path,
-        output_dir=output_dir,
-        assert_image_matches_baseline=assert_image_matches_baseline,
-        dump_shaders=dump_shaders,
+        options=pytest_options,
     )
 
 
 @pytest.fixture(scope="session")
-def adsk_env(renderer, data_library, search_path, output_dir, assert_image_matches_baseline,
-             dump_shaders):
+def adsk_env(renderer, data_library, search_path, pytest_options):
     """RenderEnvironment for Autodesk materials tests."""
     from test_render import RenderEnvironment
-    adsk_output = output_dir / "adsk"
-    adsk_output.mkdir(parents=True, exist_ok=True)
+    adsk_options = replace(
+        pytest_options,
+        output_dir=pytest_options.output_dir / "adsk",
+        flat_layout=False,
+    )
+    adsk_options.output_dir.mkdir(parents=True, exist_ok=True)
     return RenderEnvironment(
         renderer=renderer,
         data_library=data_library,
         search_path=search_path,
-        output_dir=adsk_output,
-        assert_image_matches_baseline=assert_image_matches_baseline,
-        flat_layout=False,
-        dump_shaders=dump_shaders,
+        options=adsk_options,
     )
 
 
-# (Deleted get_output_path_for_file helper as logreport now queries env.get_output_path() directly)
-
+# ---------------------------------------------------------------------------
+# HTML report hooks
+# ---------------------------------------------------------------------------
 
 from collections import defaultdict
 
@@ -254,7 +267,7 @@ _subtest_html_extras = defaultdict(list)
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Hook to capture the funcargs for each test item so we can access them in logreport."""
+    """Capture funcargs for each test item for use in logreport."""
     outcome = yield
     report = outcome.get_result()
     _node_funcargs[item.nodeid] = item.funcargs
@@ -262,7 +275,7 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_logreport(report):
-    """Hook to capture subtest failures and append their visual comparisons to the main test report."""
+    """Append visual comparisons for failed subtests to the HTML report."""
     if type(report).__name__ == "SubtestReport" and report.failed:
         try:
             from pytest_html import extras
@@ -286,17 +299,10 @@ def pytest_runtest_logreport(report):
                 break
         if not env:
             return
-            
-        output_dir = env.output_dir
-        
-        # Resolve baseline_dir using global config option
-        baseline_dir = None
-        if _pytest_config:
-            baseline_dir_opt = _pytest_config.getoption("--baseline-dir")
-            if baseline_dir_opt:
-                baseline_dir = Path(baseline_dir_opt)
-            
-        # Extract subtest name from report context
+
+        output_dir = env.options.output_dir
+        baseline_dir = env.options.baseline_dir
+
         context = getattr(report, "context", None)
         subtest_name = context.msg if context else None
         if not subtest_name:
@@ -310,8 +316,10 @@ def pytest_runtest_logreport(report):
         import MaterialX as mx
         valid_elem_name = mx.createValidName(subtest_name)
         rendered_files = list(output_path.glob(f"{valid_elem_name}_*.png"))
-        rendered_files = [f for f in rendered_files if not f.name.endswith("_diff.png")]
-        
+        rendered_files = [
+            f for f in rendered_files if not f.name.endswith("_diff.png")
+        ]
+
         if not rendered_files:
             return
             
@@ -325,14 +333,23 @@ def pytest_runtest_logreport(report):
         # Determine HTML report directory to compute relative paths for images
         import os
         try:
-            htmlpath_str = _pytest_config.getoption("htmlpath") if _pytest_config else None
+            htmlpath_str = (
+                _pytest_config.getoption("htmlpath")
+                if _pytest_config
+                else None
+            )
         except ValueError:
             htmlpath_str = None
-        html_dir = Path(htmlpath_str).parent.resolve() if htmlpath_str else None
-        
-        # Fall back to base64 encoding only if we are generating a self-contained HTML report
+        html_dir = (
+            Path(htmlpath_str).parent.resolve() if htmlpath_str else None
+        )
+
         try:
-            is_self_contained = _pytest_config.getoption("self_contained_html") if _pytest_config else False
+            is_self_contained = (
+                _pytest_config.getoption("self_contained_html")
+                if _pytest_config
+                else False
+            )
         except ValueError:
             is_self_contained = False
         
@@ -349,8 +366,9 @@ def pytest_runtest_logreport(report):
                     pass
             elif html_dir:
                 try:
-                    # Compute relative path from the HTML report to the image file
-                    return os.path.relpath(path.resolve(), html_dir).replace("\\", "/")
+                    return os.path.relpath(
+                        path.resolve(), html_dir,
+                    ).replace("\\", "/")
                 except ValueError:
                     return path.resolve().as_uri()
             return path.resolve().as_uri()
@@ -363,15 +381,29 @@ def pytest_runtest_logreport(report):
             return
             
         if baseline_src:
-            baseline_img_tag = f'<img src="{baseline_src}" style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;" />'
+            baseline_img_tag = (
+                f'<img src="{baseline_src}" style="max-width: 100%; '
+                f'height: auto; border: 1px solid #ccc; border-radius: 4px;" />'
+            )
         else:
-            baseline_img_tag = '<div style="padding: 50px 10px; background: #eee; border: 1px dashed #ccc; border-radius: 4px; color: #666; font-size: 12px;">Baseline image missing</div>'
-            
+            baseline_img_tag = (
+                '<div style="padding: 50px 10px; background: #eee; '
+                'border: 1px dashed #ccc; border-radius: 4px; color: #666; '
+                'font-size: 12px;">Baseline image missing</div>'
+            )
+
         if heatmap_src:
-            heatmap_img_tag = f'<img src="{heatmap_src}" style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;" />'
+            heatmap_img_tag = (
+                f'<img src="{heatmap_src}" style="max-width: 100%; '
+                f'height: auto; border: 1px solid #ccc; border-radius: 4px;" />'
+            )
         else:
-            heatmap_img_tag = '<div style="padding: 50px 10px; background: #eee; border: 1px dashed #ccc; border-radius: 4px; color: #666; font-size: 12px;">No heatmap (comparison passed or skipped)</div>'
-            
+            heatmap_img_tag = (
+                '<div style="padding: 50px 10px; background: #eee; '
+                'border: 1px dashed #ccc; border-radius: 4px; color: #666; '
+                'font-size: 12px;">No heatmap (comparison passed or skipped)</div>'
+            )
+
         html_content = f"""
         <div style="margin-top: 15px; padding: 15px; border: 1px solid #e74c3c; border-radius: 6px; background: #fdf2f2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
             <h4 style="margin: 0 0 12px 0; color: #c0392b; font-size: 14px;">Visual Comparison for {subtest_name}</h4>
@@ -403,119 +435,3 @@ def pytest_runtest_logreport(report):
             extra.extend(_subtest_html_extras[report.nodeid])
             report.extras = extra
             del _subtest_html_extras[report.nodeid]
-
-
-
-
-
-def compare_rendered_image(rendered_path: Path, baseline_path: Path, heatmap_path: Path = None) -> dict:
-    """
-    Compare a rendered image against a baseline image using NVIDIA FLIP.
-    
-    Returns a dictionary with comparison results:
-    {
-        'success': bool,
-        'mean_flip': float,
-        'max_flip': float,
-        'pct_diff_pixels': float,
-        'error': str or None,
-        'heatmap_path': Path or None
-    }
-    """
-    if not rendered_path.exists():
-        return {'success': False, 'error': f"Rendered image not found: {rendered_path}"}
-    if not baseline_path.exists():
-        return {'success': False, 'error': f"Baseline image not found: {baseline_path}"}
-        
-    try:
-        import flip_evaluator as flip
-        import numpy as np
-    except ImportError as e:
-        return {'success': False, 'error': f"Required packages missing: {e}"}
-
-    try:
-        # Run FLIP evaluation (LDR mode, sRGB input)
-        flip_map, mean_flip, _ = flip.evaluate(
-            str(baseline_path),
-            str(rendered_path),
-            "LDR",
-            inputsRGB=True,
-            applyMagma=False,
-            computeMeanError=True,
-            parameters={"ppd": 70.0}
-        )
-    except Exception as e:
-        return {'success': False, 'error': f"FLIP evaluation failed: {e}"}
-
-    flip_map = np.array(flip_map)
-    max_flip = float(flip_map.max())
-
-    # Percentage of pixels with perceptible difference (FLIP > 0.01)
-    diff_pixels = flip_map > 0.01
-    pct_diff_pixels = 100.0 * diff_pixels.sum() / diff_pixels.size
-
-    result = {
-        'success': True,
-        'mean_flip': float(mean_flip),
-        'max_flip': max_flip,
-        'pct_diff_pixels': pct_diff_pixels,
-        'error': None,
-        'heatmap_path': None
-    }
-
-    # Save heatmap if requested
-    if heatmap_path:
-        try:
-            heatmap_img, _, _ = flip.evaluate(
-                str(baseline_path),
-                str(rendered_path),
-                "LDR",
-                inputsRGB=True,
-                applyMagma=True,
-                computeMeanError=False,
-                parameters={"ppd": 70.0}
-            )
-            from PIL import Image
-            heatmap_arr = np.array(heatmap_img)
-            if heatmap_arr.max() <= 1.0:
-                heatmap_arr = (heatmap_arr * 255).astype(np.uint8)
-            Image.fromarray(heatmap_arr).save(heatmap_path)
-            result['heatmap_path'] = heatmap_path
-        except Exception as e:
-            result['error'] = f"Failed to save heatmap: {e}"
-
-    return result
-
-
-@pytest.fixture(scope="session")
-def assert_image_matches_baseline(baseline_dir, flip_threshold, output_dir):
-    """
-    Fixture that returns a function to assert a rendered image matches its baseline.
-    """
-    def _assert(rendered_file: Path, base_dir: Path | None = None):
-        if not (baseline_dir and rendered_file):
-            return
-            
-        rel_base = base_dir or output_dir
-        rel_rendered = rendered_file.relative_to(rel_base)
-        baseline_file = baseline_dir / rel_rendered
-        
-        # Generate heatmap in the same directory as rendered file
-        heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
-        
-        res = compare_rendered_image(rendered_file, baseline_file, heatmap_path=heatmap_file)
-        if not res['success']:
-            assert False, f"Image comparison failed: {res['error']}"
-            
-        mean_flip = res['mean_flip']
-        max_flip = res['max_flip']
-        pct_diff = res['pct_diff_pixels']
-        
-        assert mean_flip < flip_threshold, (
-            f"Image comparison failed! Mean FLIP: {mean_flip:.4f} "
-            f"(threshold: {flip_threshold}), Max FLIP: {max_flip:.4f}, "
-            f"{pct_diff:.1f}% pixels differ. Heatmap saved to {heatmap_file.name}"
-        )
-    return _assert
-
-

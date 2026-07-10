@@ -57,7 +57,6 @@ def render_material(
     search_path=None,
     target_colorspace: str = 'lin_rec709',
     target_distance_unit: str = 'centimeter',
-    dump_shaders: bool = False,
 ) -> RenderResult:
     """
     Render a single material node.
@@ -66,14 +65,10 @@ def render_material(
         renderer: Initialized GlslRenderer instance
         doc: MaterialX document containing the material
         render_node: The renderable node to render
-        output_path: Directory to save output image (optional)
-        search_path: MaterialX search path for source code 
-            and images (optional)
+        output_path: Render output directory for images and shaders.
+        search_path: MaterialX search path for source code and images.
         target_colorspace: Target colorspace override
         target_distance_unit: Target distance unit
-        dump_shaders: Write generated GLSL to ``_vs.glsl`` / ``_ps.glsl``
-            files alongside the rendered image.  Shaders are always
-            dumped on render failure regardless of this flag.
         
     Returns:
         RenderResult with success status and any errors
@@ -111,9 +106,9 @@ def render_material(
     context = renderer.getCodeGenerator().getContext()
     target = context.getShaderGenerator().getTarget()
 
-    # Dump shaders when requested
+    # Dump shaders
     shader_dump_paths = {}
-    if dump_shaders and output_path:
+    if output_path:
         shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
 
     # Create program
@@ -139,7 +134,6 @@ def render_material(
             shader_dump_paths=shader_dump_paths,
         )
     
-    # Capture and optionally save
     renderer.captureImage()
     
     result = RenderResult(

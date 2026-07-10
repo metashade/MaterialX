@@ -6,15 +6,56 @@ Uses pytest-subtests for hierarchical test reporting:
 - Granular reporting: each element is a subtest
 - Clear identification of which materials have issues
 """
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
 import pytest
 import MaterialX as mx
 import MaterialX.PyMaterialXGenShader as mx_gen_shader
 import MaterialX.PyMaterialXRender as mx_render
 import struct as struct_module
-from pathlib import Path
 
 from rendertest.mtlxutils.render_material import render_material
 
+
+# ---------------------------------------------------------------------------
+# Dataclasses
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class MaterialXTestOptions:
+    """Parsed ``_options.mtlx`` configuration from MaterialXTest.
+
+    Consumed at **collection time** (``collect_render_test_files``) and
+    **renderer init** (``mxrenderer.initializeRenderer``).
+    """
+    render_test_paths: tuple[str, ...]
+    exclude_files: frozenset[str]
+    override_files: frozenset[str]
+    env_sample_count: int
+
+
+@dataclass
+class PytestOptions:
+    """CLI-derived options that govern test execution.
+
+    Bundles all pytest command-line options (output paths, comparison
+    modes, thresholds) into a single object threaded through
+    ``RenderEnvironment``.
+    """
+    output_dir: Path
+    flat_layout: bool = True
+    baseline_dir: Path | None = None
+    flip_threshold: float = 0.05
+    shader_baseline_dir: Path | None = None
+    render_output_dir: Path | None = None
+
+
+# ---------------------------------------------------------------------------
+# _options.mtlx parsing and file collection
+# ---------------------------------------------------------------------------
 
 def get_repo_root() -> Path:
     """Get MaterialX repository root."""
@@ -31,12 +72,10 @@ def _get_options_mtlx_path() -> Path:
     )
 
 
-def parse_options_mtlx(options_path: Path | None = None) -> dict:
-    """Parse ``_options.mtlx`` and return the test-suite configuration.
-
-    Returns a dict with keys ``renderTestPaths``, ``renderTestExcludeFiles``,
-    ``overrideFiles``, and ``envSampleCount``.
-    """
+def parse_options_mtlx(
+    options_path: Path | None = None,
+) -> MaterialXTestOptions:
+    """Parse ``_options.mtlx`` and return the MaterialXTest configuration."""
     if options_path is None:
         options_path = _get_options_mtlx_path()
 
@@ -49,12 +88,12 @@ def parse_options_mtlx(options_path: Path | None = None) -> dict:
             raw = nodedef.getInput(name).getValueString()
             return [s.strip() for s in raw.split(",") if s.strip()]
 
-        return {
-            "renderTestPaths": _split("renderTestPaths"),
-            "renderTestExcludeFiles": _split("renderTestExcludeFiles"),
-            "overrideFiles": _split("overrideFiles"),
-            "envSampleCount": nodedef.getInput("envSampleCount").getValue(),
-        }
+        return MaterialXTestOptions(
+            render_test_paths=tuple(_split("renderTestPaths")),
+            exclude_files=frozenset(_split("renderTestExcludeFiles")),
+            override_files=frozenset(_split("overrideFiles")),
+            env_sample_count=nodedef.getInput("envSampleCount").getValue(),
+        )
     except Exception as exc:
         raise RuntimeError(
             f"Failed to parse _options.mtlx at {options_path}"
@@ -62,7 +101,7 @@ def parse_options_mtlx(options_path: Path | None = None) -> dict:
 
 
 def collect_render_test_files(
-    options: dict | None = None,
+    options: MaterialXTestOptions | None = None,
     repo_root: Path | None = None,
 ) -> list:
     """Collect ``.mtlx`` files matching ``_options.mtlx`` render test scope.
@@ -76,9 +115,9 @@ def collect_render_test_files(
     if repo_root is None:
         repo_root = get_repo_root()
 
-    render_paths = options["renderTestPaths"]
-    exclude_files = set(options["renderTestExcludeFiles"])
-    override_files = set(options["overrideFiles"])
+    render_paths = options.render_test_paths
+    exclude_files = options.exclude_files
+    override_files = options.override_files
 
     files: list = []
     materials_root = repo_root / "resources" / "Materials"
@@ -165,6 +204,10 @@ def get_adsk_files():
     return collect_mtlx_files(materials_dir)
 
 
+# ---------------------------------------------------------------------------
+# Skip patterns
+# ---------------------------------------------------------------------------
+
 _SKIP_PATTERNS = {
     "struct_texcoord": "Struct texcoord tests need special handling",
     "upgrade": "Syntax upgrade test - may have compatibility issues",
@@ -188,6 +231,10 @@ def get_element_skip_reason(rel_path: Path, elem_name: str) -> str:
             return reason
     return "Unknown"
 
+
+# ---------------------------------------------------------------------------
+# Geometry stream helpers
+# ---------------------------------------------------------------------------
 
 def _add_stream_if_missing(mesh, name, attr_type, index, stride, fill_func):
     if mesh.getStream(name):
@@ -273,6 +320,10 @@ def add_additional_test_streams(mesh):
     _add_stream_if_missing(mesh, f"i_{GEOMPROP}_geompropvalue_color4", GEOMPROP, 1, 4, fill_color4)
 
 
+# ---------------------------------------------------------------------------
+# Rendering helpers
+# ---------------------------------------------------------------------------
+
 def find_renderable_elements(doc):
     """
     Find all renderable elements in a document.
@@ -295,67 +346,167 @@ def find_renderable_elements(doc):
     return elements
 
 
-def render_element(renderer, doc, elem, search_path, output_path=None,
-                   dump_shaders=False):
-    """Render a single element and return (success, error_msg, output_file)."""
-    result = render_material(
+def compare_rendered_image(
+    rendered_path: Path, baseline_path: Path,
+    heatmap_path: Path | None = None,
+) -> dict:
+    """Compare a rendered image against a baseline using NVIDIA FLIP.
+
+    Returns a dict with ``success``, ``mean_flip``, ``max_flip``,
+    ``pct_diff_pixels``, ``error``, and ``heatmap_path`` keys.
+    """
+    if not rendered_path.exists():
+        return {'success': False, 'error': f"Rendered image not found: {rendered_path}"}
+    if not baseline_path.exists():
+        return {'success': False, 'error': f"Baseline image not found: {baseline_path}"}
+
+    try:
+        import flip_evaluator as flip
+        import numpy as np
+    except ImportError as e:
+        return {'success': False, 'error': f"Required packages missing: {e}"}
+
+    try:
+        flip_map, mean_flip, _ = flip.evaluate(
+            str(baseline_path),
+            str(rendered_path),
+            "LDR",
+            inputsRGB=True,
+            applyMagma=False,
+            computeMeanError=True,
+            parameters={"ppd": 70.0}
+        )
+    except Exception as e:
+        return {'success': False, 'error': f"FLIP evaluation failed: {e}"}
+
+    flip_map = np.array(flip_map)
+    max_flip = float(flip_map.max())
+    diff_pixels = flip_map > 0.01
+    pct_diff_pixels = 100.0 * diff_pixels.sum() / diff_pixels.size
+
+    result = {
+        'success': True,
+        'mean_flip': float(mean_flip),
+        'max_flip': max_flip,
+        'pct_diff_pixels': pct_diff_pixels,
+        'error': None,
+        'heatmap_path': None,
+    }
+
+    if heatmap_path:
+        try:
+            heatmap_img, _, _ = flip.evaluate(
+                str(baseline_path),
+                str(rendered_path),
+                "LDR",
+                inputsRGB=True,
+                applyMagma=True,
+                computeMeanError=False,
+                parameters={"ppd": 70.0}
+            )
+            from PIL import Image
+            heatmap_arr = np.array(heatmap_img)
+            if heatmap_arr.max() <= 1.0:
+                heatmap_arr = (heatmap_arr * 255).astype(np.uint8)
+            Image.fromarray(heatmap_arr).save(heatmap_path)
+            result['heatmap_path'] = heatmap_path
+        except Exception as e:
+            result['error'] = f"Failed to save heatmap: {e}"
+
+    return result
+
+
+def render_element(renderer, doc, elem, search_path, output_path=None):
+    """Render a single element and return a :class:`RenderResult`."""
+    return render_material(
         renderer,
         doc,
         elem,
         output_path=output_path,
         search_path=search_path,
-        dump_shaders=dump_shaders,
     )
-    
-    if result.success:
-        return True, None, getattr(result, "output_path", None)
-    else:
-        return False, result.error or result.shader_errors or "Unknown error", None
+
+
+# ---------------------------------------------------------------------------
+# Test runner
+# ---------------------------------------------------------------------------
+
+class _RefDiffer:
+    """Assert a generated file matches a committed reference.
+
+    Mirrors ``metashade.util.testing.RefDiffer`` without pulling in the
+    Metashade dependency.
+    """
+    def __init__(self, ref_dir: Path):
+        self._ref_dir = ref_dir
+
+    def __call__(self, path: Path):
+        import filecmp
+        ref = self._ref_dir / path.name
+        assert filecmp.cmp(path, ref), (
+            f"Shader source mismatch: {path.name} differs from "
+            f"baseline at {ref}"
+        )
 
 
 _seen_stems: dict[str, set[str]] = {}
 
 
+def _handle_shader_baselines(result, stem: str, opts: PytestOptions):
+    """Route dumped shaders to baselines (update) or compare (CI).
+
+    * **Update mode** (no ``render_output_dir``): copy dumped shaders into
+      the committed baseline directory for ``git diff`` review.
+    * **CI mode** (``render_output_dir`` set): compare dumped shaders
+      against the committed baselines and assert on mismatch.
+    """
+    if not result.shader_dump_paths or not opts.shader_baseline_dir:
+        return
+    baseline_subdir = opts.shader_baseline_dir / stem
+    if opts.render_output_dir:
+        differ = _RefDiffer(baseline_subdir)
+        for dump_path in result.shader_dump_paths.values():
+            if (baseline_subdir / dump_path.name).exists():
+                differ(dump_path)
+    else:
+        import shutil
+        baseline_subdir.mkdir(parents=True, exist_ok=True)
+        for dump_path in result.shader_dump_paths.values():
+            shutil.copy2(dump_path, baseline_subdir / dump_path.name)
+
+
 def run_render_test_file(
-    mtlx_file: Path,
-    subtests,
-    renderer,
-    data_library,
-    search_path,
-    assert_image_matches_baseline,
-    output_path: Path,
-    relative_base_dir: Path | None = None,
-    dump_shaders: bool = False,
+    mtlx_file: Path, subtests, env: RenderEnvironment,
 ):
+    """Run render tests for all renderable elements in *mtlx_file*."""
     doc = mx.createDocument()
     mx.readFromXmlFile(doc, str(mtlx_file))
-    doc.setDataLibrary(data_library)
-    
+    doc.setDataLibrary(env.data_library)
+
     valid, msg = doc.validate()
     assert valid, f"Document validation failed: {msg}"
-    
+
     stem = mtlx_file.stem
+    output_path = env.get_output_path(mtlx_file)
     dir_key = str(output_path.parent.resolve())
     stems_for_dir = _seen_stems.setdefault(dir_key, set())
     assert stem not in stems_for_dir, (
-        f"Output directory collision: '{stem}' was already used by another .mtlx file. "
-        f"Current file: {mtlx_file}"
+        f"Output directory collision: '{stem}' was already used by another "
+        f".mtlx file. Current file: {mtlx_file}"
     )
     stems_for_dir.add(stem)
 
-    # Set up search path
-    file_search_path = mx.FileSearchPath(search_path.asString())
+    file_search_path = mx.FileSearchPath(env.search_path.asString())
     file_search_path.append(str(mtlx_file.parent.resolve()))
-    
-    # Test each renderable element as a subtest
+
     elements = find_renderable_elements(doc)
     if not elements:
         pytest.skip("No renderable elements in file")
-        
+
     repo_root = get_repo_root()
     materials_root = repo_root / "resources" / "Materials"
     materials_dir = repo_root / "contrib" / "adsk" / "resources" / "Materials"
-    
+
     if mtlx_file.is_relative_to(materials_root):
         rel_path = mtlx_file.relative_to(materials_root)
         is_adsk = False
@@ -365,80 +516,112 @@ def run_render_test_file(
     else:
         rel_path = Path(mtlx_file.name)
         is_adsk = False
-        
+
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
+    opts = env.options
     for elem, elem_name in elements:
         with subtests.test(msg=elem_name):
             if is_adsk:
-                # Skip Proceduralwood due to relative include issues
                 if "Proceduralwood" in str(rel_path):
-                    pytest.skip("adsklib relative includes require source build layout")
+                    pytest.skip(
+                        "adsklib relative includes require source build layout"
+                    )
             else:
                 if should_skip_element(rel_path, elem_name):
                     pytest.skip(get_element_skip_reason(rel_path, elem_name))
-                    
-            success, error, rendered_file = render_element(
-                renderer, doc, elem, file_search_path, output_path=output_path,
-                dump_shaders=dump_shaders,
-            )
-            assert success, f"Render failed: {error}"
-            
-            assert_image_matches_baseline(rendered_file, base_dir=relative_base_dir)
 
+            result = render_element(
+                env.renderer, doc, elem, file_search_path,
+                output_path=output_path,
+            )
+            assert result.success, (
+                f"Render failed: "
+                f"{result.error or result.shader_errors or 'Unknown error'}"
+            )
+
+            env.assert_image_matches_baseline(result.output_path)
+            _handle_shader_baselines(result, stem, opts)
+
+
+# ---------------------------------------------------------------------------
+# RenderEnvironment
+# ---------------------------------------------------------------------------
 
 class RenderEnvironment:
     """Encapsulates a specific MaterialX render execution environment."""
-    
+
     def __init__(
         self,
         renderer,
         data_library: mx.Document,
         search_path: mx.FileSearchPath,
-        output_dir: Path,
-        assert_image_matches_baseline,
-        flat_layout: bool = True,
-        dump_shaders: bool = False,
+        options: PytestOptions,
     ):
         self.renderer = renderer
         self.data_library = data_library
         self.search_path = search_path
-        self.output_dir = output_dir
-        self.assert_image_matches_baseline = assert_image_matches_baseline
-        self.flat_layout = flat_layout
-        self.dump_shaders = dump_shaders
+        self.options = options
+
+    @property
+    def output_dir(self) -> Path:
+        """Convenience accessor used by the HTML report hook."""
+        return self.options.output_dir
 
     def get_output_path(self, mtlx_file: Path) -> Path:
-        if self.flat_layout:
-            return self.output_dir / mtlx_file.stem
-            
+        if self.options.flat_layout:
+            return self.options.output_dir / mtlx_file.stem
+
         repo_root = get_repo_root()
         materials_root = repo_root / "resources" / "Materials"
-        materials_dir = repo_root / "contrib" / "adsk" / "resources" / "Materials"
-        
+        materials_dir = (
+            repo_root / "contrib" / "adsk" / "resources" / "Materials"
+        )
+
         if mtlx_file.is_relative_to(materials_dir):
             rel_path = mtlx_file.relative_to(materials_dir)
         elif mtlx_file.is_relative_to(materials_root):
             rel_path = mtlx_file.relative_to(materials_root)
         else:
             rel_path = Path(mtlx_file.name)
-            
-        return self.output_dir / rel_path.parent / mtlx_file.stem
+
+        return self.options.output_dir / rel_path.parent / mtlx_file.stem
+
+    def assert_image_matches_baseline(self, rendered_file: Path | None):
+        """Assert rendered image matches its baseline (FLIP comparison)."""
+        if not (self.options.baseline_dir and rendered_file):
+            return
+
+        rel_rendered = rendered_file.relative_to(self.options.output_dir)
+        baseline_file = self.options.baseline_dir / rel_rendered
+        heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
+
+        res = compare_rendered_image(
+            rendered_file, baseline_file, heatmap_path=heatmap_file,
+        )
+        if not res['success']:
+            assert False, f"Image comparison failed: {res['error']}"
+
+        mean_flip = res['mean_flip']
+        max_flip = res['max_flip']
+        pct_diff = res['pct_diff_pixels']
+
+        assert mean_flip < self.options.flip_threshold, (
+            f"Image comparison failed! Mean FLIP: {mean_flip:.4f} "
+            f"(threshold: {self.options.flip_threshold}), "
+            f"Max FLIP: {max_flip:.4f}, "
+            f"{pct_diff:.1f}% pixels differ. "
+            f"Heatmap saved to {heatmap_file.name}"
+        )
 
     def run_test(self, mtlx_file: Path, subtests):
         """Run the render test for a single MaterialX file."""
-        run_render_test_file(
-            mtlx_file=mtlx_file,
-            subtests=subtests,
-            renderer=self.renderer,
-            data_library=self.data_library,
-            search_path=self.search_path,
-            assert_image_matches_baseline=self.assert_image_matches_baseline,
-            output_path=self.get_output_path(mtlx_file),
-            relative_base_dir=self.output_dir,
-            dump_shaders=self.dump_shaders,
-        )
+        run_render_test_file(mtlx_file, subtests, self)
 
+
+# ---------------------------------------------------------------------------
+# Test classes
+# ---------------------------------------------------------------------------
 
 class TestRenderStdlibMaterials:
     """
@@ -448,7 +631,7 @@ class TestRenderStdlibMaterials:
     ``resources/Materials/Examples`` (a superset of the curated paths in
     ``_options.mtlx`` used by the C++ MaterialXTest suite).
     """
-    
+
     @pytest.mark.parametrize("mtlx_file", get_stdlib_files())
     def test_render_file(
         self,
@@ -462,7 +645,7 @@ class TestRenderStdlibMaterials:
 
 class TestRenderAdskMaterials:
     """Test rendering of Autodesk contributed materials."""
-    
+
     @pytest.mark.parametrize("mtlx_file", get_adsk_files())
     def test_render_file(
         self,

@@ -5,18 +5,29 @@ This test file runs standard library materials against a MaterialX standard libr
 where Metashade implementations are loaded first, forcing them to take priority
 by document insertion order.
 """
+from __future__ import annotations
+
 import os
+from dataclasses import replace
 from pathlib import Path
+
 import pytest
 import MaterialX as mx
 from test_render import (
     add_additional_test_streams,
     collect_render_test_files,
+    PytestOptions,
     RenderEnvironment,
 )
 
 _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
-_METASHADE_REF_DIR = Path("contrib") / "tests" / "metashade_ref"
+
+
+class _RefPaths:
+    """Repo-relative paths for Metashade reference data."""
+    ROOT = Path("contrib") / "tests" / "metashade_ref"
+    LIBRARIES = ROOT / "libraries"
+    RENDERS = ROOT / "renders"
 
 
 class MetashadeOverrideTestBase:
@@ -49,14 +60,17 @@ class MetashadeOverrideTestBase:
         lib = mx.createDocument()
         
         subdir = request.cls.OVERRIDE_SUBDIR
-        assert subdir is not None, "OVERRIDE_SUBDIR must be defined in the test class subclassing MetashadeOverrideTestBase"
+        assert subdir is not None, (
+            "OVERRIDE_SUBDIR must be defined in the test class "
+            "subclassing MetashadeOverrideTestBase"
+        )
         
-        metashade_ref = repo_root / _METASHADE_REF_DIR
-        override_sp = mx.FileSearchPath(metashade_ref.as_posix())
+        libraries_dir = repo_root / _RefPaths.LIBRARIES
+        override_sp = mx.FileSearchPath(libraries_dir.as_posix())
 
         # Load Metashade overrides first so they take priority by insertion order
         mx.loadLibraries([subdir], override_sp, lib)
-        override_dir = metashade_ref / subdir
+        override_dir = libraries_dir / subdir
         assert lib.getChildren(), (
             f"loadLibraries loaded nothing from {override_dir}"
         )
@@ -70,12 +84,17 @@ class MetashadeOverrideTestBase:
         return lib
         
     @pytest.fixture(scope="class")
-    def override_renderer(self, override_stdlib, override_search_path, repo_root, test_suite_options):
+    def override_renderer(
+        self, override_stdlib, override_search_path, repo_root,
+        mtlx_test_options,
+    ):
         """Create a custom renderer initialized with the overridden stdlib."""
         # IBL paths
         lights_path = repo_root / "resources" / "Lights"
         radiance_path = lights_path / "san_giuseppe_bridge.hdr"
-        irradiance_path = lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
+        irradiance_path = (
+            lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
+        )
         
         # Geometry
         geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
@@ -93,7 +112,7 @@ class MetashadeOverrideTestBase:
             width,
             height,
             str(geometry_path),
-            envSampleCount=test_suite_options["envSampleCount"],
+            envSampleCount=mtlx_test_options.env_sample_count,
         )
         
         # Add test geometry streams
@@ -104,24 +123,33 @@ class MetashadeOverrideTestBase:
         return renderer
 
     @pytest.fixture(scope="class")
-    def override_env(self, request, override_renderer, override_stdlib, override_search_path, repo_root, assert_image_matches_baseline, dump_shaders):
+    def override_env(
+        self, request, override_renderer, override_stdlib,
+        override_search_path, repo_root, pytest_options,
+    ):
+        """Build a :class:`RenderEnvironment` with Metashade overrides."""
         output_subdir = request.cls.OUTPUT_SUBDIR
-        assert output_subdir is not None, "OUTPUT_SUBDIR must be defined in the test class subclassing MetashadeOverrideTestBase"
+        assert output_subdir is not None, (
+            "OUTPUT_SUBDIR must be defined in the test class "
+            "subclassing MetashadeOverrideTestBase"
+        )
         
-        opt = request.config.getoption("--output-dir")
-        if opt:
-            path = Path(opt) / "metashade" / output_subdir
-        else:
-            path = repo_root / "contrib" / "renders" / "metashade" / output_subdir
+        path = pytest_options.output_dir / "metashade" / output_subdir
         path.mkdir(parents=True, exist_ok=True)
         
+        renders_dir = repo_root / _RefPaths.RENDERS / output_subdir
+
+        override_options = replace(
+            pytest_options,
+            output_dir=path,
+            shader_baseline_dir=renders_dir,
+        )
+
         return RenderEnvironment(
             renderer=override_renderer,
             data_library=override_stdlib,
             search_path=override_search_path,
-            output_dir=path,
-            assert_image_matches_baseline=assert_image_matches_baseline,
-            dump_shaders=dump_shaders,
+            options=override_options,
         )
 
 
