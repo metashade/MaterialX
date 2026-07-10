@@ -1,0 +1,186 @@
+#version 400
+
+
+struct BSDF { vec3 response; vec3 throughput; };
+#define EDF vec3
+struct VDF { vec3 response; vec3 throughput; };
+struct surfaceshader { vec3 color; vec3 transparency; };
+struct volumeshader { vec3 color; vec3 transparency; };
+struct displacementshader { vec3 offset; float scale; };
+struct lightshader { vec3 intensity; vec3 direction; };
+#define material surfaceshader
+
+// Uniform block: PublicUniforms
+uniform int geomprop_UV0_index = 0;
+uniform sampler2D b_image_file;
+uniform int b_image_layer = 0;
+uniform vec3 b_image_default = vec3(0.000000, 0.000000, 0.000000);
+uniform int b_image_uaddressmode = 2;
+uniform int b_image_vaddressmode = 2;
+uniform int b_image_filtertype = 1;
+uniform int b_image_framerange = 0;
+uniform int b_image_frameoffset = 0;
+uniform int b_image_frameendaction = 0;
+uniform vec2 b_image_uv_scale = vec2(1.000000, 1.000000);
+uniform vec2 b_image_uv_offset = vec2(0.000000, 0.000000);
+uniform int extract1_index = 1;
+uniform float impl_heighttonormalmap_scale = 1.000000;
+
+in VertexData
+{
+    vec2 texcoord_0;
+} vd;
+
+// Pixel shader outputs
+out vec4 out11;
+
+#define M_FLOAT_EPS 1e-8
+#define M_PI 3.1415926535897932
+
+#define mx_mod mod
+#define mx_inverse inverse
+#define mx_inversesqrt inversesqrt
+#define mx_sin sin
+#define mx_cos cos
+#define mx_tan tan
+#define mx_asin asin
+#define mx_acos acos
+#define mx_atan atan
+#define mx_radians radians
+#define mx_float_bits_to_int floatBitsToInt
+
+vec2 mx_matrix_mul(vec2 v, mat2 m) { return v * m; }
+vec3 mx_matrix_mul(vec3 v, mat3 m) { return v * m; }
+vec4 mx_matrix_mul(vec4 v, mat4 m) { return v * m; }
+vec2 mx_matrix_mul(mat2 m, vec2 v) { return m * v; }
+vec3 mx_matrix_mul(mat3 m, vec3 v) { return m * v; }
+vec4 mx_matrix_mul(mat4 m, vec4 v) { return m * v; }
+mat2 mx_matrix_mul(mat2 m1, mat2 m2) { return m1 * m2; }
+mat3 mx_matrix_mul(mat3 m1, mat3 m2) { return m1 * m2; }
+mat4 mx_matrix_mul(mat4 m1, mat4 m2) { return m1 * m2; }
+
+float mx_square(float x)
+{
+    return x*x;
+}
+
+vec2 mx_square(vec2 x)
+{
+    return x*x;
+}
+
+vec3 mx_square(vec3 x)
+{
+    return x*x;
+}
+
+vec3 mx_srgb_encode(vec3 color)
+{
+    bvec3 isAbove = greaterThan(color, vec3(0.0031308));
+    vec3 linSeg = color * 12.92;
+    vec3 powSeg = 1.055 * pow(max(color, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
+    return mix(linSeg, powSeg, isAbove);
+}
+
+#define AIRY_FRESNEL_ITERATIONS 2
+
+vec2 mx_transform_uv(vec2 uv, vec2 uv_scale, vec2 uv_offset)
+{
+    uv = uv * uv_scale + uv_offset;
+    return vec2(uv.x, 1.0 - uv.y);
+}
+
+void mx_image_color3(sampler2D tex_sampler, int layer, vec3 defaultval, vec2 texcoord, int uaddressmode, int vaddressmode, int filtertype, int framerange, int frameoffset, int frameendaction, vec2 uv_scale, vec2 uv_offset, out vec3 result)
+{
+    vec2 uv = mx_transform_uv(texcoord, uv_scale, uv_offset);
+    result = texture(tex_sampler, uv).rgb;
+}
+
+void NG_separate3_color3(vec3 in1, out float outr, out float outg, out float outb)
+{
+    const int N_extract_0_index_tmp = 0;
+    float N_extract_0_out = in1[N_extract_0_index_tmp];
+    const int N_extract_1_index_tmp = 1;
+    float N_extract_1_out = in1[N_extract_1_index_tmp];
+    const int N_extract_2_index_tmp = 2;
+    float N_extract_2_out = in1[N_extract_2_index_tmp];
+    outr = N_extract_0_out;
+    outg = N_extract_1_out;
+    outb = N_extract_2_out;
+}
+
+void NG_srgb_texture_to_lin_rec709_color3(vec3 in1, out vec3 out1)
+{
+    const float bias_in2_tmp = 0.055000;
+    vec3 bias_out = in1 + bias_in2_tmp;
+    const float linSeg_in2_tmp = 12.920000;
+    vec3 linSeg_out = in1 / linSeg_in2_tmp;
+    float colorSeparate_outr = 0.0;
+    float colorSeparate_outg = 0.0;
+    float colorSeparate_outb = 0.0;
+    NG_separate3_color3(in1, colorSeparate_outr, colorSeparate_outg, colorSeparate_outb);
+    const float max_in2_tmp = 0.000000;
+    vec3 max_out = max(bias_out, max_in2_tmp);
+    const float isAboveR_value2_tmp = 0.040450;
+    const float isAboveR_in1_tmp = 1.000000;
+    const float isAboveR_in2_tmp = 0.000000;
+    float isAboveR_out = (colorSeparate_outr > isAboveR_value2_tmp) ? isAboveR_in1_tmp : isAboveR_in2_tmp;
+    const float isAboveG_value2_tmp = 0.040450;
+    const float isAboveG_in1_tmp = 1.000000;
+    const float isAboveG_in2_tmp = 0.000000;
+    float isAboveG_out = (colorSeparate_outg > isAboveG_value2_tmp) ? isAboveG_in1_tmp : isAboveG_in2_tmp;
+    const float isAboveB_value2_tmp = 0.040450;
+    const float isAboveB_in1_tmp = 1.000000;
+    const float isAboveB_in2_tmp = 0.000000;
+    float isAboveB_out = (colorSeparate_outb > isAboveB_value2_tmp) ? isAboveB_in1_tmp : isAboveB_in2_tmp;
+    const float scale_in2_tmp = 1.055000;
+    vec3 scale_out = max_out / scale_in2_tmp;
+    vec3 isAbove_out = vec3(isAboveR_out,isAboveG_out,isAboveB_out);
+    const float powSeg_in2_tmp = 2.400000;
+    vec3 powSeg_out = pow(scale_out, vec3(powSeg_in2_tmp));
+    vec3 mix_out = mix(linSeg_out, powSeg_out, isAbove_out);
+    out1 = mix_out;
+}
+
+void mx_heighttonormal_vector3(float height, float scale, vec2 texcoord, out vec3 result)
+{
+    // Scale factor for parity with traditional Sobel filtering.
+    const float SOBEL_SCALE_FACTOR = 1.0 / 16.0;
+
+    // Compute screen-space gradients of the heightfield and texture coordinates.
+    vec2 dHdS = vec2(dFdx(height), dFdy(height)) * scale * SOBEL_SCALE_FACTOR;
+    vec2 dUdS = vec2(dFdx(texcoord.x), dFdy(texcoord.x));
+    vec2 dVdS = vec2(dFdx(texcoord.y), dFdy(texcoord.y));
+
+    // Construct a screen-space tangent frame.
+    vec3 tangent = vec3(dUdS.x, dVdS.x, dHdS.x);
+    vec3 bitangent = vec3(dUdS.y, dVdS.y, dHdS.y);
+    vec3 n = cross(tangent, bitangent);
+
+    // Handle invalid and mirrored texture coordinates.
+    if (dot(n, n) < M_FLOAT_EPS * M_FLOAT_EPS)
+    {
+        n = vec3(0, 0, 1);
+    }
+    else if (n.z < 0.0)
+    {
+        n *= -1.0;
+    }
+
+    // Normalize and encode the results.
+    result = normalize(n) * 0.5 + 0.5;
+}
+
+void main()
+{
+    vec2 geomprop_UV0_out1 = vd.texcoord_0.xy;
+    vec3 b_image_out = vec3(0.0);
+    mx_image_color3(b_image_file, b_image_layer, b_image_default, geomprop_UV0_out1, b_image_uaddressmode, b_image_vaddressmode, b_image_filtertype, b_image_framerange, b_image_frameoffset, b_image_frameendaction, b_image_uv_scale, b_image_uv_offset, b_image_out);
+    vec3 b_image_out_cm_out = vec3(0.0);
+    NG_srgb_texture_to_lin_rec709_color3(b_image_out, b_image_out_cm_out);
+    float extract1_out = b_image_out_cm_out[extract1_index];
+    vec3 impl_heighttonormalmap_out = vec3(0.0);
+    mx_heighttonormal_vector3(extract1_out, impl_heighttonormalmap_scale, geomprop_UV0_out1, impl_heighttonormalmap_out);
+    out11 = vec4(impl_heighttonormalmap_out, 1.0);
+}
+
