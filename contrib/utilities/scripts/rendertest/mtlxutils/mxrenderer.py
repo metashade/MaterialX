@@ -266,7 +266,8 @@ class GlslRenderer():
     def loadGeometry(self, fileName):
         geometryHandler = self.renderer.getGeometryHandler()
         if geometryHandler:
-            texcoordVerticalFlip = False # True if mx.FilePath(fileName).getExtension() == 'obj' else False
+            baseName = mx.FilePath(fileName).getBaseName()
+            texcoordVerticalFlip = baseName in ("sphere.obj", "plane.obj")
             if not geometryHandler.hasGeometry(fileName):
                 geometryHandler.loadGeometry(fileName, texcoordVerticalFlip)
 
