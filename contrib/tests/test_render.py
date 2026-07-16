@@ -453,26 +453,20 @@ _seen_stems: dict[str, set[str]] = {}
 
 
 def _handle_shader_baselines(result, stem: str, opts: CliOptions):
-    """Route dumped shaders to baselines (update) or compare (CI).
+    """Compare dumped shaders against committed baselines in CI mode.
 
-    * **Update mode** (no ``render_output_dir``): copy dumped shaders into
-      the committed baseline directory for ``git diff`` review.
-    * **CI mode** (``render_output_dir`` set): compare dumped shaders
-      against the committed baselines and assert on mismatch.
+    Requires both ``shader_baseline_dir`` and ``render_output_dir`` to be
+    set.  Shaders are dumped directly into the baseline directory during
+    local development (no copy step needed).
     """
-    if not result.shader_dump_paths or not opts.shader_baseline_dir:
+    if (not result.shader_dump_paths or not opts.shader_baseline_dir
+            or not opts.render_output_dir):
         return
     baseline_subdir = opts.shader_baseline_dir / stem
-    if opts.render_output_dir:
-        differ = _RefDiffer(baseline_subdir)
-        for dump_path in result.shader_dump_paths.values():
-            if (baseline_subdir / dump_path.name).exists():
-                differ(dump_path)
-    else:
-        import shutil
-        baseline_subdir.mkdir(parents=True, exist_ok=True)
-        for dump_path in result.shader_dump_paths.values():
-            shutil.copy2(dump_path, baseline_subdir / dump_path.name)
+    differ = _RefDiffer(baseline_subdir)
+    for dump_path in result.shader_dump_paths.values():
+        if (baseline_subdir / dump_path.name).exists():
+            differ(dump_path)
 
 
 def run_render_test_file(
