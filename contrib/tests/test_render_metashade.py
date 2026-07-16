@@ -205,3 +205,38 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
         """Test rendering with Broken Schlick override."""
         override_env.run_test(mtlx_file, subtests)
+
+
+_STANDARD_SURFACE_TEST_PATHS = (
+    "Examples/StandardSurface/standard_surface_default.mtlx",
+    "Examples/StandardSurface/standard_surface_gold.mtlx",
+    "Examples/StandardSurface/standard_surface_plastic.mtlx",
+)
+
+
+def _get_standard_surface_test_files():
+    """Collect .mtlx files that exercise the Standard Surface nodedef."""
+    from test_render import get_repo_root
+    materials_root = get_repo_root() / "resources" / "Materials"
+    files = []
+    for rel in _STANDARD_SURFACE_TEST_PATHS:
+        mtlx_file = materials_root / rel
+        if mtlx_file.exists():
+            files.append(pytest.param(mtlx_file, id=rel))
+    return files
+
+
+class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
+    """Test rendering with the Metashade Standard Surface override.
+
+    Replaces the stock ``NG_standard_surface_surfaceshader_100`` nodegraph
+    with a Metashade-generated BSDF node wired through the ``surface``
+    constructor.  Initially validates with a pink diagnostic BSDF.
+    """
+    OVERRIDE_SUBDIR = "standard_surface"
+    OUTPUT_SUBDIR = "standard_surface"
+
+    @pytest.mark.parametrize("mtlx_file", _get_standard_surface_test_files())
+    def test_render_file(self, mtlx_file: Path, subtests, override_env):
+        """Test rendering with Standard Surface override."""
+        override_env.run_test(mtlx_file, subtests)
