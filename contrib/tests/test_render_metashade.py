@@ -8,7 +8,6 @@ by document insertion order.
 from __future__ import annotations
 
 import os
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -23,16 +22,15 @@ _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
 
 
 class _RefPaths:
-    """Repo-relative paths for Metashade reference data."""
-    ROOT = Path("contrib") / "tests" / "metashade_ref"
+    """Paths for Metashade reference data, relative to ``--output-dir``."""
+    ROOT = Path("tests") / "metashade_ref"
     LIBRARIES = ROOT / "libraries"
     RENDERS = ROOT / "renders"
 
 
 class MetashadeOverrideTestBase:
     """Base class for testing Metashade overrides."""
-    OVERRIDE_SUBDIR = None
-    OUTPUT_SUBDIR = None
+    SUBDIR = None
 
     @pytest.fixture(scope="class")
     def override_search_path(self, search_path, repo_root):
@@ -54,17 +52,17 @@ class MetashadeOverrideTestBase:
         return custom_sp
 
     @pytest.fixture(scope="class")
-    def override_stdlib(self, request, override_search_path, repo_root):
+    def override_stdlib(self, request, override_search_path, cli_options):
         """Create a custom stdlib document with Metashade override loaded first."""
         lib = mx.createDocument()
         
-        subdir = request.cls.OVERRIDE_SUBDIR
+        subdir = request.cls.SUBDIR
         assert subdir is not None, (
-            "OVERRIDE_SUBDIR must be defined in the test class "
+            "SUBDIR must be defined in the test class "
             "subclassing MetashadeOverrideTestBase"
         )
         
-        libraries_dir = repo_root / _RefPaths.LIBRARIES
+        libraries_dir = cli_options.output_dir / _RefPaths.LIBRARIES
         override_sp = mx.FileSearchPath(libraries_dir.as_posix())
 
         # Load Metashade overrides first so they take priority by insertion order
@@ -124,31 +122,29 @@ class MetashadeOverrideTestBase:
     @pytest.fixture(scope="class")
     def override_env(
         self, request, override_renderer, override_stdlib,
-        override_search_path, repo_root, cli_options,
+        override_search_path, cli_options,
     ):
-        """Build a :class:`RenderEnvironment` with Metashade overrides."""
-        output_subdir = request.cls.OUTPUT_SUBDIR
-        assert output_subdir is not None, (
-            "OUTPUT_SUBDIR must be defined in the test class "
+        """Build a :class:`RenderEnvironment` with Metashade overrides.
+
+        Render output and shader dumps go directly into the committed
+        baseline directory (``metashade_ref/renders/<subdir>``).
+        Review changes with ``git diff``.
+        """
+        subdir = request.cls.SUBDIR
+        assert subdir is not None, (
+            "SUBDIR must be defined in the test class "
             "subclassing MetashadeOverrideTestBase"
         )
-        
-        path = cli_options.output_dir / "metashade" / output_subdir
-        path.mkdir(parents=True, exist_ok=True)
-        
-        renders_dir = repo_root / _RefPaths.RENDERS / output_subdir
 
-        override_options = replace(
-            cli_options,
-            output_dir=path,
-            shader_baseline_dir=renders_dir,
-        )
+        output_dir = cli_options.output_dir / _RefPaths.RENDERS / subdir
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         return RenderEnvironment(
             renderer=override_renderer,
             data_library=override_stdlib,
             search_path=override_search_path,
-            options=override_options,
+            cli_options=cli_options,
+            output_dir=output_dir,
         )
 
 
@@ -159,8 +155,7 @@ class TestRenderMetashadePassthru(MetashadeOverrideTestBase):
     that every material with a C++ baseline is also validated through the
     Metashade override pipeline.
     """
-    OVERRIDE_SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
-    OUTPUT_SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
+    SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
 
     @pytest.mark.parametrize("mtlx_file", collect_render_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
@@ -198,8 +193,7 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
     Scoped to materials that directly or transitively exercise
     ``generalized_schlick_bsdf``, so visual diffs are meaningful.
     """
-    OVERRIDE_SUBDIR = "broken_schlick"
-    OUTPUT_SUBDIR = "broken_schlick"
+    SUBDIR = "broken_schlick"
 
     @pytest.mark.parametrize("mtlx_file", _get_schlick_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):

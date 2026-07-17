@@ -7,7 +7,6 @@ Each pytest-xdist worker process gets its own fixture instances.
 from __future__ import annotations
 
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -59,16 +58,6 @@ def pytest_addoption(parser):
         default=None,
         help="Path to directory where rendered images will be saved.",
     )
-    parser.addoption(
-        "--render-output-dir",
-        action="store",
-        default=None,
-        help=(
-            "CI mode: dump shaders to DIR and compare against committed "
-            "baselines.  When absent, shaders are written directly to the "
-            "committed baseline directory (update mode)."
-        ),
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -88,17 +77,14 @@ def cli_options(request, repo_root):
     from test_render import CliOptions
 
     output_opt = request.config.getoption("--output-dir")
-    output_dir = Path(output_opt) if output_opt else repo_root / "contrib" / "renders"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(output_opt) if output_opt else repo_root / "contrib"
 
     baseline_opt = request.config.getoption("--baseline-dir")
-    render_output_opt = request.config.getoption("--render-output-dir")
 
     return CliOptions(
         output_dir=output_dir,
         baseline_dir=Path(baseline_opt) if baseline_opt else None,
         flip_threshold=request.config.getoption("--flip-threshold"),
-        render_output_dir=Path(render_output_opt) if render_output_opt else None,
     )
 
 
@@ -220,11 +206,14 @@ def renderer(glsl_renderer):
 def stdlib_env(renderer, stdlib, search_path, cli_options):
     """RenderEnvironment for standard library materials tests."""
     from test_render import RenderEnvironment
+    output_dir = cli_options.output_dir / "renders"
+    output_dir.mkdir(parents=True, exist_ok=True)
     return RenderEnvironment(
         renderer=renderer,
         data_library=stdlib,
         search_path=search_path,
-        options=cli_options,
+        cli_options=cli_options,
+        output_dir=output_dir,
     )
 
 
@@ -232,17 +221,15 @@ def stdlib_env(renderer, stdlib, search_path, cli_options):
 def adsk_env(renderer, data_library, search_path, cli_options):
     """RenderEnvironment for Autodesk materials tests."""
     from test_render import RenderEnvironment
-    adsk_options = replace(
-        cli_options,
-        output_dir=cli_options.output_dir / "adsk",
-        flat_layout=False,
-    )
-    adsk_options.output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = cli_options.output_dir / "renders" / "adsk"
+    output_dir.mkdir(parents=True, exist_ok=True)
     return RenderEnvironment(
         renderer=renderer,
         data_library=data_library,
         search_path=search_path,
-        options=adsk_options,
+        cli_options=cli_options,
+        output_dir=output_dir,
+        flat_layout=False,
     )
 
 
@@ -300,8 +287,8 @@ def pytest_runtest_logreport(report):
         if not env:
             return
 
-        output_dir = env.options.output_dir
-        baseline_dir = env.options.baseline_dir
+        output_dir = env.output_dir
+        baseline_dir = env.cli_options.baseline_dir
 
         context = getattr(report, "context", None)
         subtest_name = context.msg if context else None

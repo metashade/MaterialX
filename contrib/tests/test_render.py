@@ -37,20 +37,17 @@ class MaterialXTestOptions:
     env_sample_count: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class CliOptions:
-    """CLI-derived options that govern test execution.
+    """Immutable CLI-derived options shared across all test environments.
 
-    Bundles all pytest command-line options (output paths, comparison
-    modes, thresholds) into a single object threaded through
-    ``RenderEnvironment``.
+    Bundles pytest command-line options into a single object.
+    Per-environment settings (``output_dir``, ``flat_layout``) live on
+    :class:`RenderEnvironment`.
     """
     output_dir: Path
-    flat_layout: bool = True
     baseline_dir: Path | None = None
     flip_threshold: float = 0.05
-    shader_baseline_dir: Path | None = None
-    render_output_dir: Path | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -431,42 +428,7 @@ def render_element(renderer, doc, elem, search_path, output_path=None):
 # Test runner
 # ---------------------------------------------------------------------------
 
-class _RefDiffer:
-    """Assert a generated file matches a committed reference.
-
-    Mirrors ``metashade.util.testing.RefDiffer`` without pulling in the
-    Metashade dependency.
-    """
-    def __init__(self, ref_dir: Path):
-        self._ref_dir = ref_dir
-
-    def __call__(self, path: Path):
-        import filecmp
-        ref = self._ref_dir / path.name
-        assert filecmp.cmp(path, ref), (
-            f"Shader source mismatch: {path.name} differs from "
-            f"baseline at {ref}"
-        )
-
-
 _seen_stems: dict[str, set[str]] = {}
-
-
-def _handle_shader_baselines(result, stem: str, opts: CliOptions):
-    """Compare dumped shaders against committed baselines in CI mode.
-
-    Requires both ``shader_baseline_dir`` and ``render_output_dir`` to be
-    set.  Shaders are dumped directly into the baseline directory during
-    local development (no copy step needed).
-    """
-    if (not result.shader_dump_paths or not opts.shader_baseline_dir
-            or not opts.render_output_dir):
-        return
-    baseline_subdir = opts.shader_baseline_dir / stem
-    differ = _RefDiffer(baseline_subdir)
-    for dump_path in result.shader_dump_paths.values():
-        if (baseline_subdir / dump_path.name).exists():
-            differ(dump_path)
 
 
 def run_render_test_file(
@@ -513,7 +475,6 @@ def run_render_test_file(
 
     output_path.mkdir(parents=True, exist_ok=True)
 
-    opts = env.options
     for elem, elem_name in elements:
         with subtests.test(msg=elem_name):
             if is_adsk:
@@ -535,7 +496,6 @@ def run_render_test_file(
             )
 
             env.assert_image_matches_baseline(result.output_path)
-            _handle_shader_baselines(result, stem, opts)
 
 
 # ---------------------------------------------------------------------------
@@ -543,28 +503,31 @@ def run_render_test_file(
 # ---------------------------------------------------------------------------
 
 class RenderEnvironment:
-    """Encapsulates a specific MaterialX render execution environment."""
+    """Encapsulates a specific MaterialX render execution environment.
+
+    Each environment gets its own ``output_dir`` (where renders and
+    shader dumps go) while sharing the immutable ``cli_options``.
+    """
 
     def __init__(
         self,
         renderer,
         data_library: mx.Document,
         search_path: mx.FileSearchPath,
-        options: CliOptions,
+        cli_options: CliOptions,
+        output_dir: Path,
+        flat_layout: bool = True,
     ):
         self.renderer = renderer
         self.data_library = data_library
         self.search_path = search_path
-        self.options = options
-
-    @property
-    def output_dir(self) -> Path:
-        """Convenience accessor used by the HTML report hook."""
-        return self.options.output_dir
+        self.cli_options = cli_options
+        self.output_dir = output_dir
+        self.flat_layout = flat_layout
 
     def get_output_path(self, mtlx_file: Path) -> Path:
-        if self.options.flat_layout:
-            return self.options.output_dir / mtlx_file.stem
+        if self.flat_layout:
+            return self.output_dir / mtlx_file.stem
 
         repo_root = get_repo_root()
         materials_root = repo_root / "resources" / "Materials"
@@ -579,15 +542,15 @@ class RenderEnvironment:
         else:
             rel_path = Path(mtlx_file.name)
 
-        return self.options.output_dir / rel_path.parent / mtlx_file.stem
+        return self.output_dir / rel_path.parent / mtlx_file.stem
 
     def assert_image_matches_baseline(self, rendered_file: Path | None):
         """Assert rendered image matches its baseline (FLIP comparison)."""
-        if not (self.options.baseline_dir and rendered_file):
+        if not (self.cli_options.baseline_dir and rendered_file):
             return
 
-        rel_rendered = rendered_file.relative_to(self.options.output_dir)
-        baseline_file = self.options.baseline_dir / rel_rendered
+        rel_rendered = rendered_file.relative_to(self.output_dir)
+        baseline_file = self.cli_options.baseline_dir / rel_rendered
         heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
 
         res = compare_rendered_image(
@@ -600,9 +563,9 @@ class RenderEnvironment:
         max_flip = res['max_flip']
         pct_diff = res['pct_diff_pixels']
 
-        assert mean_flip < self.options.flip_threshold, (
+        assert mean_flip < self.cli_options.flip_threshold, (
             f"Image comparison failed! Mean FLIP: {mean_flip:.4f} "
-            f"(threshold: {self.options.flip_threshold}), "
+            f"(threshold: {self.cli_options.flip_threshold}), "
             f"Max FLIP: {max_flip:.4f}, "
             f"{pct_diff:.1f}% pixels differ. "
             f"Heatmap saved to {heatmap_file.name}"
