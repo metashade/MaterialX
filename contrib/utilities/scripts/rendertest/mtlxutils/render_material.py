@@ -57,10 +57,15 @@ def render_material(
     search_path=None,
     target_colorspace: str = 'lin_rec709',
     target_distance_unit: str = 'centimeter',
+    no_render: bool = False,
 ) -> RenderResult:
     """
-    Render a single material node.
-    
+    Generate shaders and optionally render a single material node.
+
+    When *no_render* is ``True``, shader source is generated and dumped
+    to *output_path* but GPU program creation, rendering and image
+    capture are skipped.
+
     Args:
         renderer: Initialized GlslRenderer instance
         doc: MaterialX document containing the material
@@ -69,7 +74,8 @@ def render_material(
         search_path: MaterialX search path for source code and images.
         target_colorspace: Target colorspace override
         target_distance_unit: Target distance unit
-        
+        no_render: Skip GPU rendering; only generate and dump shaders.
+
     Returns:
         RenderResult with success status and any errors
     """
@@ -111,10 +117,15 @@ def render_material(
     if output_path:
         shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
 
+    if no_render:
+        return RenderResult(
+            success=True,
+            material_name=material_name,
+            shader_dump_paths=shader_dump_paths,
+        )
+
     # Create program
     if not renderer.createProgram():
-        if output_path and not shader_dump_paths:
-            shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
         return RenderResult(
             success=False,
             material_name=material_name,
@@ -125,8 +136,6 @@ def render_material(
     # Render
     rendered, errors = renderer.render()
     if not rendered:
-        if output_path and not shader_dump_paths:
-            shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
         return RenderResult(
             success=False,
             material_name=material_name,

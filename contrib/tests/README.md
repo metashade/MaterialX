@@ -128,11 +128,24 @@ then the comparison environment renders and FLIPs against it.
 
 ## CI Workflow
 
-Three sequential pytest invocations:
+```
+pytest contrib/tests/test_render.py --output-dir /tmp/ci            # 1
+cd contrib/metashade && pytest tests/                                # 2
+pytest contrib/tests/test_render_metashade.py --output-dir /tmp/ci   # 3
+```
 
-1. `pytest test_render_metashade.py --no-render` — generate shaders,
-   RefDiffer against committed baselines. No GPU. Fast CI gate.
-2. `pytest test_render.py` — render stdlib + adsk materials (produces
-   baseline images).
-3. `pytest test_render_metashade.py` — render with Metashade overrides,
-   FLIP-compare against stdlib renders from step 2.
+1. **Baseline renders** — render stdlib + adsk materials.  Produces
+   the reference images that step 3 compares against.
+2. **Generate Metashade implementations** — the Metashade repo's own
+   tests produce the ``.mtlx`` and ``.glsl`` library inputs under
+   ``metashade_ref/libraries/`` consumed by step 3.
+3. **Metashade overrides** — render with Metashade overrides and
+   FLIP-compare against stdlib renders from step 1.
+
+Both steps 1 and 3 automatically run **RefDiffer** (shader source
+comparison against committed ``.glsl`` baselines) whenever
+``--output-dir`` is set, because the output tree diverges from the
+committed tree.
+
+If CI lacks a GPU, pass ``--no-render`` to skip GPU rendering while
+still generating shaders and running RefDiffer.

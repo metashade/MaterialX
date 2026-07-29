@@ -453,7 +453,9 @@ def compare_rendered_image(
     return result
 
 
-def render_element(renderer, doc, elem, search_path, output_path=None):
+def render_element(
+    renderer, doc, elem, search_path, output_path=None, no_render=False,
+):
     """Render a single element and return a :class:`RenderResult`."""
     return render_material(
         renderer,
@@ -461,7 +463,46 @@ def render_element(renderer, doc, elem, search_path, output_path=None):
         elem,
         output_path=output_path,
         search_path=search_path,
+        no_render=no_render,
     )
+
+
+# ---------------------------------------------------------------------------
+# Shader baseline comparison (RefDiffer)
+# ---------------------------------------------------------------------------
+
+class _RefDiffer:
+    """Assert a generated file matches a committed reference.
+
+    Mirrors ``metashade.util.testing.RefDiffer``.
+    """
+    def __init__(self, ref_dir: Path):
+        self._ref_dir = ref_dir
+
+    def __call__(self, path: Path):
+        import filecmp
+        ref = self._ref_dir / path.name
+        assert ref.exists(), (
+            f"No committed baseline for {path.name} at {ref}"
+        )
+        assert filecmp.cmp(path, ref), (
+            f"Shader source mismatch: {path.name} differs from "
+            f"baseline at {ref}"
+        )
+
+
+def _check_shader_baselines(result, baseline_dir: Path):
+    """Compare dumped shaders against committed baselines.
+
+    Only runs in CI mode (when ``output_root`` differs from the
+    committed ``contrib/`` tree).  In developer mode the shaders
+    overwrite baselines directly and ``git diff`` serves this purpose.
+    """
+    if not result.shader_dump_paths:
+        return
+    differ = _RefDiffer(baseline_dir)
+    for dump_path in result.shader_dump_paths.values():
+        differ(dump_path)
 
 
 # ---------------------------------------------------------------------------
@@ -505,6 +546,9 @@ def _render_elements(
 
     output_path.mkdir(parents=True, exist_ok=True)
 
+    no_render = env.cli_options.no_render
+    baseline_dir = env.get_baseline_dir(output_path)
+
     for elem, elem_name in elements:
         with subtests.test(msg=elem_name):
             if is_adsk:
@@ -516,17 +560,18 @@ def _render_elements(
                 if should_skip_element(rel_path, elem_name):
                     pytest.skip(get_element_skip_reason(rel_path, elem_name))
 
-            if env.cli_options.no_render:
-                pytest.skip("--no-render: skipping GPU rendering")
-
             result = render_element(
                 env.renderer, doc, elem, file_search_path,
                 output_path=output_path,
+                no_render=no_render,
             )
             assert result.success, (
-                f"Render failed: "
+                f"{'Shader generation' if no_render else 'Render'} failed: "
                 f"{result.error or result.shader_errors or 'Unknown error'}"
             )
+
+            if baseline_dir is not None:
+                _check_shader_baselines(result, baseline_dir)
 
 
 def run_render_test(
@@ -580,6 +625,22 @@ class RenderEnvironment:
         """Full output directory for this environment."""
         return self.cli_options.output_root / self.env_subpath
 
+    @property
+    def is_ci_mode(self) -> bool:
+        """``True`` when output diverges from committed baselines.
+
+        In CI mode, ``output_root`` points to a temp directory while
+        committed baselines live under ``repo_root / "contrib"``.
+        """
+        committed_root = get_repo_root() / "contrib"
+        try:
+            return (
+                self.cli_options.output_root.resolve()
+                != committed_root.resolve()
+            )
+        except OSError:
+            return True
+
     def get_output_path(self, case: RenderTestCase) -> Path:
         """Resolve the output directory for a specific test case."""
         return self.output_dir / case.output_subpath
@@ -592,6 +653,21 @@ class RenderEnvironment:
         Falls back to flat ``aswf/<stem>`` layout.
         """
         return self.output_dir / "aswf" / mtlx_file.stem
+
+    def get_baseline_dir(self, output_path: Path) -> Path | None:
+        """Return the committed baseline directory for *output_path*.
+
+        Returns ``None`` in developer mode (output overwrites baselines
+        directly, use ``git diff``).  In CI mode, maps *output_path*
+        back to its committed location under ``repo_root / "contrib"``.
+        """
+        if not self.is_ci_mode:
+            return None
+        try:
+            rel = output_path.relative_to(self.cli_options.output_root)
+        except ValueError:
+            return None
+        return get_repo_root() / "contrib" / rel
 
     def run_test(self, case_or_file, subtests):
         """Run the render test for a single material.
