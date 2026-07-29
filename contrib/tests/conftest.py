@@ -40,12 +40,6 @@ def repo_root() -> Path:
 def pytest_addoption(parser):
     """Register custom command-line options for MaterialX render tests."""
     parser.addoption(
-        "--baseline-dir",
-        action="store",
-        default=None,
-        help="Path to directory containing baseline images for comparison.",
-    )
-    parser.addoption(
         "--flip-threshold",
         action="store",
         type=float,
@@ -56,7 +50,18 @@ def pytest_addoption(parser):
         "--output-dir",
         action="store",
         default=None,
-        help="Path to directory where rendered images will be saved.",
+        help=(
+            "Root directory for all test output.  Defaults to contrib/ "
+            "(repo-relative, developer/baseline-update mode).  CI sets "
+            "this to a temp directory and compares against committed "
+            "baselines."
+        ),
+    )
+    parser.addoption(
+        "--no-render",
+        action="store_true",
+        default=False,
+        help="Skip GPU rendering; only generate shaders and run source comparisons.",
     )
 
 
@@ -77,13 +82,11 @@ def cli_options(request, repo_root):
     from test_render import CliOptions
 
     output_opt = request.config.getoption("--output-dir")
-    output_dir = Path(output_opt) if output_opt else repo_root / "contrib"
-
-    baseline_opt = request.config.getoption("--baseline-dir")
+    output_root = Path(output_opt) if output_opt else repo_root / "contrib"
 
     return CliOptions(
-        output_dir=output_dir,
-        baseline_dir=Path(baseline_opt) if baseline_opt else None,
+        output_root=output_root,
+        no_render=request.config.getoption("--no-render"),
         flip_threshold=request.config.getoption("--flip-threshold"),
     )
 
@@ -204,32 +207,31 @@ def renderer(glsl_renderer):
 
 @pytest.fixture(scope="session")
 def stdlib_env(renderer, stdlib, search_path, cli_options):
-    """RenderEnvironment for standard library materials tests."""
+    """RenderEnvironment for ASWF standard library materials tests."""
     from test_render import RenderEnvironment
-    output_dir = cli_options.output_dir / "renders"
-    output_dir.mkdir(parents=True, exist_ok=True)
     return RenderEnvironment(
         renderer=renderer,
         data_library=stdlib,
         search_path=search_path,
         cli_options=cli_options,
-        output_dir=output_dir,
+        env_subpath=Path("renders"),
     )
 
 
 @pytest.fixture(scope="session")
 def adsk_env(renderer, data_library, search_path, cli_options):
-    """RenderEnvironment for Autodesk materials tests."""
+    """RenderEnvironment for Autodesk materials tests.
+
+    Shares the ``renders/`` env_subpath with stdlib -- the ``adsk/``
+    prefix lives in each :class:`RenderTestCase`'s ``output_subpath``.
+    """
     from test_render import RenderEnvironment
-    output_dir = cli_options.output_dir / "renders" / "adsk"
-    output_dir.mkdir(parents=True, exist_ok=True)
     return RenderEnvironment(
         renderer=renderer,
         data_library=data_library,
         search_path=search_path,
         cli_options=cli_options,
-        output_dir=output_dir,
-        flat_layout=False,
+        env_subpath=Path("renders"),
     )
 
 
@@ -288,14 +290,22 @@ def pytest_runtest_logreport(report):
             return
 
         output_dir = env.output_dir
-        baseline_dir = env.cli_options.baseline_dir
 
         context = getattr(report, "context", None)
         subtest_name = context.msg if context else None
         if not subtest_name:
             return
-            
-        output_path = env.get_output_path(mtlx_file)
+
+        # Try to find the test case to get output_subpath
+        from test_render import RenderTestCase
+        case = funcargs.get("case")
+        if isinstance(case, RenderTestCase):
+            output_path = env.get_output_path(case)
+        elif mtlx_file:
+            output_path = env.get_output_path_for_file(mtlx_file)
+        else:
+            return
+
         if not output_path or not output_path.exists():
             return
             
@@ -312,9 +322,8 @@ def pytest_runtest_logreport(report):
             
         rendered_file = rendered_files[0]
         
-        # Derive baseline and heatmap paths
-        rel_rendered = rendered_file.relative_to(output_dir)
-        baseline_file = baseline_dir / rel_rendered if baseline_dir else None
+        # Heatmap path (no cross-env baseline comparison in HTML report)
+        baseline_file = None
         heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
         
         # Determine HTML report directory to compute relative paths for images

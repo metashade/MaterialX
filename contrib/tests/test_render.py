@@ -38,15 +38,32 @@ class MaterialXTestOptions:
 
 
 @dataclass(frozen=True)
+class RenderTestCase:
+    """A single material file paired with its output subpath.
+
+    Built at collection time so the input-to-output mapping is fixed
+    before any test runs.  ``output_subpath`` is relative to the
+    environment's output directory
+    (``output_root / env_subpath / output_subpath``).
+    """
+    input_path: Path
+    output_subpath: Path
+
+
+@dataclass(frozen=True)
 class CliOptions:
     """Immutable CLI-derived options shared across all test environments.
 
-    Bundles pytest command-line options into a single object.
-    Per-environment settings (``output_dir``, ``flat_layout``) live on
-    :class:`RenderEnvironment`.
+    ``output_root`` is the top-level directory for all test output.
+    In developer mode it defaults to ``contrib/`` (repo-relative) so
+    that renders land in committed directories.  CI overrides it via
+    ``--output-dir`` to write to a temp directory.
+
+    ``no_render`` suppresses GPU rendering; tests only generate shaders
+    and run source-level comparisons.
     """
-    output_dir: Path
-    baseline_dir: Path | None = None
+    output_root: Path
+    no_render: bool = False
     flip_threshold: float = 0.05
 
 
@@ -97,108 +114,131 @@ def parse_options_mtlx(
         ) from exc
 
 
-def collect_render_test_files(
+def _accept_file(
+    mtlx_file: Path,
+    exclude_files: frozenset[str],
+    override_files: frozenset[str],
+) -> bool:
+    """Apply ``overrideFiles`` as an include filter (when non-empty)
+    or ``renderTestExcludeFiles`` as an exclude filter, mirroring C++
+    ``ShaderRenderTester::collectTestFiles()``."""
+    if override_files:
+        return mtlx_file.name in override_files
+    return mtlx_file.name not in exclude_files
+
+
+def collect_aswf_test_files(
     options: MaterialXTestOptions | None = None,
     repo_root: Path | None = None,
 ) -> list:
-    """Collect ``.mtlx`` files matching ``_options.mtlx`` render test scope.
+    """Collect ASWF ``.mtlx`` files as :class:`RenderTestCase` pytest params.
 
-    Mirrors the C++ ``ShaderRenderTester::collectTestFiles()`` logic:
-    walk each ``renderTestPaths`` entry, apply ``overrideFiles`` as an include
-    filter (when non-empty) or ``renderTestExcludeFiles`` as an exclude filter.
+    Uses the ``_options.mtlx`` render test scope.  Flat layout: each
+    asset's ``output_subpath`` is ``aswf/<stem>``.
     """
     if options is None:
         options = parse_options_mtlx()
     if repo_root is None:
         repo_root = get_repo_root()
 
-    render_paths = options.render_test_paths
-    exclude_files = options.exclude_files
-    override_files = options.override_files
-
-    files: list = []
     materials_root = repo_root / "resources" / "Materials"
+    seen: dict[str, Path] = {}
+    files: list = []
 
-    def _accept(mtlx_file: Path) -> bool:
-        """Apply ``overrideFiles`` as an include filter (when non-empty)
-        or ``renderTestExcludeFiles`` as an exclude filter, mirroring C++
-        ``ShaderRenderTester::collectTestFiles()``."""
-        if override_files:
-            return mtlx_file.name in override_files
-        return mtlx_file.name not in exclude_files
+    def _add(mtlx_file: Path):
+        subpath = Path("aswf") / mtlx_file.stem
+        key = str(subpath)
+        if key in seen:
+            raise ValueError(
+                f"Output path collision: '{key}' maps to both "
+                f"{seen[key]} and {mtlx_file}"
+            )
+        seen[key] = mtlx_file
+        rel_path = mtlx_file.relative_to(materials_root)
+        file_id = str(rel_path).replace("\\", "/")
+        case = RenderTestCase(input_path=mtlx_file, output_subpath=subpath)
+        files.append(pytest.param(case, id=file_id))
 
-    for rel_root in render_paths:
+    for rel_root in options.render_test_paths:
         root = repo_root / rel_root
         if root.is_file():
-            if root.suffix == ".mtlx" and _accept(root):
-                rel_path = root.relative_to(materials_root)
-                file_id = str(rel_path).replace("\\", "/")
-                files.append(pytest.param(root, id=file_id))
+            if root.suffix == ".mtlx" and _accept_file(
+                root, options.exclude_files, options.override_files,
+            ):
+                _add(root)
         elif root.is_dir():
             for mtlx_file in sorted(root.rglob("*.mtlx")):
-                if not _accept(mtlx_file):
-                    continue
-                rel_path = mtlx_file.relative_to(materials_root)
-                file_id = str(rel_path).replace("\\", "/")
-                files.append(pytest.param(mtlx_file, id=file_id))
+                if _accept_file(
+                    mtlx_file, options.exclude_files, options.override_files,
+                ):
+                    _add(mtlx_file)
 
     assert files, (
-        f"collect_render_test_files found no .mtlx files. "
-        f"renderTestPaths={render_paths}, repo_root={repo_root}"
+        f"collect_aswf_test_files found no .mtlx files. "
+        f"renderTestPaths={options.render_test_paths}, repo_root={repo_root}"
     )
     return files
 
 
-def collect_mtlx_files(
-    materials_root: Path,
-    subdirs: list[str] | None = None,
-    exclude_underscore: bool = False,
+def collect_adsk_test_files(
+    repo_root: Path | None = None,
 ) -> list:
-    """Collect .mtlx files under *materials_root* as pytest params.
+    """Collect Autodesk ``.mtlx`` files as :class:`RenderTestCase` pytest params.
 
-    Args:
-        materials_root: Base directory whose relative paths become test IDs.
-        subdirs: If given, only search these subdirectories (each must exist).
-                 If *None*, search *materials_root* itself.
-        exclude_underscore: Skip files whose name starts with ``_``.
+    Hierarchical layout: each asset's ``output_subpath`` preserves
+    the directory structure under ``adsk/``.
     """
+    if repo_root is None:
+        repo_root = get_repo_root()
+
+    materials_root = (
+        repo_root / "contrib" / "adsk" / "resources" / "Materials"
+    )
     if not materials_root.exists():
         return []
 
-    roots = (
-        [materials_root / d for d in subdirs] if subdirs else [materials_root]
-    )
-
-    files = []
-    for root in roots:
-        if not root.exists():
-            continue
-        for mtlx_file in sorted(root.rglob("*.mtlx")):
-            if exclude_underscore and mtlx_file.name.startswith("_"):
-                continue
-            rel_path = mtlx_file.relative_to(materials_root)
-            file_id = str(rel_path).replace("\\", "/")
-            files.append(pytest.param(mtlx_file, id=file_id))
+    seen: dict[str, Path] = {}
+    files: list = []
+    for mtlx_file in sorted(materials_root.rglob("*.mtlx")):
+        rel = mtlx_file.relative_to(materials_root)
+        subpath = Path("adsk") / rel.parent / mtlx_file.stem
+        key = str(subpath).replace("\\", "/")
+        if key in seen:
+            raise ValueError(
+                f"Output path collision: '{key}' maps to both "
+                f"{seen[key]} and {mtlx_file}"
+            )
+        seen[key] = mtlx_file
+        file_id = f"adsk/{str(rel).replace(chr(92), '/')}"
+        case = RenderTestCase(input_path=mtlx_file, output_subpath=subpath)
+        files.append(pytest.param(case, id=file_id))
 
     return files
 
 
-def get_stdlib_files():
-    """Stdlib .mtlx files (TestSuite + Examples)."""
-    materials_root = get_repo_root() / "resources" / "Materials"
-    return collect_mtlx_files(
-        materials_root,
-        subdirs=["TestSuite", "Examples"],
-        exclude_underscore=True,
-    )
+def collect_render_test_files(
+    options: MaterialXTestOptions | None = None,
+    repo_root: Path | None = None,
+) -> list:
+    """Collect ASWF ``.mtlx`` files (legacy wrapper around
+    :func:`collect_aswf_test_files` for backward compatibility).
 
+    Returns raw ``Path`` pytest params (no ``RenderTestCase``).
+    """
+    if options is None:
+        options = parse_options_mtlx()
+    if repo_root is None:
+        repo_root = get_repo_root()
 
-def get_adsk_files():
-    """Autodesk contributed .mtlx files."""
-    materials_dir = (
-        get_repo_root() / "contrib" / "adsk" / "resources" / "Materials"
-    )
-    return collect_mtlx_files(materials_dir)
+    cases = collect_aswf_test_files(options, repo_root)
+    files = []
+    for param in cases:
+        case = param.values[0]
+        materials_root = repo_root / "resources" / "Materials"
+        rel_path = case.input_path.relative_to(materials_root)
+        file_id = str(rel_path).replace("\\", "/")
+        files.append(pytest.param(case.input_path, id=file_id))
+    return files
 
 
 # ---------------------------------------------------------------------------
@@ -428,29 +468,19 @@ def render_element(renderer, doc, elem, search_path, output_path=None):
 # Test runner
 # ---------------------------------------------------------------------------
 
-_seen_stems: dict[str, set[str]] = {}
-
-
-def run_render_test_file(
-    mtlx_file: Path, subtests, env: RenderEnvironment,
+def _render_elements(
+    mtlx_file: Path,
+    output_path: Path,
+    subtests,
+    env: RenderEnvironment,
 ):
-    """Run render tests for all renderable elements in *mtlx_file*."""
+    """Core render loop shared by both test-case and legacy-file runners."""
     doc = mx.createDocument()
     mx.readFromXmlFile(doc, str(mtlx_file))
     doc.setDataLibrary(env.data_library)
 
     valid, msg = doc.validate()
     assert valid, f"Document validation failed: {msg}"
-
-    stem = mtlx_file.stem
-    output_path = env.get_output_path(mtlx_file)
-    dir_key = str(output_path.parent.resolve())
-    stems_for_dir = _seen_stems.setdefault(dir_key, set())
-    assert stem not in stems_for_dir, (
-        f"Output directory collision: '{stem}' was already used by another "
-        f".mtlx file. Current file: {mtlx_file}"
-    )
-    stems_for_dir.add(stem)
 
     file_search_path = mx.FileSearchPath(env.search_path.asString())
     file_search_path.append(str(mtlx_file.parent.resolve()))
@@ -486,6 +516,9 @@ def run_render_test_file(
                 if should_skip_element(rel_path, elem_name):
                     pytest.skip(get_element_skip_reason(rel_path, elem_name))
 
+            if env.cli_options.no_render:
+                pytest.skip("--no-render: skipping GPU rendering")
+
             result = render_element(
                 env.renderer, doc, elem, file_search_path,
                 output_path=output_path,
@@ -495,7 +528,21 @@ def run_render_test_file(
                 f"{result.error or result.shader_errors or 'Unknown error'}"
             )
 
-            env.assert_image_matches_baseline(result.output_path)
+
+def run_render_test(
+    case: RenderTestCase, subtests, env: RenderEnvironment,
+):
+    """Run render tests for a :class:`RenderTestCase`."""
+    output_path = env.get_output_path(case)
+    _render_elements(case.input_path, output_path, subtests, env)
+
+
+def run_render_test_file(
+    mtlx_file: Path, subtests, env: RenderEnvironment,
+):
+    """Run render tests for a raw file path (legacy Metashade override path)."""
+    output_path = env.get_output_path_for_file(mtlx_file)
+    _render_elements(mtlx_file, output_path, subtests, env)
 
 
 # ---------------------------------------------------------------------------
@@ -505,8 +552,13 @@ def run_render_test_file(
 class RenderEnvironment:
     """Encapsulates a specific MaterialX render execution environment.
 
-    Each environment gets its own ``output_dir`` (where renders and
-    shader dumps go) while sharing the immutable ``cli_options``.
+    Path structure::
+
+        output_root / env_subpath / case.output_subpath / <element>.png
+
+    ``output_root`` comes from :class:`CliOptions`.
+    ``env_subpath`` is a fixed relative path owned by this environment.
+    ``case.output_subpath`` is determined at collection time.
     """
 
     def __init__(
@@ -515,100 +567,75 @@ class RenderEnvironment:
         data_library: mx.Document,
         search_path: mx.FileSearchPath,
         cli_options: CliOptions,
-        output_dir: Path,
-        flat_layout: bool = True,
+        env_subpath: Path,
     ):
         self.renderer = renderer
         self.data_library = data_library
         self.search_path = search_path
         self.cli_options = cli_options
-        self.output_dir = output_dir
-        self.flat_layout = flat_layout
+        self.env_subpath = env_subpath
 
-    def get_output_path(self, mtlx_file: Path) -> Path:
-        if self.flat_layout:
-            return self.output_dir / mtlx_file.stem
+    @property
+    def output_dir(self) -> Path:
+        """Full output directory for this environment."""
+        return self.cli_options.output_root / self.env_subpath
 
-        repo_root = get_repo_root()
-        materials_root = repo_root / "resources" / "Materials"
-        materials_dir = (
-            repo_root / "contrib" / "adsk" / "resources" / "Materials"
-        )
+    def get_output_path(self, case: RenderTestCase) -> Path:
+        """Resolve the output directory for a specific test case."""
+        return self.output_dir / case.output_subpath
 
-        if mtlx_file.is_relative_to(materials_dir):
-            rel_path = mtlx_file.relative_to(materials_dir)
-        elif mtlx_file.is_relative_to(materials_root):
-            rel_path = mtlx_file.relative_to(materials_root)
+    def get_output_path_for_file(self, mtlx_file: Path) -> Path:
+        """Legacy helper: derive output path from a raw file path.
+
+        Used by environments that still parametrize with raw ``Path``
+        objects (e.g. Metashade overrides with ``collect_render_test_files``).
+        Falls back to flat ``aswf/<stem>`` layout.
+        """
+        return self.output_dir / "aswf" / mtlx_file.stem
+
+    def run_test(self, case_or_file, subtests):
+        """Run the render test for a single material.
+
+        Accepts either a :class:`RenderTestCase` or a raw ``Path``
+        (for backward compatibility with Metashade override tests).
+        """
+        if isinstance(case_or_file, RenderTestCase):
+            run_render_test(case_or_file, subtests, self)
         else:
-            rel_path = Path(mtlx_file.name)
-
-        return self.output_dir / rel_path.parent / mtlx_file.stem
-
-    def assert_image_matches_baseline(self, rendered_file: Path | None):
-        """Assert rendered image matches its baseline (FLIP comparison)."""
-        if not (self.cli_options.baseline_dir and rendered_file):
-            return
-
-        rel_rendered = rendered_file.relative_to(self.output_dir)
-        baseline_file = self.cli_options.baseline_dir / rel_rendered
-        heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
-
-        res = compare_rendered_image(
-            rendered_file, baseline_file, heatmap_path=heatmap_file,
-        )
-        if not res['success']:
-            assert False, f"Image comparison failed: {res['error']}"
-
-        mean_flip = res['mean_flip']
-        max_flip = res['max_flip']
-        pct_diff = res['pct_diff_pixels']
-
-        assert mean_flip < self.cli_options.flip_threshold, (
-            f"Image comparison failed! Mean FLIP: {mean_flip:.4f} "
-            f"(threshold: {self.cli_options.flip_threshold}), "
-            f"Max FLIP: {max_flip:.4f}, "
-            f"{pct_diff:.1f}% pixels differ. "
-            f"Heatmap saved to {heatmap_file.name}"
-        )
-
-    def run_test(self, mtlx_file: Path, subtests):
-        """Run the render test for a single MaterialX file."""
-        run_render_test_file(mtlx_file, subtests, self)
+            run_render_test_file(case_or_file, subtests, self)
 
 
 # ---------------------------------------------------------------------------
 # Test classes
 # ---------------------------------------------------------------------------
 
-class TestRenderStdlibMaterials:
-    """
-    Test rendering of standard MaterialX library materials.
-    
-    Covers all ``.mtlx`` files under ``resources/Materials/TestSuite`` and
-    ``resources/Materials/Examples`` (a superset of the curated paths in
-    ``_options.mtlx`` used by the C++ MaterialXTest suite).
+class TestRenderAswfMaterials:
+    """Test rendering of ASWF MaterialX library materials.
+
+    Covers ``_options.mtlx`` render test paths (StandardSurface, OpenPbr,
+    UsdPreviewSurface, pbrlib BSDFs, stdlib procedurals, etc.).
     """
 
-    @pytest.mark.parametrize("mtlx_file", get_stdlib_files())
-    def test_render_file(
+    @pytest.mark.parametrize("case", collect_aswf_test_files())
+    def test_render(
         self,
-        mtlx_file: Path,
+        case: RenderTestCase,
         subtests,
-        stdlib_env: RenderEnvironment
+        stdlib_env: RenderEnvironment,
     ):
-        """Test all renderable elements in a stdlib material file."""
-        stdlib_env.run_test(mtlx_file, subtests)
+        """Test all renderable elements in an ASWF material file."""
+        stdlib_env.run_test(case, subtests)
 
 
 class TestRenderAdskMaterials:
     """Test rendering of Autodesk contributed materials."""
 
-    @pytest.mark.parametrize("mtlx_file", get_adsk_files())
-    def test_render_file(
+    @pytest.mark.parametrize("case", collect_adsk_test_files())
+    def test_render(
         self,
-        mtlx_file: Path,
+        case: RenderTestCase,
         subtests,
-        adsk_env: RenderEnvironment
+        adsk_env: RenderEnvironment,
     ):
         """Test all renderable elements in an Autodesk material file."""
-        adsk_env.run_test(mtlx_file, subtests)
+        adsk_env.run_test(case, subtests)

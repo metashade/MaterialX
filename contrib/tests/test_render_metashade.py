@@ -16,16 +16,22 @@ from test_render import (
     add_additional_test_streams,
     collect_render_test_files,
     RenderEnvironment,
+    RenderTestCase,
 )
 
 _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
 
 
 class _RefPaths:
-    """Paths for Metashade reference data, relative to ``--output-dir``."""
+    """Paths for Metashade reference data.
+
+    ``LIBRARIES`` is always repo-relative (committed reference inputs).
+    ``ENV_SUBPATH`` is the environment subpath for render output,
+    relative to ``output_root``.
+    """
     ROOT = Path("tests") / "metashade_ref"
-    LIBRARIES = ROOT / "libraries"
-    RENDERS = ROOT / "renders"
+    LIBRARIES = Path("contrib") / ROOT / "libraries"
+    ENV_SUBPATH = ROOT / "renders"
 
 
 class MetashadeOverrideTestBase:
@@ -52,7 +58,7 @@ class MetashadeOverrideTestBase:
         return custom_sp
 
     @pytest.fixture(scope="class")
-    def override_stdlib(self, request, override_search_path, cli_options):
+    def override_stdlib(self, request, override_search_path, repo_root):
         """Create a custom stdlib document with Metashade override loaded first."""
         lib = mx.createDocument()
         
@@ -62,7 +68,7 @@ class MetashadeOverrideTestBase:
             "subclassing MetashadeOverrideTestBase"
         )
         
-        libraries_dir = cli_options.output_dir / _RefPaths.LIBRARIES
+        libraries_dir = repo_root / _RefPaths.LIBRARIES
         override_sp = mx.FileSearchPath(libraries_dir.as_posix())
 
         # Load Metashade overrides first so they take priority by insertion order
@@ -126,7 +132,7 @@ class MetashadeOverrideTestBase:
     ):
         """Build a :class:`RenderEnvironment` with Metashade overrides.
 
-        Render output and shader dumps go directly into the committed
+        In developer mode, render output goes directly into the committed
         baseline directory (``metashade_ref/renders/<subdir>``).
         Review changes with ``git diff``.
         """
@@ -136,15 +142,12 @@ class MetashadeOverrideTestBase:
             "subclassing MetashadeOverrideTestBase"
         )
 
-        output_dir = cli_options.output_dir / _RefPaths.RENDERS / subdir
-        output_dir.mkdir(parents=True, exist_ok=True)
-
         return RenderEnvironment(
             renderer=override_renderer,
             data_library=override_stdlib,
             search_path=override_search_path,
             cli_options=cli_options,
-            output_dir=output_dir,
+            env_subpath=_RefPaths.ENV_SUBPATH / subdir,
         )
 
 
