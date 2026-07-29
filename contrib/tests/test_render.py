@@ -485,7 +485,7 @@ class _RefDiffer:
         assert ref.exists(), (
             f"No committed baseline for {path.name} at {ref}"
         )
-        assert filecmp.cmp(path, ref), (
+        assert filecmp.cmp(path, ref, shallow=False), (
             f"Shader source mismatch: {path.name} differs from "
             f"baseline at {ref}"
         )

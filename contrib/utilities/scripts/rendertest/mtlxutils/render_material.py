@@ -62,9 +62,9 @@ def render_material(
     """
     Generate shaders and optionally render a single material node.
 
-    When *no_render* is ``True``, shader source is generated and dumped
-    to *output_path* but GPU program creation, rendering and image
-    capture are skipped.
+    When *no_render* is ``True``, shader source is generated (and dumped
+    to *output_path* when provided) but GPU program creation, rendering
+    and image capture are skipped.
 
     Args:
         renderer: Initialized GlslRenderer instance
