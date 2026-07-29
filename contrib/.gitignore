@@ -4,9 +4,16 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
-# Render outputs
-/renders/
+# Render outputs — ignore everything by default
+/renders/*
 
-# Test outputs
-*.png
-render_log.txt
+# Track .glsl shader baselines for our test collections
+!/renders/aswf/
+/renders/aswf/**
+!/renders/aswf/**/
+!/renders/aswf/**/*.glsl
+
+!/renders/adsk/
+/renders/adsk/**
+!/renders/adsk/**/
+!/renders/adsk/**/*.glsl
