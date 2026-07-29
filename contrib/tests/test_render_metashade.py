@@ -89,9 +89,17 @@ class MetashadeOverrideTestBase:
     @pytest.fixture(scope="class")
     def override_renderer(
         self, override_stdlib, override_search_path, repo_root,
-        mtlx_test_options,
+        mtlx_test_options, cli_options,
     ):
-        """Create a custom renderer initialized with the overridden stdlib."""
+        """Create a custom renderer initialized with the overridden stdlib.
+
+        When ``--no-render`` is active, returns a lightweight
+        :class:`HeadlessShaderGen` instead of a full GL renderer.
+        """
+        if cli_options.no_render:
+            from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
+            return ShaderGenWrapper(override_stdlib, override_search_path)
+
         # IBL paths
         lights_path = repo_root / "resources" / "Lights"
         radiance_path = lights_path / "san_giuseppe_bridge.hdr"

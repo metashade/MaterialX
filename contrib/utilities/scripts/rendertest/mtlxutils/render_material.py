@@ -87,7 +87,8 @@ def render_material(
         generator = renderer.getCodeGenerator()
         generator.registerSourceCodeSearchPath(search_path)
         image_handler = renderer.getImageHandler()
-        image_handler.setSearchPath(search_path)
+        if image_handler is not None:
+            image_handler.setSearchPath(search_path)
     
     # Handle material nodes that wrap surface shaders
     # getShaderNodes only works on Node objects, not Outputs

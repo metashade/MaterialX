@@ -190,15 +190,19 @@ def glsl_renderer(stdlib, search_path, repo_root, mtlx_test_options):
 
 
 @pytest.fixture(scope="session")
-def renderer(glsl_renderer):
+def renderer(request, cli_options, stdlib, search_path):
     """
     Session-scoped renderer fixture.
     
-    Provides a generic renderer interface for tests. Currently maps to the
-    GLSL renderer, but can be parameterized or extended in the future to support
-    other rendering backends (e.g. MSL, OSL, Slang).
+    When ``--no-render`` is active, returns a lightweight
+    :class:`HeadlessShaderGen` that only needs the CPU-based shader
+    generator (no OpenGL context).  Otherwise resolves the full
+    ``glsl_renderer`` fixture on demand.
     """
-    return glsl_renderer
+    if cli_options.no_render:
+        from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
+        return ShaderGenWrapper(stdlib, search_path)
+    return request.getfixturevalue("glsl_renderer")
 
 
 # ---------------------------------------------------------------------------

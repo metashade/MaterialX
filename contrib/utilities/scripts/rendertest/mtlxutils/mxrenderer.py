@@ -53,6 +53,100 @@ def buildColorTransformDict(doc):
     
     return colordict, targetdict
 
+class ShaderGenWrapper:
+    '''
+    CPU-only shader code generator.
+
+    Wraps MtlxShaderGen with per-render-node option setup (transparency,
+    color transforms, units) and source code caching.  Does not touch
+    OpenGL -- safe to use in headless / GPU-less environments.
+
+    ``GlslRenderer`` (and future backends) compose this class for
+    code generation and add GPU-specific rendering on top.
+    '''
+
+    def __init__(self, stdlib, searchPath, target='genglsl'):
+        self.mxgen = mxshadergen.MtlxShaderGen(stdlib)
+        self.mxgen.setup()
+        self.mxgen.setGeneratorForTarget(target)
+        self.mxgen.registerSourceCodeSearchPath(searchPath)
+
+        context = self.mxgen.getContext()
+        genOptions = context.getOptions()
+        genOptions.emitColorTransforms = True
+        genOptions.fileTextureVerticalFlip = True
+
+        self.activeShader = None
+        self.activeShaderErrors = ''
+        self.sourceCode = {}
+        self.unitDict = None
+
+    def getCodeGenerator(self):
+        return self.mxgen
+
+    def getActiveShader(self):
+        return self.activeShader
+
+    def getActiveShaderErrors(self):
+        return self.activeShaderErrors
+
+    def setActiveShaderErrors(self, errors):
+        self.activeShaderErrors = errors
+
+    def getSourceCode(self):
+        return self.sourceCode
+
+    def getImageHandler(self):
+        return None
+
+    def generateShader(self, node, targetColorSpaceOverride='lin_rec709', targetDistanceUnit='meter'):
+        '''
+        Generate shader source for *node*.
+
+        Sets per-node options (transparency, lighting, color space,
+        units) and delegates to ``MtlxShaderGen.generateShader``.
+        Caches the resulting shader and source code.
+        '''
+        self.activeShader = None
+        if not node:
+            return None
+
+        mxcontext = self.mxgen.getContext()
+        mxoptions = mxcontext.getOptions()
+        mxgenerator = mxcontext.getShaderGenerator()
+        if not mx_gen_shader.elementRequiresShading(node):
+            mxoptions.hwMaxActiveLightSources = 0
+        else:
+            mxoptions.hwMaxActiveLightSources = 0
+        mxoptions.hwTransparency = mx_gen_shader.isTransparentSurface(node, mxgenerator.getTarget())
+
+        doc = node.getDocument()
+        if doc:
+            buildUnitDict(doc)
+            if self.unitDict:
+                units = self.unitDict['distance']
+                if targetDistanceUnit not in units:
+                    targetDistanceUnit = 'meter'
+
+            sdict, tdict = buildColorTransformDict(doc)
+            if tdict:
+                if targetColorSpaceOverride not in tdict:
+                    targetColorSpaceOverride = 'lin_rec709'
+        else:
+            targetDistanceUnit = 'meter'
+            targetColorSpaceOverride = 'lin_rec709'
+
+        mxoptions.targetDistanceUnit = targetDistanceUnit
+        mxoptions.targetColorSpaceOverride = targetColorSpaceOverride
+
+        self.activeShader, self.activeShaderErrors = self.mxgen.generateShader(node)
+        if self.activeShader:
+            self.sourceCode[mx_gen_shader.VERTEX_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.VERTEX_STAGE)
+            self.sourceCode[mx_gen_shader.PIXEL_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
+
+        return self.activeShader
+
+
 class GlslRenderer():
     '''
     Wrapper for GLSL sample renderer.
@@ -70,11 +164,8 @@ class GlslRenderer():
         self.renderSize = desiredRenderSize
         self.renderer = None
 
-        # Code Generator
-        self.mxgen = None 
-        self.activeShader = None
-        self.activeShaderErrors = ''
-        self.sourceCode = {}
+        # Code Generator (created in setupGenerator)
+        self.shader_gen = None
 
         # Image Handling
         self.capturedImage = None
@@ -96,13 +187,6 @@ class GlslRenderer():
         # Light setup
         self.lightHandler = None
 
-        # Units dictionary
-        self.unitDict = None
-
-        # Colorspace dictionaries
-        self.sourceColorDict = None
-        self.targetColorDict = None
-
         # Camera
         self.camera = mx_render.Camera.create()
 
@@ -116,19 +200,19 @@ class GlslRenderer():
         return [512,512]
     
     def getCodeGenerator(self):
-        return self.mxgen
+        return self.shader_gen.getCodeGenerator()
     
     def getActiveShader(self):
-        return self.activeShader
+        return self.shader_gen.getActiveShader()
 
     def getActiveShaderErrors(self):
-        return self.activeShaderErrors
+        return self.shader_gen.getActiveShaderErrors()
     
     def setActiveShaderErrors(self, errors):
-        self.activeShaderErrors = errors
+        self.shader_gen.setActiveShaderErrors(errors)
     
     def getSourceCode(self):
-        return self.sourceCode
+        return self.shader_gen.getSourceCode()
     
     def haveGLTFLoader(self):
         return self.haveCGLTFLoader
@@ -284,7 +368,7 @@ class GlslRenderer():
         if enableDirectLighting:
             lights = []
             self.lightHandler.findLights(doc, lights)
-            mxcontext = self.mxgen.getContext()
+            mxcontext = self.shader_gen.getCodeGenerator().getContext()
             self.lightHandler.registerLights(doc, lights, mxcontext)
 
             # Set the list of lights on the with the generator
@@ -334,89 +418,34 @@ class GlslRenderer():
 
     def setupGenerator(self, stdlib, searchPath):
         '''
-        Setup code generation. Returns the generator instantiated.
-        Note: It is important to set up the source code path so that
-        file implementations can be found.
+        Setup code generation via :class:`ShaderGenWrapper`.
+        Returns the generator instantiated.
         '''
-        self.mxgen = mxshadergen.MtlxShaderGen(stdlib)
-        self.mxgen.setup()
-
-        # Check generator and generator options
-        mxgenerator = None
-        mxcontext = self.mxgen.setGeneratorForTarget('genglsl')
+        self.shader_gen = ShaderGenWrapper(stdlib, searchPath)
+        mxcontext = self.shader_gen.getCodeGenerator().getContext()
         if mxcontext:
-            mxgenerator = mxcontext.getShaderGenerator()
-
-        # Set source code path
-        self.mxgen.registerSourceCodeSearchPath(searchPath)
-
-        return mxgenerator
+            return mxcontext.getShaderGenerator()
+        return None
 
     def findRenderableElements(self, doc):
-        # Generate shader for a given node
-        self.nodes = self.mxgen.findRenderableElements(doc)
+        self.nodes = self.shader_gen.getCodeGenerator().findRenderableElements(doc)
         return self.nodes
 
     def generateShader(self, node, targetColorSpaceOverride='lin_rec709', targetDistanceUnit='meter'):
-        '''
-        Generate new GLSL shader.
-        - Inspects node to check if it requires lighting and / or is transparent.
-        - Sets target colorspace and real-world units
-        - Generates code and caches it
-        - Caches the "active" Shader node
-        '''
-        self.activeShader = None
-        if not node:
-            return None
-        
-        # Set up generation options.
-        # Detect requirement for shading and transparency.
-        mxcontext = self.mxgen.getContext()
-        mxoptions = mxcontext.getOptions()
-        mxgenerator = mxcontext.getShaderGenerator()
-        if not mx_gen_shader.elementRequiresShading(node):
-            mxoptions.hwMaxActiveLightSources = 0
-        else:
-            mxoptions.hwMaxActiveLightSources = 0
-        mxoptions.hwTransparency = mx_gen_shader.isTransparentSurface(node, mxgenerator.getTarget())
-
-        # Check support of units and working color space
-        doc = node.getDocument()
-        if doc:
-            buildUnitDict(doc)
-            if self.unitDict:
-                units = self.unitDict['distance']
-                if targetDistanceUnit not in units:
-                    targetDistanceUnit = 'meter'
-
-            sdict, tdict = buildColorTransformDict(doc)
-            if tdict:
-                if targetColorSpaceOverride not in tdict:
-                    targetColorSpaceOverride = 'lin_rec709'
-        else:
-            targetDistanceUnit = 'meter'
-            targetColorSpaceOverride = 'lin_rec709'
-
-        mxoptions.targetDistanceUnit = targetDistanceUnit
-        mxoptions.targetColorSpaceOverride = targetColorSpaceOverride
-
-        self.activeShader, self.activeShaderErrors = self.mxgen.generateShader(node)        
-        if self.activeShader:
-            self.sourceCode[mx_gen_shader.VERTEX_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.VERTEX_STAGE)
-            self.sourceCode[mx_gen_shader.PIXEL_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
-
-        return self.activeShader
+        '''Delegate to :class:`ShaderGenWrapper`.'''
+        return self.shader_gen.generateShader(node, targetColorSpaceOverride, targetDistanceUnit)
 
     def createProgram(self):
         '''
         Create a GLSL program from the active shader node and validates it's inputs.
         Note: A light handler **must** be set to for validation to work properly.
         '''
-        if not self.activeShader:
+        activeShader = self.shader_gen.getActiveShader()
+        if not activeShader:
             return False
         
         self.renderer.setLightHandler(self.lightHandler)
-        self.renderer.createProgram(self.activeShader)
+        self.renderer.createProgram(activeShader)
         #self.renderer.validateInputs()
 
         program = self.renderer.getProgram()
@@ -552,7 +581,7 @@ def initializeRenderer(stdlib, searchPath,
         glslRenderer.addToRenderLog(' - Loaded radiance map: %d x %d' % (radMap.getWidth(), radMap.getHeight()))
         glslRenderer.addToRenderLog(' - Loaded irradiance map: %d x %d' % (irradMap.getWidth(), irradMap.getHeight()))
 
-    # Set up source code generator. Make sure to set the source code path
+    # Set up source code generator (gen options are set by ShaderGenWrapper)
     sourceCodeSearchPath = searchPath
     glslRenderer.setupGenerator(stdlib, sourceCodeSearchPath)
     context = glslRenderer.getCodeGenerator().getContext()
@@ -561,15 +590,6 @@ def initializeRenderer(stdlib, searchPath,
         if generator:
             glslRenderer.addToRenderLog('- Iniitialize generator for target: %s.\n - Source path: %s' % 
                 (generator.getTarget(), sourceCodeSearchPath.asString()))
-
-    # Set up additional options for generation
-    context = glslRenderer.getCodeGenerator().getContext()
-    genOptions = context.getOptions()
-    genOptions.emitColorTransforms = True # This is True by default
-    genOptions.fileTextureVerticalFlip = True
-    # TODO: This and a number of other options are not been exposed in the Python API
-    #genOptions.addUpstreamDependencies = True
-    # 
 
     return glslRenderer        
 
