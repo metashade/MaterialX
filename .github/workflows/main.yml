@@ -40,6 +40,7 @@ jobs:
           python: 3.13
           cmake_config: -DMATERIALX_BUILD_PERFETTO_TRACING=ON
           extended_build_perfetto: ON
+          contrib_tests: ON
 
         - name: Linux_GCC_14_Python314
           os: ubuntu-24.04
@@ -280,6 +281,20 @@ jobs:
         python Scripts/generateshader.py ../resources/Materials/Examples/StandardSurface --target msl
         python Scripts/generateshader.py ../resources/Materials/Examples/StandardSurface --target slang
       working-directory: python
+
+    - name: Install Contrib Test Dependencies
+      if: matrix.contrib_tests == 'ON'
+      run: pip install pytest pytest-html pytest-metadata pytest-subtests
+
+    - name: Metashade Implementation Generation + RefDiffer
+      if: matrix.contrib_tests == 'ON'
+      working-directory: contrib/metashade
+      env:
+        METASHADE_PYTEST_OUT_DIR: ${{ runner.temp }}/ci/metashade_out
+        METASHADE_MTLX_PYTEST_REF_DIR: ${{ github.workspace }}/contrib/tests/metashade_ref/libraries
+      run: >
+        python -m pytest tests/mtlx/
+        -x -v
 
     - name: Shader Validation Tests (Windows)
       if: matrix.test_shaders == 'ON' && runner.os == 'Windows'
