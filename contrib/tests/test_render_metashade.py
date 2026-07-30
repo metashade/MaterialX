@@ -94,7 +94,7 @@ class MetashadeOverrideTestBase:
         """Create a custom renderer initialized with the overridden stdlib.
 
         When ``--no-render`` is active, returns a lightweight
-        :class:`HeadlessShaderGen` instead of a full GL renderer.
+        :class:`ShaderGenWrapper` instead of a full GL renderer.
         """
         if cli_options.no_render:
             from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper

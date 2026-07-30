@@ -195,7 +195,7 @@ def renderer(request, cli_options, stdlib, search_path):
     Session-scoped renderer fixture.
     
     When ``--no-render`` is active, returns a lightweight
-    :class:`HeadlessShaderGen` that only needs the CPU-based shader
+    :class:`ShaderGenWrapper` that only needs the CPU-based shader
     generator (no OpenGL context).  Otherwise resolves the full
     ``glsl_renderer`` fixture on demand.
     """

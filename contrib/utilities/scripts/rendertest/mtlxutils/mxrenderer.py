@@ -116,13 +116,11 @@ class ShaderGenWrapper:
         mxgenerator = mxcontext.getShaderGenerator()
         if not mx_gen_shader.elementRequiresShading(node):
             mxoptions.hwMaxActiveLightSources = 0
-        else:
-            mxoptions.hwMaxActiveLightSources = 0
         mxoptions.hwTransparency = mx_gen_shader.isTransparentSurface(node, mxgenerator.getTarget())
 
         doc = node.getDocument()
         if doc:
-            buildUnitDict(doc)
+            self.unitDict = buildUnitDict(doc)
             if self.unitDict:
                 units = self.unitDict['distance']
                 if targetDistanceUnit not in units:
