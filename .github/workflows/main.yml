@@ -286,7 +286,7 @@ jobs:
       if: matrix.contrib_tests == 'ON'
       run: pip install pytest pytest-html pytest-metadata pytest-subtests
 
-    - name: Shader Generation + RefDiffer
+    - name: pytest test_render.py
       if: matrix.contrib_tests == 'ON'
       working-directory: contrib/tests
       run: >
@@ -295,7 +295,7 @@ jobs:
         --output-dir ${{ runner.temp }}/ci/renders
         -x -v
 
-    - name: Metashade Implementation Generation + RefDiffer
+    - name: pytest metashade.mtlx
       if: matrix.contrib_tests == 'ON'
       working-directory: contrib/metashade
       env:
@@ -303,6 +303,15 @@ jobs:
         METASHADE_MTLX_PYTEST_REF_DIR: ${{ github.workspace }}/contrib/tests/metashade_ref/libraries
       run: >
         python -m pytest tests/mtlx/
+        -x -v
+
+    - name: pytest test_render_metashade.py
+      if: matrix.contrib_tests == 'ON'
+      working-directory: contrib/tests
+      run: >
+        python -m pytest test_render_metashade.py
+        --no-render
+        --output-dir ${{ runner.temp }}/ci/renders
         -x -v
 
     - name: Shader Validation Tests (Windows)
