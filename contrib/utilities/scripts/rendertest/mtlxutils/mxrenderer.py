@@ -114,8 +114,7 @@ class ShaderGenWrapper:
         mxcontext = self.mxgen.getContext()
         mxoptions = mxcontext.getOptions()
         mxgenerator = mxcontext.getShaderGenerator()
-        if not mx_gen_shader.elementRequiresShading(node):
-            mxoptions.hwMaxActiveLightSources = 0
+        mxoptions.hwMaxActiveLightSources = 0
         mxoptions.hwTransparency = mx_gen_shader.isTransparentSurface(node, mxgenerator.getTarget())
 
         doc = node.getDocument()
