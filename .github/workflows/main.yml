@@ -286,13 +286,13 @@ jobs:
       if: matrix.contrib_tests == 'ON'
       run: pip install pytest pytest-html pytest-metadata pytest-subtests
 
-    - name: Stdlib Shader Generation + RefDiffer
+    - name: Shader Generation + RefDiffer
       if: matrix.contrib_tests == 'ON'
       working-directory: contrib/tests
       run: >
         python -m pytest test_render.py
         --no-render
-        --output-dir ${{ runner.temp }}/ci/stdlib_renders
+        --output-dir ${{ runner.temp }}/ci/renders
         -x -v
 
     - name: Metashade Implementation Generation + RefDiffer
