@@ -30,13 +30,12 @@ def find_renderable_materials(doc) -> List:
     return gen.findRenderableElements(doc)
 
 
-def _dump_shader_stages(shader, output_path: Path, material_name: str, target: str) -> dict:
+def _dump_shader_stages(shader, output_path: Path, material_name: str) -> dict:
     """Write vertex and pixel stage GLSL to files, matching MaterialXTest naming.
 
     Returns a dict mapping stage name to the written file path.
     """
-    suffix = target.removeprefix("gen") if target else target
-    base = output_path / f"{mx.createValidName(material_name)}_{suffix}"
+    base = output_path / mx.createValidName(material_name)
     paths = {}
     for stage_name, ext in [(mx_gen_shader.VERTEX_STAGE, "_vs.glsl"),
                             (mx_gen_shader.PIXEL_STAGE, "_ps.glsl")]:
@@ -116,7 +115,7 @@ def render_material(
     # Dump shaders
     shader_dump_paths = {}
     if output_path:
-        shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
+        shader_dump_paths = _dump_shader_stages(shader, output_path, material_name)
 
     if no_render:
         return RenderResult(
