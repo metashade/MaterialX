@@ -76,16 +76,20 @@ class MetashadeOverrideTestBase:
         libraries_dir = repo_root / _RefPaths.LIBRARIES
         override_sp = mx.FileSearchPath(libraries_dir.as_posix())
 
-        metashade_libs = repo_root / _RefPaths.METASHADE_LIBRARIES
-        if metashade_libs.exists():
-            override_sp.append(metashade_libs.as_posix())
-
-        # Load Metashade overrides first so they take priority by insertion order
+        # Load generated overrides (nodedef, impl, GLSL)
         mx.loadLibraries([subdir], override_sp, lib)
         override_dir = libraries_dir / subdir
         assert lib.getChildren(), (
             f"loadLibraries loaded nothing from {override_dir}"
         )
+
+        # Load hand-written library files (e.g. the SS nodegraph) separately;
+        # loadLibraries stops at the first matching subdir, so a single call
+        # with both paths would skip the second root.
+        metashade_libs = repo_root / _RefPaths.METASHADE_LIBRARIES
+        if (metashade_libs / subdir).exists():
+            metashade_sp = mx.FileSearchPath(metashade_libs.as_posix())
+            mx.loadLibraries([subdir], metashade_sp, lib)
 
         # Expose the override .glsl files to the shader generator
         override_search_path.append(override_dir.as_posix())
