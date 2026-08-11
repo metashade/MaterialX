@@ -26,11 +26,16 @@ class _RefPaths:
     """Paths for Metashade reference data.
 
     ``LIBRARIES`` is always repo-relative (committed reference inputs).
+    ``METASHADE_LIBRARIES`` points to hand-written library files inside
+    the Metashade submodule (e.g. the Standard Surface nodegraph).
     ``ENV_SUBPATH`` is the environment subpath for render output,
     relative to ``output_root``.
     """
     ROOT = Path("tests") / "metashade_ref"
     LIBRARIES = Path("contrib") / ROOT / "libraries"
+    METASHADE_LIBRARIES = (
+        Path("contrib") / "metashade" / "tests" / "mtlx" / "libraries"
+    )
     ENV_SUBPATH = ROOT / "renders"
 
 
@@ -70,6 +75,10 @@ class MetashadeOverrideTestBase:
         
         libraries_dir = repo_root / _RefPaths.LIBRARIES
         override_sp = mx.FileSearchPath(libraries_dir.as_posix())
+
+        metashade_libs = repo_root / _RefPaths.METASHADE_LIBRARIES
+        if metashade_libs.exists():
+            override_sp.append(metashade_libs.as_posix())
 
         # Load Metashade overrides first so they take priority by insertion order
         mx.loadLibraries([subdir], override_sp, lib)
