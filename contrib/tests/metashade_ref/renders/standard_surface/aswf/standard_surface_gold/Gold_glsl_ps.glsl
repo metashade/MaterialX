@@ -1215,7 +1215,7 @@ void mx_dielectric_bsdf(ClosureData closureData, float weight, vec3 tint, float 
         bsdf.response = Li * safeTint * comp * weight;
     }
 }
-void mx_metashade_ss_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
+void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
 {
 	vec2 main_roughness;
 	mx_roughness_anisotropy(specular_roughness, specular_anisotropy, main_roughness);
@@ -1249,7 +1249,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         {
             ClosureData closureData = makeClosureData(CLOSURE_TYPE_INDIRECT, L, V, N, P, occlusion);
             BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-            mx_metashade_ss_bsdf(closureData, base, base_color, diffuse_roughness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
 
             surface_ctor_out.color += occlusion * ss_bsdf_bsdf.response;
         }
@@ -1257,7 +1257,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         // Calculate the BSDF transmission for viewing direction
         ClosureData closureData = makeClosureData(CLOSURE_TYPE_TRANSMISSION, L, V, N, P, occlusion);
         BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-        mx_metashade_ss_bsdf(closureData, base, base_color, diffuse_roughness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
         surface_ctor_out.color += ss_bsdf_bsdf.response;
 
         // Compute and apply surface opacity
