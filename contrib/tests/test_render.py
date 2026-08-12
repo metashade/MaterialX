@@ -538,8 +538,11 @@ def _compare_render(result, image_ref_dir: Path, threshold: float):
         computeMeanError=True, parameters={"ppd": 70.0},
     )
 
-    flip_map = np.array(flip_map)
-    max_flip = float(flip_map.max())
+    mean_flip = float(mean_flip)
+    if mean_flip <= threshold:
+        return
+
+    max_flip = float(np.array(flip_map).max())
 
     heatmap_path = result.output_path.parent / f"{result.output_path.stem}_diff.png"
     heatmap_img, _, _ = flip.evaluate(
@@ -553,8 +556,7 @@ def _compare_render(result, image_ref_dir: Path, threshold: float):
         heatmap_arr = (heatmap_arr * 255).astype(np.uint8)
     Image.fromarray(heatmap_arr).save(heatmap_path)
 
-    mean_flip = float(mean_flip)
-    assert mean_flip <= threshold, (
+    assert False, (
         f"FLIP mean {mean_flip:.6f} exceeds threshold {threshold:.6f} "
         f"(max {max_flip:.6f}) for {result.output_path.name}\n"
         f"  ref:      {ref_image}\n"
