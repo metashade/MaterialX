@@ -1215,7 +1215,74 @@ void mx_dielectric_bsdf(ClosureData closureData, float weight, vec3 tint, float 
         bsdf.response = Li * safeTint * comp * weight;
     }
 }
-void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
+
+void mx_conductor_bsdf(ClosureData closureData, float weight, vec3 ior_n, vec3 ior_k, vec2 roughness, bool retroreflective, float thinfilm_thickness, float thinfilm_ior, vec3 N, vec3 X, int distribution, inout BSDF bsdf)
+{
+    bsdf.throughput = vec3(0.0);
+
+    if (weight < M_FLOAT_EPS)
+    {
+        return;
+    }
+
+    vec3 V = closureData.V;
+    vec3 L = closureData.L;
+
+    V = retroreflective ? reflect(-V, N) : V;
+    N = mx_forward_facing_normal(N, V);
+    float NdotV = clamp(dot(N, V), M_FLOAT_EPS, 1.0);
+
+    FresnelData fd = mx_init_fresnel_conductor(ior_n, ior_k, thinfilm_thickness, thinfilm_ior);
+
+    vec2 safeAlpha = clamp(roughness, M_FLOAT_EPS, 1.0);
+    float avgAlpha = mx_average_alpha(safeAlpha);
+
+    if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
+    {
+        X = normalize(X - dot(X, N) * N);
+        vec3 Y = cross(N, X);
+        vec3 H = normalize(L + V);
+
+        float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
+        float VdotH = clamp(dot(V, H), M_FLOAT_EPS, 1.0);
+
+        vec3 Ht = vec3(dot(H, X), dot(H, Y), dot(H, N));
+
+        vec3 F = mx_compute_fresnel(VdotH, fd);
+        float D = mx_ggx_NDF(Ht, safeAlpha);
+        float G = mx_ggx_smith_G2(NdotL, NdotV, avgAlpha);
+
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+
+        // Note: NdotL is cancelled out
+        bsdf.response = D * F * G * comp * closureData.occlusion * weight / (4.0 * NdotV);
+    }
+    else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
+    {
+        vec3 F = mx_compute_fresnel(NdotV, fd);
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+        vec3 Li = mx_environment_radiance(N, V, X, safeAlpha, distribution, fd);
+        bsdf.response = Li * comp * weight;
+    }
+}
+void mx_artistic_ior(vec3 reflectivity, vec3 edge_color, out vec3 ior, out vec3 extinction)
+{
+    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
+    // http://jcgt.org/published/0003/04/03/paper.pdf
+
+    vec3 r = clamp(reflectivity, 0.0, 0.99);
+    vec3 r_sqrt = sqrt(r);
+    vec3 n_min = (1.0 - r) / (1.0 + r);
+    vec3 n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
+    ior = mix(n_max, n_min, edge_color);
+
+    vec3 np1 = ior + 1.0;
+    vec3 nm1 = ior - 1.0;
+    vec3 k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
+    k2 = max(k2, 0.0);
+    extinction = sqrt(k2);
+}
+void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
 {
 	vec2 main_roughness;
 	mx_roughness_anisotropy(specular_roughness, specular_anisotropy, main_roughness);
@@ -1229,6 +1296,18 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, tangent, 0, 0, specular_bsdf);
 	bsdf.response = specular_bsdf.response + (diffuse_bsdf.response * specular_bsdf.throughput);
 	bsdf.throughput = specular_bsdf.throughput * diffuse_bsdf.throughput;
+	vec3 metal_reflectivity = base_color * base;
+	vec3 metal_edgecolor = specular_color * specular;
+	vec3 ior_n;
+	vec3 ior_k;
+	mx_artistic_ior(metal_reflectivity, metal_edgecolor, ior_n, ior_k);
+	BSDF metal_bsdf;
+	metal_bsdf.response = vec3(0.0, 0.0, 0.0);
+	metal_bsdf.throughput = vec3(1.0, 1.0, 1.0);
+	mx_conductor_bsdf(closureData, 1.0, ior_n, ior_k, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, tangent, 0, metal_bsdf);
+	float one_minus_metalness = 1 - metalness;
+	bsdf.response = (metal_bsdf.response * metalness) + (bsdf.response * one_minus_metalness);
+	bsdf.throughput = (metal_bsdf.throughput * metalness) + (bsdf.throughput * one_minus_metalness);
 }
 
 
@@ -1253,7 +1332,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         {
             ClosureData closureData = makeClosureData(CLOSURE_TYPE_INDIRECT, L, V, N, P, occlusion);
             BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
 
             surface_ctor_out.color += occlusion * ss_bsdf_bsdf.response;
         }
@@ -1261,7 +1340,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         // Calculate the BSDF transmission for viewing direction
         ClosureData closureData = makeClosureData(CLOSURE_TYPE_TRANSMISSION, L, V, N, P, occlusion);
         BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
         surface_ctor_out.color += ss_bsdf_bsdf.response;
 
         // Compute and apply surface opacity

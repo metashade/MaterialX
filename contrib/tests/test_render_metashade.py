@@ -230,6 +230,7 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
 _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_default.mtlx",
     "Examples/StandardSurface/standard_surface_plastic.mtlx",
+    "Examples/StandardSurface/standard_surface_gold.mtlx",
 )
 
 
@@ -246,16 +247,13 @@ def _get_standard_surface_test_files():
 
 
 class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
-    """Test rendering with the Metashade Standard Surface override.
+    """Test rendering with the Metashade Standard Surface reimplementation.
 
-    Replaces the entire ``ND_standard_surface_surfaceshader`` implementation
-    with a Metashade-generated diffuse + specular shader (Oren-Nayar +
-    dielectric BSDF layering).  Scoped to Tier 1 Standard Surface assets
-    where visual comparison against the C++ nodegraph baseline is meaningful.
-
-    ``IMAGE_REF_ENV_SUBPATH`` points at the stdlib renders so that each
-    test automatically compares its rendered image against the C++
-    reference.
+    Replaces ``ND_standard_surface_surfaceshader`` with the
+    Metashade-generated BSDF that is progressively growing towards
+    feature-completeness.  ``IMAGE_REF_ENV_SUBPATH`` points at the
+    stdlib renders so that each test automatically FLIP-compares
+    against the C++ reference.
     """
     SUBDIR = "standard_surface"
     IMAGE_REF_ENV_SUBPATH = Path("renders")
