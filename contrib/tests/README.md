@@ -1,7 +1,7 @@
 # MaterialX Contrib Test Framework
 
-pytest-based render and shader-generation tests for MaterialX contrib
-materials, built on top of the `rendertest` utilities from Bernard Kwok's
+Pytest-based render and shader-generation tests for MaterialX contrib materials,
+built on top of the `rendertest` utilities from Bernard Kwok's
 [MaterialX_Learn](https://github.com/kwokcb/MaterialX_Learn).
 
 ## Prerequisites
@@ -11,7 +11,11 @@ materials, built on top of the `rendertest` utilities from Bernard Kwok's
   `MATERIALX_BUILD_GEN_GLSL=ON`)
 - `PYTHONPATH` configured to find `MaterialX` and `MaterialX.PyMaterialX*`
   modules
-- Install test dependencies: `pip install pytest pytest-html pytest-subtests`
+- Install test dependencies:
+
+```bash
+pip install -e ".[test]"   # from contrib/tests/
+```
 
 ## Quick Start
 
@@ -121,6 +125,7 @@ Environments select which collections to use:
 | adsk | `collect_adsk_test_files` | Autodesk materials baseline |
 | Metashade passthru | `collect_render_test_files` (legacy) | Prove overrides match C++ |
 | Metashade broken schlick | explicit file list | Diagnostic override |
+| Metashade standard surface | explicit file list | SS reimplementation, FLIP vs stdlib |
 
 ## Comparison Modes
 
@@ -133,15 +138,34 @@ purpose.
 
 ### 2. Cross-environment image comparison (FLIP)
 
-Compares renders from one environment against another to prove
-equivalence. For example, Metashade passthru renders vs stdlib renders.
+Compares renders from one environment against a **reference
+environment** using [NVIDIA FLIP](https://github.com/NVlabs/flip), a
+perceptual image difference metric.
 
-Since environment subpaths are fixed constants, the comparison is
-hardcoded per environment — no CLI flag needed. The relationship is a
-property of the environment definition.
+Each `RenderEnvironment` can declare an `image_ref_env_subpath` — the
+`env_subpath` of the environment whose renders serve as the reference.
+When set, every rendered image is automatically FLIP-compared after
+rendering.  The relationship is a property of the environment definition
+(no CLI flag needed).
 
-Requires separate pytest runs: the baseline environment must render first,
-then the comparison environment renders and FLIPs against it.
+| Environment | `image_ref_env_subpath` | Compares against |
+|---|---|---|
+| Metashade standard surface | `renders/` | stdlib C++ renders |
+| All others | *(none)* | *(no image comparison)* |
+
+On failure, the assertion reports mean and max FLIP error, and saves a
+magma heatmap (`*_diff.png`) next to the rendered image.  When
+generating an HTML report (`--html`), failed subtests include
+side-by-side thumbnails of the reference image, rendered image, and
+FLIP heatmap.
+
+The `--flip-threshold` CLI option (default `0.05`) controls the mean
+FLIP error threshold.
+
+**Important:** the reference environment must render first.  If
+reference images are missing, the comparison is skipped with a message.
+In practice this means running `test_render.py` (stdlib) before
+`test_render_metashade.py`.
 
 ## CLI Options
 

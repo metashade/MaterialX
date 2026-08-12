@@ -9,6 +9,10 @@ test = [
     "pytest>=7.0",
     "pytest-xdist>=3.0",  # Parallel test execution
     "pytest-subtests>=0.11",  # Hierarchical subtest reporting
+    "pytest-html>=4.0",  # HTML test reports with visual comparison
+    "flip-evaluator",  # NVIDIA FLIP perceptual image comparison
+    "Pillow",  # Image I/O for FLIP heatmap generation
+    "numpy",  # Array operations for FLIP
 ]
 
 [tool.pytest.ini_options]
