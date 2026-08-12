@@ -509,12 +509,82 @@ def _check_shader_baselines(result, baseline_dir: Path):
 # Image comparison
 # ---------------------------------------------------------------------------
 
+def _compare_render_flip(ref_image: Path, rendered_image: Path,
+                         threshold: float):
+    """Compare images using NVIDIA FLIP (perceptual metric).
+
+    Returns ``(mean_flip, heatmap_path)`` on success.
+    Raises ``AssertionError`` when *mean_flip* exceeds *threshold*.
+    Returns ``None`` when ``flip_evaluator`` is not installed.
+    """
+    try:
+        import flip_evaluator as flip
+        import numpy as np
+    except ImportError:
+        return None
+
+    flip_map, mean_flip, _ = flip.evaluate(
+        str(ref_image), str(rendered_image),
+        "LDR", inputsRGB=True, applyMagma=False,
+        computeMeanError=True, parameters={"ppd": 70.0},
+    )
+
+    flip_map = np.array(flip_map)
+    max_flip = float(flip_map.max())
+
+    heatmap_path = rendered_image.parent / f"{rendered_image.stem}_diff.png"
+    heatmap_img, _, _ = flip.evaluate(
+        str(ref_image), str(rendered_image),
+        "LDR", inputsRGB=True, applyMagma=True,
+        computeMeanError=False, parameters={"ppd": 70.0},
+    )
+    from PIL import Image
+    heatmap_arr = np.array(heatmap_img)
+    if heatmap_arr.max() <= 1.0:
+        heatmap_arr = (heatmap_arr * 255).astype(np.uint8)
+    Image.fromarray(heatmap_arr).save(heatmap_path)
+
+    mean_flip = float(mean_flip)
+    assert mean_flip <= threshold, (
+        f"FLIP mean {mean_flip:.6f} exceeds threshold {threshold:.6f} "
+        f"(max {max_flip:.6f}) for {rendered_image.name}\n"
+        f"  ref:      {ref_image}\n"
+        f"  rendered: {rendered_image}\n"
+        f"  heatmap:  {heatmap_path}"
+    )
+    return mean_flip, heatmap_path
+
+
+def _compare_render_rms(ref_image: Path, rendered_image: Path,
+                        threshold: float):
+    """Fallback comparison using Pillow RMS when FLIP is unavailable."""
+    try:
+        from PIL import Image, ImageChops, ImageStat
+    except ImportError:
+        pytest.skip("Neither flip_evaluator nor Pillow installed")
+
+    img_a = Image.open(str(ref_image)).convert('RGB')
+    img_b = Image.open(str(rendered_image)).convert('RGB')
+    assert img_a.size == img_b.size, (
+        f"Size mismatch: ref {img_a.size} vs rendered {img_b.size}"
+    )
+    diff = ImageChops.difference(img_a, img_b)
+    stat = ImageStat.Stat(diff)
+    rms = sum(stat.rms) / (3.0 * 255.0)
+    assert rms <= threshold, (
+        f"Image RMS {rms:.6f} exceeds threshold {threshold:.6f} "
+        f"for {rendered_image.name}\n"
+        f"  ref:      {ref_image}\n"
+        f"  rendered: {rendered_image}"
+    )
+
+
 def _compare_render(result, image_ref_dir: Path, threshold: float):
     """Compare a rendered image against the reference environment's render.
 
-    Asserts that the RMS difference is below *threshold*.  Skips
-    gracefully when reference images are missing (the reference
-    environment may not have been run yet).
+    Uses NVIDIA FLIP when available (generates a heatmap alongside the
+    rendered image), falling back to Pillow RMS.  Skips gracefully when
+    reference images are missing.
     """
     if not result.output_path or not result.output_path.exists():
         return
@@ -526,26 +596,9 @@ def _compare_render(result, image_ref_dir: Path, threshold: float):
             f"Run the reference environment first."
         )
 
-    try:
-        from PIL import Image, ImageChops, ImageStat
-    except ImportError:
-        pytest.skip("Pillow not installed; pip install Pillow")
-
-    img_a = Image.open(str(ref_image)).convert('RGB')
-    img_b = Image.open(str(result.output_path)).convert('RGB')
-    assert img_a.size == img_b.size, (
-        f"Size mismatch: ref {img_a.size} vs "
-        f"rendered {img_b.size}"
-    )
-    diff = ImageChops.difference(img_a, img_b)
-    stat = ImageStat.Stat(diff)
-    rms = sum(stat.rms) / (3.0 * 255.0)
-    assert rms <= threshold, (
-        f"Image RMS {rms:.6f} exceeds threshold {threshold:.6f} "
-        f"for {result.output_path.name}\n"
-        f"  ref:        {ref_image}\n"
-        f"  rendered:   {result.output_path}"
-    )
+    flip_result = _compare_render_flip(ref_image, result.output_path, threshold)
+    if flip_result is None:
+        _compare_render_rms(ref_image, result.output_path, threshold)
 
 
 # ---------------------------------------------------------------------------

@@ -326,8 +326,14 @@ def pytest_runtest_logreport(report):
             
         rendered_file = rendered_files[0]
         
-        # Heatmap path (no cross-env baseline comparison in HTML report)
-        baseline_file = None
+        # Derive ref image from the environment's image_ref_env_subpath
+        image_ref_dir = env.get_image_ref_dir(output_path)
+        if image_ref_dir:
+            baseline_file = image_ref_dir / rendered_file.name
+            if not baseline_file.exists():
+                baseline_file = None
+        else:
+            baseline_file = None
         heatmap_file = rendered_file.parent / f"{rendered_file.stem}_diff.png"
         
         # Determine HTML report directory to compute relative paths for images
