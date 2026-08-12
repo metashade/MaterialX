@@ -506,6 +506,49 @@ def _check_shader_baselines(result, baseline_dir: Path):
 
 
 # ---------------------------------------------------------------------------
+# Image comparison
+# ---------------------------------------------------------------------------
+
+def _compare_render(result, image_ref_dir: Path, threshold: float):
+    """Compare a rendered image against the reference environment's render.
+
+    Asserts that the RMS difference is below *threshold*.  Skips
+    gracefully when reference images are missing (the reference
+    environment may not have been run yet).
+    """
+    if not result.output_path or not result.output_path.exists():
+        return
+
+    ref_image = image_ref_dir / result.output_path.name
+    if not ref_image.exists():
+        pytest.skip(
+            f"Reference render not found: {ref_image}\n"
+            f"Run the reference environment first."
+        )
+
+    try:
+        from PIL import Image, ImageChops, ImageStat
+    except ImportError:
+        pytest.skip("Pillow not installed; pip install Pillow")
+
+    img_a = Image.open(str(ref_image)).convert('RGB')
+    img_b = Image.open(str(result.output_path)).convert('RGB')
+    assert img_a.size == img_b.size, (
+        f"Size mismatch: ref {img_a.size} vs "
+        f"rendered {img_b.size}"
+    )
+    diff = ImageChops.difference(img_a, img_b)
+    stat = ImageStat.Stat(diff)
+    rms = sum(stat.rms) / (3.0 * 255.0)
+    assert rms <= threshold, (
+        f"Image RMS {rms:.6f} exceeds threshold {threshold:.6f} "
+        f"for {result.output_path.name}\n"
+        f"  ref:        {ref_image}\n"
+        f"  rendered:   {result.output_path}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Test runner
 # ---------------------------------------------------------------------------
 
@@ -548,6 +591,7 @@ def _render_elements(
 
     no_render = env.cli_options.no_render
     baseline_dir = env.get_baseline_dir(output_path)
+    image_ref_dir = env.get_image_ref_dir(output_path)
 
     for elem, elem_name in elements:
         with subtests.test(msg=elem_name):
@@ -572,6 +616,12 @@ def _render_elements(
 
             if baseline_dir is not None:
                 _check_shader_baselines(result, baseline_dir)
+
+            if image_ref_dir is not None and not no_render:
+                _compare_render(
+                    result, image_ref_dir,
+                    env.cli_options.flip_threshold,
+                )
 
 
 def run_render_test(
@@ -604,6 +654,10 @@ class RenderEnvironment:
     ``output_root`` comes from :class:`CliOptions`.
     ``env_subpath`` is a fixed relative path owned by this environment.
     ``case.output_subpath`` is determined at collection time.
+
+    When ``image_ref_env_subpath`` is set, rendered images are compared
+    against the corresponding images in the reference environment's output
+    tree (same ``output_root``, different ``env_subpath``).
     """
 
     def __init__(
@@ -613,12 +667,14 @@ class RenderEnvironment:
         search_path: mx.FileSearchPath,
         cli_options: CliOptions,
         env_subpath: Path,
+        image_ref_env_subpath: Path | None = None,
     ):
         self.renderer = renderer
         self.data_library = data_library
         self.search_path = search_path
         self.cli_options = cli_options
         self.env_subpath = env_subpath
+        self.image_ref_env_subpath = image_ref_env_subpath
 
     @property
     def output_dir(self) -> Path:
@@ -653,6 +709,21 @@ class RenderEnvironment:
         Falls back to flat ``aswf/<stem>`` layout.
         """
         return self.output_dir / "aswf" / mtlx_file.stem
+
+    def get_image_ref_dir(self, output_path: Path) -> Path | None:
+        """Return the reference environment's render directory for comparison.
+
+        Maps *output_path* from this environment's subtree to the
+        corresponding directory in the reference environment's subtree.
+        Returns ``None`` if no image ref environment is configured.
+        """
+        if self.image_ref_env_subpath is None:
+            return None
+        try:
+            rel = output_path.relative_to(self.output_dir)
+        except ValueError:
+            return None
+        return self.cli_options.output_root / self.image_ref_env_subpath / rel
 
     def get_baseline_dir(self, output_path: Path) -> Path | None:
         """Return the committed baseline directory for *output_path*.

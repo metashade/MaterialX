@@ -42,6 +42,7 @@ class _RefPaths:
 class MetashadeOverrideTestBase:
     """Base class for testing Metashade overrides."""
     SUBDIR = None
+    IMAGE_REF_ENV_SUBPATH = None
 
     @pytest.fixture(scope="class")
     def override_search_path(self, search_path, repo_root):
@@ -169,6 +170,7 @@ class MetashadeOverrideTestBase:
             search_path=override_search_path,
             cli_options=cli_options,
             env_subpath=_RefPaths.ENV_SUBPATH / subdir,
+            image_ref_env_subpath=request.cls.IMAGE_REF_ENV_SUBPATH,
         )
 
 
@@ -250,8 +252,13 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
     with a Metashade-generated diffuse + specular shader (Oren-Nayar +
     dielectric BSDF layering).  Scoped to Tier 1 Standard Surface assets
     where visual comparison against the C++ nodegraph baseline is meaningful.
+
+    ``IMAGE_REF_ENV_SUBPATH`` points at the stdlib renders so that each
+    test automatically compares its rendered image against the C++
+    reference.
     """
     SUBDIR = "standard_surface"
+    IMAGE_REF_ENV_SUBPATH = Path("renders")
 
     @pytest.mark.parametrize("mtlx_file", _get_standard_surface_test_files())
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
