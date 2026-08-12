@@ -1,4 +1,29 @@
-# Test Architecture
+# MaterialX Contrib Test Framework
+
+pytest-based render and shader-generation tests for MaterialX contrib
+materials, built on top of the `rendertest` utilities from Bernard Kwok's
+[MaterialX_Learn](https://github.com/kwokcb/MaterialX_Learn).
+
+## Prerequisites
+
+- MaterialX built with Python bindings (`MATERIALX_BUILD_PYTHON=ON`)
+- Render support enabled (`MATERIALX_BUILD_RENDER=ON`,
+  `MATERIALX_BUILD_GEN_GLSL=ON`)
+- `PYTHONPATH` configured to find `MaterialX` and `MaterialX.PyMaterialX*`
+  modules
+- Install test dependencies: `pip install pytest pytest-html pytest-subtests`
+
+## Quick Start
+
+From the `contrib/tests` directory:
+
+```bash
+pytest test_render.py -v                # all ASWF materials
+pytest test_render.py -k "brass" -v     # single material by keyword
+pytest test_render.py --no-render -v    # shader generation only (no GPU)
+
+pytest test_render_metashade.py -v      # Metashade override tests
+```
 
 ## Output Path Model
 
