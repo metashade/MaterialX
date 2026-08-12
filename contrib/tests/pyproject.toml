@@ -11,6 +11,8 @@ test = [
     "pytest-subtests>=0.11",  # Hierarchical subtest reporting
     "pytest-html>=4.0",  # HTML test reports with visual comparison
     "flip-evaluator",  # NVIDIA FLIP perceptual image comparison
+    "Pillow",  # Heatmap image I/O (not declared by flip-evaluator)
+    "numpy",  # Array ops for heatmap conversion (not declared by flip-evaluator)
 ]
 
 [tool.pytest.ini_options]
