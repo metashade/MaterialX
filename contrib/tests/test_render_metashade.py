@@ -231,6 +231,9 @@ _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_default.mtlx",
     "Examples/StandardSurface/standard_surface_plastic.mtlx",
     "Examples/StandardSurface/standard_surface_gold.mtlx",
+    "Examples/StandardSurface/standard_surface_chrome.mtlx",
+    "Examples/StandardSurface/standard_surface_greysphere.mtlx",
+    "Examples/StandardSurface/standard_surface_thin_film.mtlx",
 )
 
 
