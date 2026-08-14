@@ -1327,8 +1327,18 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 }
 
 
+
+void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
+{
+    if (closureData.closureType == CLOSURE_TYPE_EMISSION)
+    {
+        result = color;
+    }
+}
+
 void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
+    vec3 emission_weight_out = emission_color * emission;
     surfaceshader surface_ctor_out = surfaceshader(vec3(0.0),vec3(0.0));
     {
         vec3 N = normalize(vd.normalWorld);
@@ -1351,6 +1361,14 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
             mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
 
             surface_ctor_out.color += occlusion * ss_bsdf_bsdf.response;
+        }
+
+        // Add surface emission
+        {
+            ClosureData closureData = makeClosureData(CLOSURE_TYPE_EMISSION, L, V, N, P, occlusion);
+            EDF emission_edf_out = EDF(0.0);
+            mx_uniform_edf(closureData, emission_weight_out, emission_edf_out);
+            surface_ctor_out.color += emission_edf_out;
         }
 
         // Calculate the BSDF transmission for viewing direction
