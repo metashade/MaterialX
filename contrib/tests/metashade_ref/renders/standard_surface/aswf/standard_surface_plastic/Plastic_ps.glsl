@@ -1327,6 +1327,11 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 }
 
 
+void mx_luminance_color3(vec3 _in, vec3 lumacoeffs, out vec3 result)
+{
+    result = vec3(dot(_in, lumacoeffs));
+}
+
 
 void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
 {
@@ -1339,6 +1344,10 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
 void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
+    vec3 opacity_luminance_out = vec3(0.0);
+    mx_luminance_color3(opacity, vec3(0.272229, 0.674082, 0.053689), opacity_luminance_out);
+    const int opacity_luminance_float_index_tmp = 0;
+    float opacity_luminance_float_out = opacity_luminance_out[opacity_luminance_float_index_tmp];
     surfaceshader surface_ctor_out = surfaceshader(vec3(0.0),vec3(0.0));
     {
         vec3 N = normalize(vd.normalWorld);
@@ -1347,7 +1356,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         vec3 L = vec3(0.000000, 0.000000, 0.000000);
         float occlusion = 1.0;
 
-        float surfaceOpacity = 1.000000;
+        float surfaceOpacity = opacity_luminance_float_out;
 
         // Shadow occlusion
 
