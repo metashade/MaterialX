@@ -239,6 +239,7 @@ _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_glass_tinted.mtlx",
     "Examples/StandardSurface/standard_surface_glass.mtlx",
     "Examples/StandardSurface/standard_surface_metal_brushed.mtlx",
+    "Examples/StandardSurface/standard_surface_velvet.mtlx",
 )
 
 
