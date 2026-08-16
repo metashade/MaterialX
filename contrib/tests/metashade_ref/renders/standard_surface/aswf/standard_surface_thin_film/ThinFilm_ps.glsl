@@ -1282,7 +1282,7 @@ void mx_artistic_ior(vec3 reflectivity, vec3 edge_color, out vec3 ior, out vec3 
     k2 = max(k2, 0.0);
     extinction = sqrt(k2);
 }
-void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
+void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float transmission, vec3 transmission_color, float transmission_extra_roughness, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
 {
 	// 
 	// Roughness
@@ -1324,8 +1324,29 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	float one_minus_metalness = 1 - metalness;
 	bsdf.response = metal_bsdf.response + (bsdf.response * one_minus_metalness);
 	bsdf.throughput = metal_bsdf.throughput + (bsdf.throughput * one_minus_metalness);
+	// 
+	// Transmission roughness
+	float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
+	vec2 transmission_roughness;
+	mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
+	// 
+	// Transmission BSDF (dielectric transmission)
+	BSDF transmission_bsdf;
+	transmission_bsdf.response = vec3(0.0, 0.0, 0.0);
+	transmission_bsdf.throughput = vec3(1.0, 1.0, 1.0);
+	mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, tangent, 0, 1, transmission_bsdf);
+	// 
+	// Transmission mix
+	float one_minus_transmission = 1 - transmission;
+	bsdf.response = (transmission_bsdf.response * transmission) + (bsdf.response * one_minus_transmission);
+	bsdf.throughput = (transmission_bsdf.throughput * transmission) + (bsdf.throughput * one_minus_transmission);
 }
 
+
+void mx_luminance_color3(vec3 _in, vec3 lumacoeffs, out vec3 result)
+{
+    result = vec3(dot(_in, lumacoeffs));
+}
 
 
 void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
@@ -1339,6 +1360,10 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
 void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
+    vec3 opacity_luminance_out = vec3(0.0);
+    mx_luminance_color3(opacity, vec3(0.272229, 0.674082, 0.053689), opacity_luminance_out);
+    const int opacity_luminance_float_index_tmp = 0;
+    float opacity_luminance_float_out = opacity_luminance_out[opacity_luminance_float_index_tmp];
     surfaceshader surface_ctor_out = surfaceshader(vec3(0.0),vec3(0.0));
     {
         vec3 N = normalize(vd.normalWorld);
@@ -1347,7 +1372,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         vec3 L = vec3(0.000000, 0.000000, 0.000000);
         float occlusion = 1.0;
 
-        float surfaceOpacity = 1.000000;
+        float surfaceOpacity = opacity_luminance_float_out;
 
         // Shadow occlusion
 
@@ -1358,7 +1383,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         {
             ClosureData closureData = makeClosureData(CLOSURE_TYPE_INDIRECT, L, V, N, P, occlusion);
             BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
 
             surface_ctor_out.color += occlusion * ss_bsdf_bsdf.response;
         }
@@ -1374,7 +1399,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         // Calculate the BSDF transmission for viewing direction
         ClosureData closureData = makeClosureData(CLOSURE_TYPE_TRANSMISSION, L, V, N, P, occlusion);
         BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
         surface_ctor_out.color += ss_bsdf_bsdf.response;
 
         // Compute and apply surface opacity
