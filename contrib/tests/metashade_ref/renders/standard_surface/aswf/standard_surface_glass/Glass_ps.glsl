@@ -886,6 +886,19 @@ void mx_roughness_anisotropy(float roughness, float anisotropy, out vec2 result)
         result.y = roughness_sqr;
     }
 }
+void mx_rotate_vector3(vec3 _in, float amount, vec3 axis, out vec3 result)
+{
+    // Based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula, where the
+    // Wikipedia formula follows v' = M * v and MaterialX follows v' = v * M, thus the
+    // order of parameters to cross are reversed.
+
+    axis = normalize(axis);
+    float rotationRadians = mx_radians(amount);
+    float s = mx_sin(rotationRadians);
+    float c = mx_cos(rotationRadians);
+    float oc = 1.0 - c;
+    result = _in * c + cross(_in, axis) * s + axis * dot(axis, _in) * oc;
+}
 // These are defined based on the HwShaderGenerator::ClosureContextType enum
 // if that changes - these need to be updated accordingly.
 
@@ -1283,12 +1296,22 @@ void mx_artistic_ior(vec3 reflectivity, vec3 edge_color, out vec3 ior, out vec3 
     k2 = max(k2, 0.0);
     extinction = sqrt(k2);
 }
-void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float transmission, vec3 transmission_color, float transmission_extra_roughness, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
+void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_extra_roughness, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
 {
 	// 
 	// Roughness
 	vec2 main_roughness;
 	mx_roughness_anisotropy(specular_roughness, specular_anisotropy, main_roughness);
+	// 
+	// Tangent rotation
+	vec3 main_tangent = tangent;
+	if (specular_anisotropy > 0.0)
+	{
+		float tangent_rotate_degree = specular_rotation * 360.0;
+		vec3 tangent_rotated;
+		mx_rotate_vector3(tangent, tangent_rotate_degree, normal, tangent_rotated);
+		main_tangent = normalize(tangent_rotated);
+	}
 	// 
 	// Diffuse BSDF (Oren-Nayar)
 	BSDF diffuse_bsdf;
@@ -1305,7 +1328,7 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	BSDF transmission_bsdf;
 	transmission_bsdf.response = vec3(0.0, 0.0, 0.0);
 	transmission_bsdf.throughput = vec3(1.0, 1.0, 1.0);
-	mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, tangent, 0, 1, transmission_bsdf);
+	mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, main_tangent, 0, 1, transmission_bsdf);
 	// 
 	// Transmission mix: blend transmission with diffuse
 	float one_minus_transmission = 1 - transmission;
@@ -1316,7 +1339,7 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	BSDF specular_bsdf;
 	specular_bsdf.response = vec3(0.0, 0.0, 0.0);
 	specular_bsdf.throughput = vec3(1.0, 1.0, 1.0);
-	mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, tangent, 0, 0, specular_bsdf);
+	mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, 0, specular_bsdf);
 	// 
 	// Layer: specular over transmission mix
 	bsdf.response = specular_bsdf.response + (bsdf.response * specular_bsdf.throughput);
@@ -1333,7 +1356,7 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	BSDF metal_bsdf;
 	metal_bsdf.response = vec3(0.0, 0.0, 0.0);
 	metal_bsdf.throughput = vec3(1.0, 1.0, 1.0);
-	mx_conductor_bsdf(closureData, metalness, ior_n, ior_k, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, tangent, 0, metal_bsdf);
+	mx_conductor_bsdf(closureData, metalness, ior_n, ior_k, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, metal_bsdf);
 	// 
 	// Metalness mix: conductor (fg) vs specular layer (bg)
 	// Conductor response is already scaled by metalness (the weight),
@@ -1384,7 +1407,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         {
             ClosureData closureData = makeClosureData(CLOSURE_TYPE_INDIRECT, L, V, N, P, occlusion);
             BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+            mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
 
             surface_ctor_out.color += occlusion * ss_bsdf_bsdf.response;
         }
@@ -1400,7 +1423,7 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
         // Calculate the BSDF transmission for viewing direction
         ClosureData closureData = makeClosureData(CLOSURE_TYPE_TRANSMISSION, L, V, N, P, occlusion);
         BSDF ss_bsdf_bsdf = BSDF(vec3(0.0),vec3(1.0));
-        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
+        mx_metashade_standard_surface_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, ss_bsdf_bsdf);
         surface_ctor_out.color += ss_bsdf_bsdf.response;
 
         // Compute and apply surface opacity

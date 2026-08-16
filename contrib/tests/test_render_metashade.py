@@ -49,17 +49,19 @@ class MetashadeOverrideTestBase:
         """Create a custom search path including standard library source files and overrides."""
         custom_sp = mx.FileSearchPath(search_path.asString())
         
-        # Find pbrlib/genglsl under the search_path directories to match standard library include resolution.
+        # Find genglsl directories under the search_path so the shader
+        # generator can resolve #include directives for both pbrlib and
+        # stdlib source-code nodes (e.g. mx_rotate_vector3.glsl).
         for p_str in search_path.asString().split(os.pathsep):
             p = Path(p_str)
-            pbrlib_genglsl = p / "libraries" / "pbrlib" / "genglsl"
-            if pbrlib_genglsl.exists():
-                custom_sp.append(pbrlib_genglsl.as_posix())
-                break
-            pbrlib_genglsl_local = p / "pbrlib" / "genglsl"
-            if pbrlib_genglsl_local.exists():
-                custom_sp.append(pbrlib_genglsl_local.as_posix())
-                break
+            for lib in ("pbrlib", "stdlib"):
+                genglsl = p / "libraries" / lib / "genglsl"
+                if genglsl.exists():
+                    custom_sp.append(genglsl.as_posix())
+                else:
+                    genglsl_local = p / lib / "genglsl"
+                    if genglsl_local.exists():
+                        custom_sp.append(genglsl_local.as_posix())
             
         return custom_sp
 
@@ -236,6 +238,7 @@ _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_thin_film.mtlx",
     "Examples/StandardSurface/standard_surface_glass_tinted.mtlx",
     "Examples/StandardSurface/standard_surface_glass.mtlx",
+    "Examples/StandardSurface/standard_surface_metal_brushed.mtlx",
 )
 
 
