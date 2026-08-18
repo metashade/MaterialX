@@ -11,7 +11,6 @@ struct lightshader { vec3 intensity; vec3 direction; };
 #define material surfaceshader
 
 // Uniform block: PrivateUniforms
-uniform float u_alphaThreshold = 0.001000;
 uniform mat4 u_envMatrix = mat4(-1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, -1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000);
 uniform sampler2D u_envRadiance;
 uniform float u_envLightIntensity = 1.000000;
@@ -24,45 +23,45 @@ uniform vec3 u_viewPosition = vec3(0.0);
 // Uniform block: PublicUniforms
 uniform surfaceshader backsurfaceshader;
 uniform displacementshader displacementshader1;
-uniform float SR_glass_base = 0.000000;
-uniform vec3 SR_glass_base_color = vec3(0.800000, 0.800000, 0.800000);
-uniform float SR_glass_diffuse_roughness = 0.000000;
-uniform float SR_glass_metalness = 0.000000;
-uniform float SR_glass_specular = 1.000000;
-uniform vec3 SR_glass_specular_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_specular_roughness = 0.010000;
-uniform float SR_glass_specular_IOR = 1.520000;
-uniform float SR_glass_specular_anisotropy = 0.000000;
-uniform float SR_glass_specular_rotation = 0.000000;
-uniform float SR_glass_transmission = 1.000000;
-uniform vec3 SR_glass_transmission_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_transmission_depth = 0.000000;
-uniform vec3 SR_glass_transmission_scatter = vec3(0.000000, 0.000000, 0.000000);
-uniform float SR_glass_transmission_scatter_anisotropy = 0.000000;
-uniform float SR_glass_transmission_dispersion = 0.000000;
-uniform float SR_glass_transmission_extra_roughness = 0.000000;
-uniform float SR_glass_subsurface = 0.000000;
-uniform vec3 SR_glass_subsurface_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 SR_glass_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_subsurface_scale = 1.000000;
-uniform float SR_glass_subsurface_anisotropy = 0.000000;
-uniform float SR_glass_sheen = 0.000000;
-uniform vec3 SR_glass_sheen_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_sheen_roughness = 0.300000;
-uniform float SR_glass_coat = 0.000000;
-uniform vec3 SR_glass_coat_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_coat_roughness = 0.100000;
-uniform float SR_glass_coat_anisotropy = 0.000000;
-uniform float SR_glass_coat_rotation = 0.000000;
-uniform float SR_glass_coat_IOR = 1.500000;
-uniform float SR_glass_coat_affect_color = 0.000000;
-uniform float SR_glass_coat_affect_roughness = 0.000000;
-uniform float SR_glass_thin_film_thickness = 0.000000;
-uniform float SR_glass_thin_film_IOR = 1.500000;
-uniform float SR_glass_emission = 0.000000;
-uniform vec3 SR_glass_emission_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 SR_glass_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool SR_glass_thin_walled = false;
+uniform float SR_jade_base = 0.500000;
+uniform vec3 SR_jade_base_color = vec3(0.060300, 0.439800, 0.191600);
+uniform float SR_jade_diffuse_roughness = 0.000000;
+uniform float SR_jade_metalness = 0.000000;
+uniform float SR_jade_specular = 1.000000;
+uniform vec3 SR_jade_specular_color = vec3(1.000000, 1.000000, 1.000000);
+uniform float SR_jade_specular_roughness = 0.250000;
+uniform float SR_jade_specular_IOR = 2.418000;
+uniform float SR_jade_specular_anisotropy = 0.500000;
+uniform float SR_jade_specular_rotation = 0.000000;
+uniform float SR_jade_transmission = 0.000000;
+uniform vec3 SR_jade_transmission_color = vec3(1.000000, 1.000000, 1.000000);
+uniform float SR_jade_transmission_depth = 0.000000;
+uniform vec3 SR_jade_transmission_scatter = vec3(0.000000, 0.000000, 0.000000);
+uniform float SR_jade_transmission_scatter_anisotropy = 0.000000;
+uniform float SR_jade_transmission_dispersion = 0.000000;
+uniform float SR_jade_transmission_extra_roughness = 0.000000;
+uniform float SR_jade_subsurface = 0.400000;
+uniform vec3 SR_jade_subsurface_color = vec3(0.060300, 0.439800, 0.191600);
+uniform vec3 SR_jade_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
+uniform float SR_jade_subsurface_scale = 1.000000;
+uniform float SR_jade_subsurface_anisotropy = 0.000000;
+uniform float SR_jade_sheen = 0.000000;
+uniform vec3 SR_jade_sheen_color = vec3(1.000000, 1.000000, 1.000000);
+uniform float SR_jade_sheen_roughness = 0.300000;
+uniform float SR_jade_coat = 0.000000;
+uniform vec3 SR_jade_coat_color = vec3(1.000000, 1.000000, 1.000000);
+uniform float SR_jade_coat_roughness = 0.100000;
+uniform float SR_jade_coat_anisotropy = 0.000000;
+uniform float SR_jade_coat_rotation = 0.000000;
+uniform float SR_jade_coat_IOR = 1.500000;
+uniform float SR_jade_coat_affect_color = 0.000000;
+uniform float SR_jade_coat_affect_roughness = 0.000000;
+uniform float SR_jade_thin_film_thickness = 0.000000;
+uniform float SR_jade_thin_film_IOR = 1.500000;
+uniform float SR_jade_emission = 0.000000;
+uniform vec3 SR_jade_emission_color = vec3(1.000000, 1.000000, 1.000000);
+uniform vec3 SR_jade_opacity = vec3(1.000000, 1.000000, 1.000000);
+uniform bool SR_jade_thin_walled = false;
 
 in VertexData
 {
@@ -1814,14 +1813,9 @@ void main()
 {
     vec3 geomprop_Nworld_out1 = normalize(vd.normalWorld);
     vec3 geomprop_Tworld_out1 = normalize(vd.tangentWorld);
-    surfaceshader SR_glass_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface(SR_glass_base, SR_glass_base_color, SR_glass_diffuse_roughness, SR_glass_metalness, SR_glass_specular, SR_glass_specular_color, SR_glass_specular_roughness, SR_glass_specular_IOR, SR_glass_specular_anisotropy, SR_glass_specular_rotation, SR_glass_transmission, SR_glass_transmission_color, SR_glass_transmission_depth, SR_glass_transmission_scatter, SR_glass_transmission_scatter_anisotropy, SR_glass_transmission_dispersion, SR_glass_transmission_extra_roughness, SR_glass_subsurface, SR_glass_subsurface_color, SR_glass_subsurface_radius, SR_glass_subsurface_scale, SR_glass_subsurface_anisotropy, SR_glass_sheen, SR_glass_sheen_color, SR_glass_sheen_roughness, SR_glass_coat, SR_glass_coat_color, SR_glass_coat_roughness, SR_glass_coat_anisotropy, SR_glass_coat_rotation, SR_glass_coat_IOR, geomprop_Nworld_out1, SR_glass_coat_affect_color, SR_glass_coat_affect_roughness, SR_glass_thin_film_thickness, SR_glass_thin_film_IOR, SR_glass_emission, SR_glass_emission_color, SR_glass_opacity, SR_glass_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_glass_out);
-    material Glass_out = SR_glass_out;
-    float outAlpha = clamp(1.0 - dot(Glass_out.transparency, vec3(0.3333)), 0.0, 1.0);
-    out1 = vec4(Glass_out.color, outAlpha);
-    if (outAlpha < u_alphaThreshold)
-    {
-        discard;
-    }
+    surfaceshader SR_jade_out = surfaceshader(vec3(0.0),vec3(0.0));
+    NG_metashade_standard_surface(SR_jade_base, SR_jade_base_color, SR_jade_diffuse_roughness, SR_jade_metalness, SR_jade_specular, SR_jade_specular_color, SR_jade_specular_roughness, SR_jade_specular_IOR, SR_jade_specular_anisotropy, SR_jade_specular_rotation, SR_jade_transmission, SR_jade_transmission_color, SR_jade_transmission_depth, SR_jade_transmission_scatter, SR_jade_transmission_scatter_anisotropy, SR_jade_transmission_dispersion, SR_jade_transmission_extra_roughness, SR_jade_subsurface, SR_jade_subsurface_color, SR_jade_subsurface_radius, SR_jade_subsurface_scale, SR_jade_subsurface_anisotropy, SR_jade_sheen, SR_jade_sheen_color, SR_jade_sheen_roughness, SR_jade_coat, SR_jade_coat_color, SR_jade_coat_roughness, SR_jade_coat_anisotropy, SR_jade_coat_rotation, SR_jade_coat_IOR, geomprop_Nworld_out1, SR_jade_coat_affect_color, SR_jade_coat_affect_roughness, SR_jade_thin_film_thickness, SR_jade_thin_film_IOR, SR_jade_emission, SR_jade_emission_color, SR_jade_opacity, SR_jade_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_jade_out);
+    material Jade_out = SR_jade_out;
+    out1 = vec4(Jade_out.color, 1.0);
 }
 
