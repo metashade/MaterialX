@@ -242,6 +242,16 @@ _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_velvet.mtlx",
     "Examples/StandardSurface/standard_surface_carpaint.mtlx",
     "Examples/StandardSurface/standard_surface_jade.mtlx",
+    "Examples/StandardSurface/standard_surface_brass_tiled.mtlx",
+    "Examples/StandardSurface/standard_surface_brick_procedural.mtlx",
+    "Examples/StandardSurface/standard_surface_chess_set.mtlx",
+    "Examples/StandardSurface/standard_surface_copper.mtlx",
+    "Examples/StandardSurface/standard_surface_greysphere_calibration.mtlx",
+    "Examples/StandardSurface/standard_surface_look_brass_tiled.mtlx",
+    "Examples/StandardSurface/standard_surface_look_wood_tiled.mtlx",
+    "Examples/StandardSurface/standard_surface_marble_solid.mtlx",
+    "Examples/StandardSurface/standard_surface_onyx_hextiled.mtlx",
+    "Examples/StandardSurface/standard_surface_wood_tiled.mtlx",
 )
 
 
