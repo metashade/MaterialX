@@ -14,6 +14,7 @@ import pytest
 import MaterialX as mx
 from test_render import (
     add_additional_test_streams,
+    collect_adsk_test_files,
     collect_render_test_files,
     RenderEnvironment,
     RenderTestCase,
@@ -283,3 +284,69 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
     def test_render_file(self, mtlx_file: Path, subtests, override_env):
         """Test rendering with Metashade Standard Surface override."""
         override_env.run_test(mtlx_file, subtests)
+
+
+# Adsk materials excluded from the Metashade SS override test.
+# mx_rotate_vector3 duplicate: override search path adds genglsl dirs for
+# #include resolution, causing the shader generator to inline
+# mx_rotate_vector3 twice when these materials use specular_rotation.
+# FLIP threshold: visual difference from the Metashade SS implementation.
+_ADSK_METASHADE_EXCLUDE = frozenset({
+    "knurl.mtlx",          # mx_rotate_vector3 duplicate
+    "marble.mtlx",         # mx_rotate_vector3 duplicate
+    "metal.mtlx",          # mx_rotate_vector3 duplicate
+    "metallicpaint.mtlx",  # mx_rotate_vector3 duplicate
+    "noise.mtlx",          # mx_rotate_vector3 duplicate
+    "speckle.mtlx",        # mx_rotate_vector3 duplicate
+    "waves.mtlx",          # mx_rotate_vector3 duplicate
+    "wood.mtlx",           # mx_rotate_vector3 duplicate
+    "masonry.mtlx",        # FLIP threshold (0.073 > 0.05)
+})
+
+
+def _get_adsk_metashade_test_files():
+    """Collect adsk materials, excluding known Metashade override failures."""
+    return [
+        p for p in collect_adsk_test_files()
+        if p.values[0].input_path.name not in _ADSK_METASHADE_EXCLUDE
+    ]
+
+
+class TestRenderMetashadeAdskMaterials(MetashadeOverrideTestBase):
+    """Test Autodesk materials with the Metashade Standard Surface override.
+
+    Prism and Protein nodegraphs wrap ``standard_surface``, so they
+    exercise the Metashade reimplementation transitively.  Requires
+    adsklib alongside the overridden stdlib for node resolution.
+    FLIP-compares against the stock ``adsk_env`` renders.
+    """
+    SUBDIR = "standard_surface"
+    IMAGE_REF_ENV_SUBPATH = Path("renders")
+
+    @pytest.fixture(scope="class")
+    def override_data_library(self, override_stdlib, adsklib):
+        """Combined data library: overridden stdlib + adsklib."""
+        lib = mx.createDocument()
+        lib.importLibrary(override_stdlib)
+        lib.importLibrary(adsklib)
+        return lib
+
+    @pytest.fixture(scope="class")
+    def override_env(
+        self, request, override_renderer, override_data_library,
+        override_search_path, cli_options,
+    ):
+        """RenderEnvironment with Metashade override and adsklib loaded."""
+        return RenderEnvironment(
+            renderer=override_renderer,
+            data_library=override_data_library,
+            search_path=override_search_path,
+            cli_options=cli_options,
+            env_subpath=_RefPaths.ENV_SUBPATH / self.SUBDIR,
+            image_ref_env_subpath=self.IMAGE_REF_ENV_SUBPATH,
+        )
+
+    @pytest.mark.parametrize("case", _get_adsk_metashade_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test all renderable elements with Metashade SS override."""
+        override_env.run_test(case, subtests)
