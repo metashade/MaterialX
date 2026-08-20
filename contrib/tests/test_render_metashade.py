@@ -27,15 +27,15 @@ class _RefPaths:
     """Paths for Metashade reference data.
 
     ``LIBRARIES`` is always repo-relative (committed reference inputs).
-    ``METASHADE_LIBRARIES`` points to hand-written library files inside
-    the Metashade submodule (e.g. the Standard Surface nodegraph).
+    ``METASHADE_LIBRARIES`` points to MaterialX library files shipped
+    with the Metashade module (e.g. the Standard Surface nodegraph).
     ``ENV_SUBPATH`` is the environment subpath for render output,
     relative to ``output_root``.
     """
     ROOT = Path("tests") / "metashade_ref"
     LIBRARIES = Path("contrib") / ROOT / "libraries"
     METASHADE_LIBRARIES = (
-        Path("contrib") / "metashade" / "tests" / "mtlx" / "libraries"
+        Path("contrib") / "metashade" / "metashade" / "mtlx" / "libraries"
     )
     ENV_SUBPATH = ROOT / "renders"
 
