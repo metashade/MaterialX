@@ -71,14 +71,13 @@ the same `env_subpath`. The asset source distinction lives in layer 3.
 
 ### Layer 3: Output Subpath (`output_subpath`)
 
-Determined at **collection time** by the collection function and stored on
-`RenderTestCase`. Each collection function knows its own directory
-structure and naming convention:
+Determined at **collection time** and stored on `RenderTestCase`.
+Each asset source has its own directory structure and naming convention:
 
-| Collection function | Prefix | Layout | Example |
+| Asset source | Prefix | Layout | Example |
 |---|---|---|---|
-| `collect_aswf_test_files()` | `aswf/` | Flat (`<stem>`) | `aswf/standard_surface_default` |
-| `collect_adsk_test_files()` | `adsk/` | Hierarchical | `adsk/Examples/Revit/wallpaint` |
+| ASWF materials | `aswf/` | Flat (`<stem>`) | `aswf/standard_surface_default` |
+| Autodesk materials | `adsk/` | Hierarchical | `adsk/Examples/Revit/wallpaint` |
 
 Uniqueness is enforced at insertion time — if two files from the same
 collection produce the same `output_subpath`, a `ValueError` is raised
@@ -115,17 +114,15 @@ Only **outputs** (renders, shader dumps) go under `output_root`.
 
 A `RenderEnvironment` bundles a renderer, data library, search path, and
 `env_subpath`. It does **not** own a layout strategy or asset-specific
-path logic — those are properties of the collection function.
+path logic — those are properties of the test collection.
 
-Environments select which collections to use:
-
-| Environment | Collections | Purpose |
+| Environment | Scope | Purpose |
 |---|---|---|
-| stdlib | `collect_aswf_test_files` | ASWF materials baseline |
-| adsk | `collect_adsk_test_files` | Autodesk materials baseline |
-| Metashade passthru | `collect_aswf_test_files` | Prove overrides match C++ |
-| Metashade broken schlick | explicit file list | Diagnostic override |
-| Metashade standard surface | explicit file list | SS reimplementation, FLIP vs stdlib |
+| stdlib | All ASWF materials | ASWF materials baseline |
+| adsk | All Autodesk materials | Autodesk materials baseline |
+| Metashade passthru | All ASWF materials | Prove overrides match C++ |
+| Metashade broken schlick | Schlick-related subset | Diagnostic override |
+| Metashade standard surface | Standard Surface subset | SS reimplementation, FLIP vs stdlib |
 
 ## Comparison Modes
 
