@@ -279,12 +279,12 @@ def pytest_runtest_logreport(report):
         if not funcargs:
             return
             
-        mtlx_file = funcargs.get("mtlx_file")
-        if not mtlx_file:
+        from test_render import RenderEnvironment, RenderTestCase
+
+        case = funcargs.get("case")
+        if not isinstance(case, RenderTestCase):
             return
-            
-        # Extract the RenderEnvironment from funcargs
-        from test_render import RenderEnvironment
+
         env = None
         for arg_val in funcargs.values():
             if isinstance(arg_val, RenderEnvironment):
@@ -293,22 +293,12 @@ def pytest_runtest_logreport(report):
         if not env:
             return
 
-        output_dir = env.output_dir
-
         context = getattr(report, "context", None)
         subtest_name = context.msg if context else None
         if not subtest_name:
             return
 
-        # Try to find the test case to get output_subpath
-        from test_render import RenderTestCase
-        case = funcargs.get("case")
-        if isinstance(case, RenderTestCase):
-            output_path = env.get_output_path(case)
-        elif mtlx_file:
-            output_path = env.get_output_path_for_file(mtlx_file)
-        else:
-            return
+        output_path = env.get_output_path(case)
 
         if not output_path or not output_path.exists():
             return

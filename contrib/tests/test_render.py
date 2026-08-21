@@ -28,7 +28,7 @@ from rendertest.mtlxutils.render_material import render_material
 class MaterialXTestOptions:
     """Parsed ``_options.mtlx`` configuration from MaterialXTest.
 
-    Consumed at **collection time** (``collect_render_test_files``) and
+    Consumed at **collection time** (``collect_aswf_test_files``) and
     **renderer init** (``mxrenderer.initializeRenderer``).
     """
     render_test_paths: tuple[str, ...]
@@ -213,31 +213,6 @@ def collect_adsk_test_files(
         case = RenderTestCase(input_path=mtlx_file, output_subpath=subpath)
         files.append(pytest.param(case, id=file_id))
 
-    return files
-
-
-def collect_render_test_files(
-    options: MaterialXTestOptions | None = None,
-    repo_root: Path | None = None,
-) -> list:
-    """Collect ASWF ``.mtlx`` files (legacy wrapper around
-    :func:`collect_aswf_test_files` for backward compatibility).
-
-    Returns raw ``Path`` pytest params (no ``RenderTestCase``).
-    """
-    if options is None:
-        options = parse_options_mtlx()
-    if repo_root is None:
-        repo_root = get_repo_root()
-
-    cases = collect_aswf_test_files(options, repo_root)
-    files = []
-    for param in cases:
-        case = param.values[0]
-        materials_root = repo_root / "resources" / "Materials"
-        rel_path = case.input_path.relative_to(materials_root)
-        file_id = str(rel_path).replace("\\", "/")
-        files.append(pytest.param(case.input_path, id=file_id))
     return files
 
 
@@ -649,14 +624,6 @@ def run_render_test(
     _render_elements(case.input_path, output_path, subtests, env)
 
 
-def run_render_test_file(
-    mtlx_file: Path, subtests, env: RenderEnvironment,
-):
-    """Run render tests for a raw file path (legacy Metashade override path)."""
-    output_path = env.get_output_path_for_file(mtlx_file)
-    _render_elements(mtlx_file, output_path, subtests, env)
-
-
 # ---------------------------------------------------------------------------
 # RenderEnvironment
 # ---------------------------------------------------------------------------
@@ -718,15 +685,6 @@ class RenderEnvironment:
         """Resolve the output directory for a specific test case."""
         return self.output_dir / case.output_subpath
 
-    def get_output_path_for_file(self, mtlx_file: Path) -> Path:
-        """Legacy helper: derive output path from a raw file path.
-
-        Used by environments that still parametrize with raw ``Path``
-        objects (e.g. Metashade overrides with ``collect_render_test_files``).
-        Falls back to flat ``aswf/<stem>`` layout.
-        """
-        return self.output_dir / "aswf" / mtlx_file.stem
-
     def get_image_ref_dir(self, output_path: Path) -> Path | None:
         """Return the reference environment's render directory for comparison.
 
@@ -757,16 +715,9 @@ class RenderEnvironment:
             return None
         return get_repo_root() / "contrib" / rel
 
-    def run_test(self, case_or_file, subtests):
-        """Run the render test for a single material.
-
-        Accepts either a :class:`RenderTestCase` or a raw ``Path``
-        (for backward compatibility with Metashade override tests).
-        """
-        if isinstance(case_or_file, RenderTestCase):
-            run_render_test(case_or_file, subtests, self)
-        else:
-            run_render_test_file(case_or_file, subtests, self)
+    def run_test(self, case: RenderTestCase, subtests):
+        """Run the render test for a single material."""
+        run_render_test(case, subtests, self)
 
 
 # ---------------------------------------------------------------------------

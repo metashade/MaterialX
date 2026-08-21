@@ -15,7 +15,7 @@ import MaterialX as mx
 from test_render import (
     add_additional_test_streams,
     collect_adsk_test_files,
-    collect_render_test_files,
+    collect_aswf_test_files,
     RenderEnvironment,
     RenderTestCase,
 )
@@ -186,10 +186,10 @@ class TestRenderMetashadePassthru(MetashadeOverrideTestBase):
     """
     SUBDIR = _SOURCE_CODE_NODE_PASSTHRUS
 
-    @pytest.mark.parametrize("mtlx_file", collect_render_test_files())
-    def test_render_file(self, mtlx_file: Path, subtests, override_env):
+    @pytest.mark.parametrize("case", collect_aswf_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test all renderable elements in a material file using the passthrough override."""
-        override_env.run_test(mtlx_file, subtests)
+        override_env.run_test(case, subtests)
 
 
 _SCHLICK_TEST_PATHS = (
@@ -212,7 +212,9 @@ def _get_schlick_test_files():
     for rel in _SCHLICK_TEST_PATHS:
         mtlx_file = materials_root / rel
         if mtlx_file.exists():
-            files.append(pytest.param(mtlx_file, id=rel))
+            subpath = Path("aswf") / mtlx_file.stem
+            case = RenderTestCase(input_path=mtlx_file, output_subpath=subpath)
+            files.append(pytest.param(case, id=rel))
     return files
 
 
@@ -224,10 +226,10 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
     """
     SUBDIR = "broken_schlick"
 
-    @pytest.mark.parametrize("mtlx_file", _get_schlick_test_files())
-    def test_render_file(self, mtlx_file: Path, subtests, override_env):
+    @pytest.mark.parametrize("case", _get_schlick_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test rendering with Broken Schlick override."""
-        override_env.run_test(mtlx_file, subtests)
+        override_env.run_test(case, subtests)
 
 
 _STANDARD_SURFACE_TEST_PATHS = (
@@ -264,7 +266,9 @@ def _get_standard_surface_test_files():
     for rel in _STANDARD_SURFACE_TEST_PATHS:
         mtlx_file = materials_root / rel
         if mtlx_file.exists():
-            files.append(pytest.param(mtlx_file, id=rel))
+            subpath = Path("aswf") / mtlx_file.stem
+            case = RenderTestCase(input_path=mtlx_file, output_subpath=subpath)
+            files.append(pytest.param(case, id=rel))
     return files
 
 
@@ -280,10 +284,10 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
     SUBDIR = "standard_surface"
     IMAGE_REF_ENV_SUBPATH = Path("renders")
 
-    @pytest.mark.parametrize("mtlx_file", _get_standard_surface_test_files())
-    def test_render_file(self, mtlx_file: Path, subtests, override_env):
+    @pytest.mark.parametrize("case", _get_standard_surface_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test rendering with Metashade Standard Surface override."""
-        override_env.run_test(mtlx_file, subtests)
+        override_env.run_test(case, subtests)
 
 
 # Adsk materials excluded from the Metashade SS override test.

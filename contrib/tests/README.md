@@ -123,7 +123,7 @@ Environments select which collections to use:
 |---|---|---|
 | stdlib | `collect_aswf_test_files` | ASWF materials baseline |
 | adsk | `collect_adsk_test_files` | Autodesk materials baseline |
-| Metashade passthru | `collect_render_test_files` (legacy) | Prove overrides match C++ |
+| Metashade passthru | `collect_aswf_test_files` | Prove overrides match C++ |
 | Metashade broken schlick | explicit file list | Diagnostic override |
 | Metashade standard surface | explicit file list | SS reimplementation, FLIP vs stdlib |
 
