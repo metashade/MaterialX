@@ -28,8 +28,7 @@ from rendertest.mtlxutils.render_material import render_material
 class MaterialXTestOptions:
     """Parsed ``_options.mtlx`` configuration from MaterialXTest.
 
-    Consumed at **collection time** (``collect_aswf_test_files``) and
-    **renderer init** (``mxrenderer.initializeRenderer``).
+    Consumed at collection time and renderer initialization.
     """
     render_test_paths: tuple[str, ...]
     exclude_files: frozenset[str]
