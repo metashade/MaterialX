@@ -114,61 +114,6 @@
             }
         },
         {
-            "label": "Configure MaterialX (Slang)",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "--preset",
-                "windows-slang"
-            ],
-            "group": "build",
-            "problemMatcher": [],
-            "isBackground": false,
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "Build MaterialX Debug (Slang)",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "--build",
-                "--preset",
-                "slang-debug"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$msCompile",
-                "$gcc"
-            ],
-            "isBackground": false,
-            "dependsOn": "Configure MaterialX (Slang)",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "Build MaterialX Release (Slang)",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "--build",
-                "--preset",
-                "slang-release"
-            ],
-            "group": "build",
-            "problemMatcher": [
-                "$msCompile",
-                "$gcc"
-            ],
-            "isBackground": false,
-            "dependsOn": "Configure MaterialX (Slang)",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
             "label": "Run MaterialXTest [renderslang]",
             "type": "shell",
             "command": "\"${workspaceFolder}/build/bin/Debug/MaterialXTest.exe\"",
@@ -178,7 +123,7 @@
             "group": "test",
             "problemMatcher": [],
             "isBackground": false,
-            "dependsOn": "Build MaterialX Debug (Slang)",
+            "dependsOn": "Build MaterialX Debug",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -197,7 +142,7 @@
             "group": "test",
             "problemMatcher": [],
             "isBackground": false,
-            "dependsOn": "Build MaterialX Debug (Slang)",
+            "dependsOn": "Build MaterialX Debug",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

@@ -11,7 +11,8 @@
                 "MATERIALX_BUILD_VIEWER": "ON",
                 "MATERIALX_BUILD_GRAPH_EDITOR": "ON",
                 "MATERIALX_BUILD_PYTHON": "ON",
-                "MATERIALX_BUILD_TESTS": "ON"
+                "MATERIALX_BUILD_TESTS": "ON",
+                "MATERIALX_BUILD_RENDER_SLANG": "ON"
             }
         },
         {
@@ -19,16 +20,6 @@
             "inherits": "windows-base",
             "displayName": "Default (Windows)",
             "description": "Default build options for Windows"
-        },
-        {
-            "name": "windows-slang",
-            "inherits": "windows-base",
-            "displayName": "Windows with Slang Render",
-            "description": "Build MaterialX with Slang Render module and slang-rhi enabled",
-            "cacheVariables": {
-                "MATERIALX_BUILD_GEN_SLANG": "ON",
-                "MATERIALX_BUILD_RENDER_SLANG": "ON"
-            }
         }
     ],
     "buildPresets": [
@@ -45,20 +36,6 @@
             "configuration": "Release",
             "displayName": "Release Build",
             "description": "Release build"
-        },
-        {
-            "name": "slang-debug",
-            "configurePreset": "windows-slang",
-            "configuration": "Debug",
-            "displayName": "Slang Debug Build",
-            "description": "Debug build with Slang Render"
-        },
-        {
-            "name": "slang-release",
-            "configurePreset": "windows-slang",
-            "configuration": "Release",
-            "displayName": "Slang Release Build",
-            "description": "Release build with Slang Render"
         }
     ]
 }
