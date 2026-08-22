@@ -183,6 +183,7 @@ mark_as_advanced(MATERIALX_BUILD_GEN_MDL)
 mark_as_advanced(MATERIALX_BUILD_GEN_MSL)
 mark_as_advanced(MATERIALX_BUILD_OSOS)
 mark_as_advanced(MATERIALX_BUILD_RENDER)
+mark_as_advanced(MATERIALX_BUILD_RENDER_SLANG)
 mark_as_advanced(MATERIALX_BUILD_RENDER_PLATFORMS)
 mark_as_advanced(MATERIALX_BUILD_OIIO)
 mark_as_advanced(MATERIALX_BUILD_OCIO)
@@ -584,14 +585,12 @@ if(MATERIALX_BUILD_RENDER)
                 FetchContent_Declare(
                     slang-rhi
                     GIT_REPOSITORY https://github.com/shader-slang/slang-rhi.git
+                    # slang-rhi main branch as of 2026-08-22 (no release tags available)
                     GIT_TAG        d1ef4f5549fc6ce3d1c47512759a8de0af51e084
-                    GIT_SHALLOW    TRUE
+                    SOURCE_SUBDIR  _does_not_exist_
                 )
-                FetchContent_GetProperties(slang-rhi)
-                if(NOT slang-rhi_POPULATED)
-                    FetchContent_Populate(slang-rhi)
-                    set(MATERIALX_SLANG_RHI_SOURCE_DIR ${slang-rhi_SOURCE_DIR} CACHE PATH "Full path to the Slang RHI source directory." FORCE)
-                endif()
+                FetchContent_MakeAvailable(slang-rhi)
+                set(MATERIALX_SLANG_RHI_SOURCE_DIR ${slang-rhi_SOURCE_DIR})
             endif()
             add_subdirectory(source/MaterialXRenderSlang)
         endif()
