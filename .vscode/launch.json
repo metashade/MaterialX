@@ -97,6 +97,26 @@
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "justMyCode": false
+        },
+        {
+            "name": "MaterialXTest: Slang Render Tests [renderslang]",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/Debug/MaterialXTest.exe",
+            "args": ["[renderslang]"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "MaterialXTest: Slang CodeGen Tests [genslang]",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/Debug/MaterialXTest.exe",
+            "args": ["[genslang]"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         }
     ]
 }
