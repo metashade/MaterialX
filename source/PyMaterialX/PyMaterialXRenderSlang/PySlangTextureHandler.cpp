@@ -13,7 +13,6 @@ namespace mx = MaterialX;
 void bindPySlangTextureHandler(py::module& mod)
 {
     py::class_<mx::SlangTextureHandler, mx::ImageHandler, mx::SlangTextureHandlerPtr>(mod, "SlangTextureHandler")
-        .def_static("create", &mx::SlangTextureHandler::create)
         .def("bindImage", static_cast<bool (mx::SlangTextureHandler::*)(mx::ImagePtr, const mx::ImageSamplingProperties&)>(&mx::SlangTextureHandler::bindImage))
         .def("unbindImage", &mx::SlangTextureHandler::unbindImage)
         .def("createRenderResources", &mx::SlangTextureHandler::createRenderResources,

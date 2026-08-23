@@ -6,10 +6,11 @@
 import os
 import sys
 if sys.platform == "win32" and sys.version_info >= (3, 8):
+    _dll_directories = []
     mxdir = os.path.dirname(__file__)
     if os.path.exists(mxdir):
         try:
-            os.add_dll_directory(mxdir)
+            _dll_directories.append(os.add_dll_directory(mxdir))
         except (AttributeError, OSError):
             pass
     # On a non-pip installation or editable install, this file is in %INSTALLDIR%\python\MaterialX
@@ -19,12 +20,12 @@ if sys.platform == "win32" and sys.version_info >= (3, 8):
     bindir = os.path.join(installdir, "bin")
     if os.path.exists(bindir):
         try:
-            os.add_dll_directory(bindir)
+            _dll_directories.append(os.add_dll_directory(bindir))
         except (AttributeError, OSError):
             pass
     if "MATERIALX_BIN_DIR" in os.environ and os.path.exists(os.environ["MATERIALX_BIN_DIR"]):
         try:
-            os.add_dll_directory(os.environ["MATERIALX_BIN_DIR"])
+            _dll_directories.append(os.add_dll_directory(os.environ["MATERIALX_BIN_DIR"]))
         except (AttributeError, OSError):
             pass
 

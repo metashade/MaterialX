@@ -37,4 +37,16 @@ if(WIN32)
         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/dxil.dll
         DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
         OPTIONAL)
+elseif(APPLE)
+    install(FILES
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang.dylib
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang-compiler.dylib
+        DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
+        OPTIONAL)
+else()
+    install(FILES
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang.so
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang-compiler.so
+        DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
+        OPTIONAL)
 endif()
