@@ -16,6 +16,7 @@ test = [
 ]
 
 [tool.pytest.ini_options]
+render_collapsed = ""
 testpaths = ["."]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
