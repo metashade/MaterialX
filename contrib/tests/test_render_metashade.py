@@ -304,7 +304,6 @@ _ADSK_METASHADE_EXCLUDE = frozenset({
     "speckle.mtlx",        # mx_rotate_vector3 duplicate
     "waves.mtlx",          # mx_rotate_vector3 duplicate
     "wood.mtlx",           # mx_rotate_vector3 duplicate
-    "masonry.mtlx",        # FLIP threshold (0.073 > 0.05)
 })
 
 
