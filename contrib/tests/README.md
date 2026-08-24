@@ -152,9 +152,11 @@ rendering.  The relationship is a property of the environment definition
 
 On failure, the assertion reports mean and max FLIP error, and saves a
 magma heatmap (`*_diff.png`) next to the rendered image.  When
-generating an HTML report (`--html`), failed subtests include
-side-by-side thumbnails of the reference image, rendered image, and
-FLIP heatmap.
+generating an HTML report (`--html`), all subtests (passed, failed,
+and skipped) include side-by-side panels showing the reference image,
+rendered image, and FLIP heatmap, styled by outcome.  Heatmaps are
+generated whenever `--html` is active or when FLIP exceeds the
+threshold.
 
 The `--flip-threshold` CLI option (default `0.05`) controls the mean
 FLIP error threshold.

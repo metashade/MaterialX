@@ -518,7 +518,9 @@ def _compare_render(
     )
 
     mean_flip = float(mean_flip)
-    failed = mean_flip > threshold
+    # `not <=` instead of `>` so that NaN comparisons fail rather than
+    # silently pass (NaN > x is False, but NaN <= x is also False).
+    failed = not (mean_flip <= threshold)
 
     if save_heatmap or failed:
         from PIL import Image
