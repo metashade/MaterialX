@@ -290,29 +290,9 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
-# Adsk materials excluded from the Metashade SS override test.
-# mx_rotate_vector3 duplicate: override search path adds genglsl dirs for
-# #include resolution, causing the shader generator to inline
-# mx_rotate_vector3 twice when these materials use specular_rotation.
-# FLIP threshold: visual difference from the Metashade SS implementation.
-_ADSK_METASHADE_EXCLUDE = frozenset({
-    "knurl.mtlx",          # mx_rotate_vector3 duplicate
-    "marble.mtlx",         # mx_rotate_vector3 duplicate
-    "metal.mtlx",          # mx_rotate_vector3 duplicate
-    "metallicpaint.mtlx",  # mx_rotate_vector3 duplicate
-    "noise.mtlx",          # mx_rotate_vector3 duplicate
-    "speckle.mtlx",        # mx_rotate_vector3 duplicate
-    "waves.mtlx",          # mx_rotate_vector3 duplicate
-    "wood.mtlx",           # mx_rotate_vector3 duplicate
-})
-
-
 def _get_adsk_metashade_test_files():
-    """Collect adsk materials, excluding known Metashade override failures."""
-    return [
-        p for p in collect_adsk_test_files()
-        if p.values[0].input_path.name not in _ADSK_METASHADE_EXCLUDE
-    ]
+    """Collect adsk materials for Metashade override testing."""
+    return collect_adsk_test_files()
 
 
 class TestRenderMetashadeAdskMaterials(MetashadeOverrideTestBase):
