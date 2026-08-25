@@ -11,7 +11,6 @@ struct lightshader { vec3 intensity; vec3 direction; };
 #define material surfaceshader
 
 // Uniform block: PrivateUniforms
-uniform float u_alphaThreshold = 0.001000;
 uniform mat4 u_envMatrix = mat4(-1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, -1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000);
 uniform sampler2D u_envRadiance;
 uniform float u_envLightIntensity = 1.000000;
@@ -24,50 +23,29 @@ uniform vec3 u_viewPosition = vec3(0.0);
 // Uniform block: PublicUniforms
 uniform surfaceshader backsurfaceshader;
 uniform displacementshader displacementshader1;
-uniform float SR_glass_base = 0.000000;
-uniform vec3 SR_glass_base_color = vec3(0.800000, 0.800000, 0.800000);
-uniform float SR_glass_diffuse_roughness = 0.000000;
-uniform float SR_glass_metalness = 0.000000;
-uniform float SR_glass_specular = 1.000000;
-uniform vec3 SR_glass_specular_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_specular_roughness = 0.010000;
-uniform float SR_glass_specular_IOR = 1.520000;
-uniform float SR_glass_specular_anisotropy = 0.000000;
-uniform float SR_glass_specular_rotation = 0.000000;
-uniform float SR_glass_transmission = 1.000000;
-uniform vec3 SR_glass_transmission_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_transmission_depth = 0.000000;
-uniform vec3 SR_glass_transmission_scatter = vec3(0.000000, 0.000000, 0.000000);
-uniform float SR_glass_transmission_scatter_anisotropy = 0.000000;
-uniform float SR_glass_transmission_dispersion = 0.000000;
-uniform float SR_glass_transmission_extra_roughness = 0.000000;
-uniform float SR_glass_subsurface = 0.000000;
-uniform vec3 SR_glass_subsurface_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 SR_glass_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_subsurface_scale = 1.000000;
-uniform float SR_glass_subsurface_anisotropy = 0.000000;
-uniform float SR_glass_sheen = 0.000000;
-uniform vec3 SR_glass_sheen_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_sheen_roughness = 0.300000;
-uniform float SR_glass_coat = 0.000000;
-uniform vec3 SR_glass_coat_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_glass_coat_roughness = 0.100000;
-uniform float SR_glass_coat_anisotropy = 0.000000;
-uniform float SR_glass_coat_rotation = 0.000000;
-uniform float SR_glass_coat_IOR = 1.500000;
-uniform float SR_glass_coat_affect_color = 0.000000;
-uniform float SR_glass_coat_affect_roughness = 0.000000;
-uniform float SR_glass_thin_film_thickness = 0.000000;
-uniform float SR_glass_thin_film_IOR = 1.500000;
-uniform float SR_glass_emission = 0.000000;
-uniform vec3 SR_glass_emission_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 SR_glass_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool SR_glass_thin_walled = false;
+uniform int geomprop_UV0_index = 0;
+uniform sampler2D test_bump_masonry_file;
+uniform vec2 test_bump_masonry_realworld_offset = vec2(0.000000, 0.000000);
+uniform vec2 test_bump_masonry_realworld_scale = vec2(0.250000, 0.250000);
+uniform vec2 test_bump_masonry_uv_offset = vec2(0.000000, 0.000000);
+uniform vec2 test_bump_masonry_uv_scale = vec2(1.000000, 1.000000);
+uniform float test_bump_masonry_rotation_angle = 0.000000;
+uniform float test_bump_masonry_depth = 0.500000;
+uniform int test_bump_masonry_uaddressmode = 2;
+uniform int test_bump_masonry_vaddressmode = 2;
+uniform int SR_legacy_masonry_type = 0;
+uniform vec3 SR_legacy_masonry_color = vec3(0.500000, 0.500000, 0.500000);
+uniform bool SR_legacy_masonry_tint_enable = false;
+uniform vec3 SR_legacy_masonry_tint_color = vec3(0.950000, 0.500000, 0.500000);
+uniform int SR_legacy_masonry_finish = 1;
+uniform bool SR_legacy_masonry_relief_enable = true;
 
 in VertexData
 {
+    vec2 texcoord_0;
     vec3 normalWorld;
     vec3 tangentWorld;
+    vec3 bitangentWorld;
     vec3 positionWorld;
 } vd;
 
@@ -869,6 +847,158 @@ vec3 mx_surface_transmission(vec3 N, vec3 V, vec3 X, vec2 alpha, int distributio
         tint = mx_square(tint);
     }
     return mx_environment_radiance(N, V, X, alpha, distribution, fd) * tint;
+}
+
+void mx_rotate_vector2(vec2 _in, float amount, out vec2 result)
+{
+    float rotationRadians = mx_radians(amount);
+    float sa = mx_sin(rotationRadians);
+    float ca = mx_cos(rotationRadians);
+    result = vec2(ca*_in.x + sa*_in.y, -sa*_in.x + ca*_in.y);
+}
+
+void NG_switch_vector2I(vec2 in1, vec2 in2, vec2 in3, vec2 in4, vec2 in5, vec2 in6, vec2 in7, vec2 in8, vec2 in9, vec2 in10, int which, out vec2 out1)
+{
+    const int ifgreater_10_value1_tmp = 10;
+    const vec2 ifgreater_10_in2_tmp = vec2(0.000000, 0.000000);
+    vec2 ifgreater_10_out = (ifgreater_10_value1_tmp > which) ? in10 : ifgreater_10_in2_tmp;
+    const int ifgreater_9_value1_tmp = 9;
+    vec2 ifgreater_9_out = (ifgreater_9_value1_tmp > which) ? in9 : ifgreater_10_out;
+    const int ifgreater_8_value1_tmp = 8;
+    vec2 ifgreater_8_out = (ifgreater_8_value1_tmp > which) ? in8 : ifgreater_9_out;
+    const int ifgreater_7_value1_tmp = 7;
+    vec2 ifgreater_7_out = (ifgreater_7_value1_tmp > which) ? in7 : ifgreater_8_out;
+    const int ifgreater_6_value1_tmp = 6;
+    vec2 ifgreater_6_out = (ifgreater_6_value1_tmp > which) ? in6 : ifgreater_7_out;
+    const int ifgreater_5_value1_tmp = 5;
+    vec2 ifgreater_5_out = (ifgreater_5_value1_tmp > which) ? in5 : ifgreater_6_out;
+    const int ifgreater_4_value1_tmp = 4;
+    vec2 ifgreater_4_out = (ifgreater_4_value1_tmp > which) ? in4 : ifgreater_5_out;
+    const int ifgreater_3_value1_tmp = 3;
+    vec2 ifgreater_3_out = (ifgreater_3_value1_tmp > which) ? in3 : ifgreater_4_out;
+    const int ifgreater_2_value1_tmp = 2;
+    vec2 ifgreater_2_out = (ifgreater_2_value1_tmp > which) ? in2 : ifgreater_3_out;
+    const int ifgreater_1_value1_tmp = 1;
+    vec2 ifgreater_1_out = (ifgreater_1_value1_tmp > which) ? in1 : ifgreater_2_out;
+    out1 = ifgreater_1_out;
+}
+
+void NG_place2d_vector2(vec2 texcoord, vec2 pivot, vec2 scale, float rotate, vec2 offset, int operationorder, out vec2 out1)
+{
+    vec2 N_subpivot_out = texcoord - pivot;
+    vec2 N_applyscale_out = N_subpivot_out / scale;
+    vec2 N_applyoffset2_out = N_subpivot_out - offset;
+    vec2 N_applyrot_out = vec2(0.0);
+    mx_rotate_vector2(N_applyscale_out, rotate, N_applyrot_out);
+    vec2 N_applyrot2_out = vec2(0.0);
+    mx_rotate_vector2(N_applyoffset2_out, rotate, N_applyrot2_out);
+    vec2 N_applyoffset_out = N_applyrot_out - offset;
+    vec2 N_applyscale2_out = N_applyrot2_out / scale;
+    vec2 N_addpivot_out = N_applyoffset_out + pivot;
+    vec2 N_addpivot2_out = N_applyscale2_out + pivot;
+    vec2 N_switch_operationorder_out = vec2(0.0);
+    NG_switch_vector2I(N_addpivot_out, N_addpivot2_out, vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), vec2(0.000000, 0.000000), operationorder, N_switch_operationorder_out);
+    out1 = N_switch_operationorder_out;
+}
+
+vec2 mx_transform_uv(vec2 uv, vec2 uv_scale, vec2 uv_offset)
+{
+    uv = uv * uv_scale + uv_offset;
+    return vec2(uv.x, 1.0 - uv.y);
+}
+
+void mx_image_float(sampler2D tex_sampler, int layer, float defaultval, vec2 texcoord, int uaddressmode, int vaddressmode, int filtertype, int framerange, int frameoffset, int frameendaction, vec2 uv_scale, vec2 uv_offset, out float result)
+{
+    vec2 uv = mx_transform_uv(texcoord, uv_scale, uv_offset);
+    result = texture(tex_sampler, uv).r;
+}
+
+void mx_heighttonormal_vector3(float height, float scale, vec2 texcoord, out vec3 result)
+{
+    // Scale factor for parity with traditional Sobel filtering.
+    const float SOBEL_SCALE_FACTOR = 1.0 / 16.0;
+
+    // Compute screen-space gradients of the heightfield and texture coordinates.
+    vec2 dHdS = vec2(dFdx(height), dFdy(height)) * scale * SOBEL_SCALE_FACTOR;
+    vec2 dUdS = vec2(dFdx(texcoord.x), dFdy(texcoord.x));
+    vec2 dVdS = vec2(dFdx(texcoord.y), dFdy(texcoord.y));
+
+    // Construct a screen-space tangent frame.
+    vec3 tangent = vec3(dUdS.x, dVdS.x, dHdS.x);
+    vec3 bitangent = vec3(dUdS.y, dVdS.y, dHdS.y);
+    vec3 n = cross(tangent, bitangent);
+
+    // Handle invalid and mirrored texture coordinates.
+    if (dot(n, n) < M_FLOAT_EPS * M_FLOAT_EPS)
+    {
+        n = vec3(0, 0, 1);
+    }
+    else if (n.z < 0.0)
+    {
+        n *= -1.0;
+    }
+
+    // Normalize and encode the results.
+    result = normalize(n) * 0.5 + 0.5;
+}
+
+void mx_normalmap_vector2(vec3 value, vec2 normal_scale, vec3 N, vec3 T, vec3 B, out vec3 result)
+{
+    value = (dot(value, value) == 0.0) ? vec3(0.0, 0.0, 1.0) : value * 2.0 - 1.0;
+    value = T * value.x * normal_scale.x +
+            B * value.y * normal_scale.y +
+            N * value.z;
+    result = normalize(value);
+}
+
+void mx_normalmap_float(vec3 value, float normal_scale, vec3 N, vec3 T, vec3 B, out vec3 result)
+{
+    mx_normalmap_vector2(value, vec2(normal_scale), N, T, B, result);
+}
+
+void adsk_NG_adsk_height_map(sampler2D file, vec2 realworld_offset, vec2 realworld_scale, vec2 uv_offset, vec2 uv_scale, float rotation_angle, float depth, int uaddressmode, int vaddressmode, vec2 texcoord, vec3 normal, vec3 tangent, out vec3 out1)
+{
+    vec2 total_offset_out = realworld_offset + uv_offset;
+    vec2 total_scale_out = realworld_scale / uv_scale;
+    const float rotation_angle_param_in2_tmp = -1.000000;
+    float rotation_angle_param_out = rotation_angle * rotation_angle_param_in2_tmp;
+    vec3 normalmap_cross_out = cross(normal, tangent);
+    vec2 a_place2d_out = vec2(0.0);
+    NG_place2d_vector2(texcoord, vec2(0.000000, 0.000000), total_scale_out, rotation_angle_param_out, total_offset_out, 1, a_place2d_out);
+    vec3 normalmap_cross_norm_out = normalize(normalmap_cross_out);
+    float b_image_out = 0.0;
+    mx_image_float(file, 0, 0.000000, a_place2d_out, uaddressmode, vaddressmode, 1, 0, 0, 0, vec2(1.000000, 1.000000), vec2(0.000000, 0.000000), b_image_out);
+    vec3 impl_heighttonormalmap_out = vec3(0.0);
+    mx_heighttonormal_vector3(b_image_out, 1.000000, a_place2d_out, impl_heighttonormalmap_out);
+    vec3 impl_normalmap_out = vec3(0.0);
+    mx_normalmap_float(impl_heighttonormalmap_out, depth, normal, tangent, normalmap_cross_norm_out, impl_normalmap_out);
+    out1 = impl_normalmap_out;
+}
+
+void NG_switch_floatI(float in1, float in2, float in3, float in4, float in5, float in6, float in7, float in8, float in9, float in10, int which, out float out1)
+{
+    const int ifgreater_10_value1_tmp = 10;
+    const float ifgreater_10_in2_tmp = 0.000000;
+    float ifgreater_10_out = (ifgreater_10_value1_tmp > which) ? in10 : ifgreater_10_in2_tmp;
+    const int ifgreater_9_value1_tmp = 9;
+    float ifgreater_9_out = (ifgreater_9_value1_tmp > which) ? in9 : ifgreater_10_out;
+    const int ifgreater_8_value1_tmp = 8;
+    float ifgreater_8_out = (ifgreater_8_value1_tmp > which) ? in8 : ifgreater_9_out;
+    const int ifgreater_7_value1_tmp = 7;
+    float ifgreater_7_out = (ifgreater_7_value1_tmp > which) ? in7 : ifgreater_8_out;
+    const int ifgreater_6_value1_tmp = 6;
+    float ifgreater_6_out = (ifgreater_6_value1_tmp > which) ? in6 : ifgreater_7_out;
+    const int ifgreater_5_value1_tmp = 5;
+    float ifgreater_5_out = (ifgreater_5_value1_tmp > which) ? in5 : ifgreater_6_out;
+    const int ifgreater_4_value1_tmp = 4;
+    float ifgreater_4_out = (ifgreater_4_value1_tmp > which) ? in4 : ifgreater_5_out;
+    const int ifgreater_3_value1_tmp = 3;
+    float ifgreater_3_out = (ifgreater_3_value1_tmp > which) ? in3 : ifgreater_4_out;
+    const int ifgreater_2_value1_tmp = 2;
+    float ifgreater_2_out = (ifgreater_2_value1_tmp > which) ? in2 : ifgreater_3_out;
+    const int ifgreater_1_value1_tmp = 1;
+    float ifgreater_1_out = (ifgreater_1_value1_tmp > which) ? in1 : ifgreater_2_out;
+    out1 = ifgreater_1_out;
 }
 
 void mx_roughness_anisotropy(float roughness, float anisotropy, out vec2 result)
@@ -1812,18 +1942,37 @@ void NG_metashade_standard_surface(float base, vec3 base_color, float diffuse_ro
     out1 = surface_ctor_out;
 }
 
-void main()
+void NG_legacy_masonry(int type, vec3 color, bool tint_enable, vec3 tint_color, int finish, bool relief_enable, vec3 normal_relief, out surfaceshader out1)
 {
+    vec3 tint_mult_out = color * tint_color;
+    float switch_type_rough_out = 0.0;
+    NG_switch_floatI(0.500000, 0.200000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, type, switch_type_rough_out);
+    float switch_finish_out = 0.0;
+    NG_switch_floatI(0.100000, 0.400000, 0.700000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, finish, switch_finish_out);
     vec3 geomprop_Nworld_out1 = normalize(vd.normalWorld);
     vec3 geomprop_Tworld_out1 = normalize(vd.tangentWorld);
-    surfaceshader SR_glass_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface(SR_glass_base, SR_glass_base_color, SR_glass_diffuse_roughness, SR_glass_metalness, SR_glass_specular, SR_glass_specular_color, SR_glass_specular_roughness, SR_glass_specular_IOR, SR_glass_specular_anisotropy, SR_glass_specular_rotation, SR_glass_transmission, SR_glass_transmission_color, SR_glass_transmission_depth, SR_glass_transmission_scatter, SR_glass_transmission_scatter_anisotropy, SR_glass_transmission_dispersion, SR_glass_transmission_extra_roughness, SR_glass_subsurface, SR_glass_subsurface_color, SR_glass_subsurface_radius, SR_glass_subsurface_scale, SR_glass_subsurface_anisotropy, SR_glass_sheen, SR_glass_sheen_color, SR_glass_sheen_roughness, SR_glass_coat, SR_glass_coat_color, SR_glass_coat_roughness, SR_glass_coat_anisotropy, SR_glass_coat_rotation, SR_glass_coat_IOR, geomprop_Nworld_out1, SR_glass_coat_affect_color, SR_glass_coat_affect_roughness, SR_glass_thin_film_thickness, SR_glass_thin_film_IOR, SR_glass_emission, SR_glass_emission_color, SR_glass_opacity, SR_glass_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_glass_out);
-    material Glass_out = SR_glass_out;
-    float outAlpha = clamp(1.0 - dot(Glass_out.transparency, vec3(0.3333)), 0.0, 1.0);
-    out1 = vec4(Glass_out.color, outAlpha);
-    if (outAlpha < u_alphaThreshold)
-    {
-        discard;
-    }
+    vec3 geomprop_Bworld_out1 = normalize(vd.bitangentWorld);
+    const bool tint_selection_value2_tmp = true;
+    vec3 tint_selection_out = (tint_enable == tint_selection_value2_tmp) ? tint_mult_out : color;
+    vec3 normalmap_out = vec3(0.0);
+    mx_normalmap_float(vec3(0.500000, 0.500000, 1.000000), 1.000000, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, normalmap_out);
+    const bool relief_selection_value2_tmp = true;
+    vec3 relief_selection_out = (relief_enable == relief_selection_value2_tmp) ? normal_relief : normalmap_out;
+    surfaceshader standard_surface_out = surfaceshader(vec3(0.0),vec3(0.0));
+    NG_metashade_standard_surface(1.000000, tint_selection_out, switch_type_rough_out, 0.000000, 1.000000, vec3(1.000000, 1.000000, 1.000000), switch_finish_out, 1.500000, 0.000000, 0.000000, 0.000000, vec3(1.000000, 1.000000, 1.000000), 0.000000, vec3(0.000000, 0.000000, 0.000000), 0.000000, 0.000000, 0.000000, 0.000000, vec3(1.000000, 1.000000, 1.000000), vec3(1.000000, 1.000000, 1.000000), 1.000000, 0.000000, 0.000000, vec3(1.000000, 1.000000, 1.000000), 0.300000, 0.000000, vec3(1.000000, 1.000000, 1.000000), 0.100000, 0.000000, 0.000000, 1.500000, geomprop_Nworld_out1, 0.000000, 0.000000, 0.000000, 1.500000, 0.000000, vec3(1.000000, 1.000000, 1.000000), vec3(1.000000, 1.000000, 1.000000), false, relief_selection_out, geomprop_Tworld_out1, standard_surface_out);
+    out1 = standard_surface_out;
+}
+
+void main()
+{
+    vec2 geomprop_UV0_out1 = vd.texcoord_0.xy;
+    vec3 geomprop_Nworld_out1 = normalize(vd.normalWorld);
+    vec3 geomprop_Tworld_out1 = normalize(vd.tangentWorld);
+    vec3 test_bump_masonry_out = vec3(0.0);
+    adsk_NG_adsk_height_map(test_bump_masonry_file, test_bump_masonry_realworld_offset, test_bump_masonry_realworld_scale, test_bump_masonry_uv_offset, test_bump_masonry_uv_scale, test_bump_masonry_rotation_angle, test_bump_masonry_depth, test_bump_masonry_uaddressmode, test_bump_masonry_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, test_bump_masonry_out);
+    surfaceshader SR_legacy_masonry_out = surfaceshader(vec3(0.0),vec3(0.0));
+    NG_legacy_masonry(SR_legacy_masonry_type, SR_legacy_masonry_color, SR_legacy_masonry_tint_enable, SR_legacy_masonry_tint_color, SR_legacy_masonry_finish, SR_legacy_masonry_relief_enable, test_bump_masonry_out, SR_legacy_masonry_out);
+    material M_legacy_masonry_out = SR_legacy_masonry_out;
+    out1 = vec4(M_legacy_masonry_out.color, 1.0);
 }
 
