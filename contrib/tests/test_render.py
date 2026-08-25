@@ -503,7 +503,7 @@ def _compare_render(
 
     ref_image = image_ref_dir / result.output_path.name
     if not ref_image.exists():
-        pytest.skip(
+        pytest.fail(
             f"Reference render not found: {ref_image}\n"
             f"Run the reference environment first."
         )
