@@ -162,8 +162,8 @@ The `--flip-threshold` CLI option (default `0.05`) controls the mean
 FLIP error threshold.
 
 **Important:** the reference environment must render first.  If
-reference images are missing, the comparison is skipped with a message.
-In practice this means running `test_render.py` (stdlib) before
+reference images are missing, the comparison fails.  In practice this
+means running `test_render.py` (stdlib) before
 `test_render_metashade.py`.
 
 ## CLI Options

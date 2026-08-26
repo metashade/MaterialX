@@ -493,8 +493,8 @@ def _compare_render(
     Uses NVIDIA FLIP to compute a perceptual difference metric.
     Saves a magma heatmap (``*_diff.png``) next to the rendered image
     when *save_heatmap* is ``True`` (for the HTML report) or when the
-    mean FLIP error exceeds *threshold*.  Skips gracefully when
-    reference images are missing.
+    mean FLIP error exceeds *threshold*.  Fails when reference images
+    are missing.
 
     Requires ``flip_evaluator`` (``pip install flip-evaluator``).
     """
