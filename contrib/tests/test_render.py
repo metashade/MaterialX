@@ -64,6 +64,7 @@ class CliOptions:
     output_root: Path
     no_render: bool = False
     flip_threshold: float = 0.05
+    html_report: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -483,13 +484,17 @@ def _check_shader_baselines(result, baseline_dir: Path):
 # Image comparison
 # ---------------------------------------------------------------------------
 
-def _compare_render(result, image_ref_dir: Path, threshold: float):
+def _compare_render(
+    result, image_ref_dir: Path, threshold: float,
+    *, save_heatmap: bool = False,
+):
     """Compare a rendered image against the reference environment's render.
 
-    Uses NVIDIA FLIP to compute a perceptual difference metric and
-    saves a magma heatmap (``*_diff.png``) next to the rendered image.
-    Asserts that the mean FLIP error is within *threshold*.  Skips
-    gracefully when reference images are missing.
+    Uses NVIDIA FLIP to compute a perceptual difference metric.
+    Saves a magma heatmap (``*_diff.png``) next to the rendered image
+    when *save_heatmap* is ``True`` (for the HTML report) or when the
+    mean FLIP error exceeds *threshold*.  Fails when reference images
+    are missing.
 
     Requires ``flip_evaluator`` (``pip install flip-evaluator``).
     """
@@ -498,7 +503,7 @@ def _compare_render(result, image_ref_dir: Path, threshold: float):
 
     ref_image = image_ref_dir / result.output_path.name
     if not ref_image.exists():
-        pytest.skip(
+        pytest.fail(
             f"Reference render not found: {ref_image}\n"
             f"Run the reference environment first."
         )
@@ -513,30 +518,36 @@ def _compare_render(result, image_ref_dir: Path, threshold: float):
     )
 
     mean_flip = float(mean_flip)
-    if mean_flip <= threshold:
-        return
+    # `not <=` instead of `>` so that NaN comparisons fail rather than
+    # silently pass (NaN > x is False, but NaN <= x is also False).
+    failed = not (mean_flip <= threshold)
 
-    max_flip = float(np.array(flip_map).max())
+    if save_heatmap or failed:
+        from PIL import Image
 
-    heatmap_path = result.output_path.parent / f"{result.output_path.stem}_diff.png"
-    heatmap_img, _, _ = flip.evaluate(
-        str(ref_image), str(result.output_path),
-        "LDR", inputsRGB=True, applyMagma=True,
-        computeMeanError=False, parameters={"ppd": 70.0},
-    )
-    from PIL import Image
-    heatmap_arr = np.array(heatmap_img)
-    if heatmap_arr.max() <= 1.0:
-        heatmap_arr = (heatmap_arr * 255).astype(np.uint8)
-    Image.fromarray(heatmap_arr).save(heatmap_path)
+        heatmap_path = (
+            result.output_path.parent
+            / f"{result.output_path.stem}_diff.png"
+        )
+        heatmap_img, _, _ = flip.evaluate(
+            str(ref_image), str(result.output_path),
+            "LDR", inputsRGB=True, applyMagma=True,
+            computeMeanError=False, parameters={"ppd": 70.0},
+        )
+        heatmap_arr = np.array(heatmap_img)
+        if heatmap_arr.max() <= 1.0:
+            heatmap_arr = (heatmap_arr * 255).astype(np.uint8)
+        Image.fromarray(heatmap_arr).save(heatmap_path)
 
-    assert False, (
-        f"FLIP mean {mean_flip:.6f} exceeds threshold {threshold:.6f} "
-        f"(max {max_flip:.6f}) for {result.output_path.name}\n"
-        f"  ref:      {ref_image}\n"
-        f"  rendered: {result.output_path}\n"
-        f"  heatmap:  {heatmap_path}"
-    )
+    if failed:
+        max_flip = float(np.array(flip_map).max())
+        assert False, (
+            f"FLIP mean {mean_flip:.6f} exceeds threshold {threshold:.6f} "
+            f"(max {max_flip:.6f}) for {result.output_path.name}\n"
+            f"  ref:      {ref_image}\n"
+            f"  rendered: {result.output_path}\n"
+            f"  heatmap:  {heatmap_path}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -612,6 +623,7 @@ def _render_elements(
                 _compare_render(
                     result, image_ref_dir,
                     env.cli_options.flip_threshold,
+                    save_heatmap=env.cli_options.html_report,
                 )
 
 
