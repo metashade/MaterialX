@@ -27,16 +27,11 @@ class _RefPaths:
     """Paths for Metashade reference data.
 
     ``LIBRARIES`` is always repo-relative (committed reference inputs).
-    ``METASHADE_LIBRARIES`` points to MaterialX library files shipped
-    with the Metashade module (e.g. the Standard Surface nodegraph).
     ``ENV_SUBPATH`` is the environment subpath for render output,
     relative to ``output_root``.
     """
     ROOT = Path("tests") / "metashade_ref"
     LIBRARIES = Path("contrib") / ROOT / "libraries"
-    METASHADE_LIBRARIES = (
-        Path("contrib") / "metashade" / "metashade" / "mtlx" / "libraries"
-    )
     ENV_SUBPATH = ROOT / "renders"
 
 
@@ -80,20 +75,12 @@ class MetashadeOverrideTestBase:
         libraries_dir = repo_root / _RefPaths.LIBRARIES
         override_sp = mx.FileSearchPath(libraries_dir.as_posix())
 
-        # Load generated overrides (nodedef, impl, GLSL)
+        # Load generated overrides (nodedef, impl, GLSL, nodegraph)
         mx.loadLibraries([subdir], override_sp, lib)
         override_dir = libraries_dir / subdir
         assert lib.getChildren(), (
             f"loadLibraries loaded nothing from {override_dir}"
         )
-
-        # Load hand-written library files (e.g. the SS nodegraph) separately;
-        # loadLibraries stops at the first matching subdir, so a single call
-        # with both paths would skip the second root.
-        metashade_libs = repo_root / _RefPaths.METASHADE_LIBRARIES
-        if (metashade_libs / subdir).exists():
-            metashade_sp = mx.FileSearchPath(metashade_libs.as_posix())
-            mx.loadLibraries([subdir], metashade_sp, lib)
 
         # Expose the override .glsl files to the shader generator
         override_search_path.append(override_dir.as_posix())
