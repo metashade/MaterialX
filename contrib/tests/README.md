@@ -65,6 +65,7 @@ environment's identity in the output tree.
 | Metashade passthru | `tests/metashade_ref/renders/source_code_node_passthrus/` |
 | Metashade broken schlick | `tests/metashade_ref/renders/broken_schlick/` |
 | Metashade standard surface | `tests/metashade_ref/renders/standard_surface/` |
+| Metashade standard surface pruned | `tests/metashade_ref/renders/standard_surface_pruned/` |
 
 Environments that test different asset sources (ASWF vs Autodesk) share
 the same `env_subpath`. The asset source distinction lives in layer 3.
@@ -123,6 +124,7 @@ path logic — those are properties of the test collection.
 | Metashade passthru | All ASWF materials | Prove overrides match C++ |
 | Metashade broken schlick | Schlick-related subset | Diagnostic override |
 | Metashade standard surface | Standard Surface subset | SS reimplementation, FLIP vs stdlib |
+| Metashade standard surface pruned | Non-subsurface SS subset | Pruned variant, FLIP vs stdlib |
 
 ## Comparison Modes
 
@@ -148,6 +150,7 @@ rendering.  The relationship is a property of the environment definition
 | Environment | `image_ref_env_subpath` | Compares against |
 |---|---|---|
 | Metashade standard surface | `renders/` | stdlib C++ renders |
+| Metashade standard surface pruned | `renders/` | stdlib C++ renders |
 | All others | *(none)* | *(no image comparison)* |
 
 On failure, the assertion reports mean and max FLIP error, and saves a

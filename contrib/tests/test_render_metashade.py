@@ -277,6 +277,44 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+_SUBSURFACE_INACTIVE_TEST_PATHS = tuple(
+    p for p in _STANDARD_SURFACE_TEST_PATHS
+    if "jade" not in p.lower()
+)
+
+
+def _get_subsurface_inactive_test_files():
+    """Collect .mtlx files where subsurface is at default (0)."""
+    from test_render import get_repo_root
+    materials_root = get_repo_root() / "resources" / "Materials"
+    files = []
+    for rel in _SUBSURFACE_INACTIVE_TEST_PATHS:
+        mtlx_file = materials_root / rel
+        if mtlx_file.exists():
+            subpath = Path("aswf") / mtlx_file.stem
+            case = RenderTestCase(input_path=mtlx_file, output_subpath=subpath)
+            files.append(pytest.param(case, id=rel))
+    return files
+
+
+class TestRenderMetashadeStandardSurfacePruned(MetashadeOverrideTestBase):
+    """Test rendering with a pruned Standard Surface variant.
+
+    Uses the ``standard_surface_pruned`` override library where inactive
+    BSDF lobes are pruned at code-generation time.  Scoped to materials
+    that keep subsurface at its default (0) so the pruned path is
+    functionally identical to the full variant.
+    FLIP-compares against the stdlib renders.
+    """
+    SUBDIR = "standard_surface_pruned"
+    IMAGE_REF_ENV_SUBPATH = Path("renders")
+
+    @pytest.mark.parametrize("case", _get_subsurface_inactive_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test rendering with pruned Standard Surface override."""
+        override_env.run_test(case, subtests)
+
+
 def _get_adsk_metashade_test_files():
     """Collect adsk materials for Metashade override testing."""
     return collect_adsk_test_files()
