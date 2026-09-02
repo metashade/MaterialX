@@ -1891,20 +1891,22 @@ void NG_legacy_waves_color3(vec3 position, vec3 color1, vec3 color2, float waves
     out1 = mix_colors_out;
 }
 
-void mx_roughness_anisotropy(float roughness, float anisotropy, out vec2 result)
+void mx_artistic_ior(vec3 reflectivity, vec3 edge_color, out vec3 ior, out vec3 extinction)
 {
-    float roughness_sqr = clamp(roughness*roughness, M_FLOAT_EPS, 1.0);
-    if (anisotropy > 0.0)
-    {
-        float aspect = sqrt(1.0 - clamp(anisotropy, 0.0, 0.98));
-        result.x = min(roughness_sqr / aspect, 1.0);
-        result.y = roughness_sqr * aspect;
-    }
-    else
-    {
-        result.x = roughness_sqr;
-        result.y = roughness_sqr;
-    }
+    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
+    // http://jcgt.org/published/0003/04/03/paper.pdf
+
+    vec3 r = clamp(reflectivity, 0.0, 0.99);
+    vec3 r_sqrt = sqrt(r);
+    vec3 n_min = (1.0 - r) / (1.0 + r);
+    vec3 n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
+    ior = mix(n_max, n_min, edge_color);
+
+    vec3 np1 = ior + 1.0;
+    vec3 nm1 = ior - 1.0;
+    vec3 k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
+    k2 = max(k2, 0.0);
+    extinction = sqrt(k2);
 }
 // These are defined based on the HwShaderGenerator::ClosureContextType enum
 // if that changes - these need to be updated accordingly.
@@ -1927,6 +1929,131 @@ struct ClosureData {
 ClosureData makeClosureData(int closureType, vec3 L, vec3 V, vec3 N, vec3 P, float occlusion)
 {
     return ClosureData(closureType, L, V, N, P, occlusion);
+}
+
+void mx_conductor_bsdf(ClosureData closureData, float weight, vec3 ior_n, vec3 ior_k, vec2 roughness, bool retroreflective, float thinfilm_thickness, float thinfilm_ior, vec3 N, vec3 X, int distribution, inout BSDF bsdf)
+{
+    bsdf.throughput = vec3(0.0);
+
+    if (weight < M_FLOAT_EPS)
+    {
+        return;
+    }
+
+    vec3 V = closureData.V;
+    vec3 L = closureData.L;
+
+    V = retroreflective ? reflect(-V, N) : V;
+    N = mx_forward_facing_normal(N, V);
+    float NdotV = clamp(dot(N, V), M_FLOAT_EPS, 1.0);
+
+    FresnelData fd = mx_init_fresnel_conductor(ior_n, ior_k, thinfilm_thickness, thinfilm_ior);
+
+    vec2 safeAlpha = clamp(roughness, M_FLOAT_EPS, 1.0);
+    float avgAlpha = mx_average_alpha(safeAlpha);
+
+    if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
+    {
+        X = normalize(X - dot(X, N) * N);
+        vec3 Y = cross(N, X);
+        vec3 H = normalize(L + V);
+
+        float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
+        float VdotH = clamp(dot(V, H), M_FLOAT_EPS, 1.0);
+
+        vec3 Ht = vec3(dot(H, X), dot(H, Y), dot(H, N));
+
+        vec3 F = mx_compute_fresnel(VdotH, fd);
+        float D = mx_ggx_NDF(Ht, safeAlpha);
+        float G = mx_ggx_smith_G2(NdotL, NdotV, avgAlpha);
+
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+
+        // Note: NdotL is cancelled out
+        bsdf.response = D * F * G * comp * closureData.occlusion * weight / (4.0 * NdotV);
+    }
+    else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
+    {
+        vec3 F = mx_compute_fresnel(NdotV, fd);
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+        vec3 Li = mx_environment_radiance(N, V, X, safeAlpha, distribution, fd);
+        bsdf.response = Li * comp * weight;
+    }
+}
+
+void mx_dielectric_bsdf(ClosureData closureData, float weight, vec3 tint, float ior, vec2 roughness, bool retroreflective, float thinfilm_thickness, float thinfilm_ior, vec3 N, vec3 X, int distribution, int scatter_mode, inout BSDF bsdf)
+{
+    if (weight < M_FLOAT_EPS)
+    {
+        return;
+    }
+    if (closureData.closureType != CLOSURE_TYPE_TRANSMISSION && scatter_mode == 1)
+    {
+        return;
+    }
+
+    vec3 V = closureData.V;
+    vec3 L = closureData.L;
+
+    // Retroreflective mode is only supported for reflection and indirect
+    if (retroreflective && (closureData.closureType != CLOSURE_TYPE_TRANSMISSION))
+        V = reflect(-V, N);
+    
+    N = mx_forward_facing_normal(N, V);
+    float NdotV = clamp(dot(N, V), M_FLOAT_EPS, 1.0);
+
+    FresnelData fd = mx_init_fresnel_dielectric(ior, thinfilm_thickness, thinfilm_ior);
+    float F0 = mx_ior_to_f0(ior);
+
+    vec2 safeAlpha = clamp(roughness, M_FLOAT_EPS, 1.0);
+    float avgAlpha = mx_average_alpha(safeAlpha);
+    vec3 safeTint = max(tint, 0.0);
+
+    if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
+    {
+        X = normalize(X - dot(X, N) * N);
+        vec3 Y = cross(N, X);
+        vec3 H = normalize(L + V);
+
+        float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
+        float VdotH = clamp(dot(V, H), M_FLOAT_EPS, 1.0);
+
+        vec3 Ht = vec3(dot(H, X), dot(H, Y), dot(H, N));
+
+        vec3 F = mx_compute_fresnel(VdotH, fd);
+        float D = mx_ggx_NDF(Ht, safeAlpha);
+        float G = mx_ggx_smith_G2(NdotL, NdotV, avgAlpha);
+
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+        vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, F0, 1.0) * comp;
+        bsdf.throughput = 1.0 - dirAlbedo * weight;
+
+        bsdf.response = D * F * G * comp * safeTint * closureData.occlusion * weight / (4.0 * NdotV);
+    }
+    else if (closureData.closureType == CLOSURE_TYPE_TRANSMISSION)
+    {
+        vec3 F = mx_compute_fresnel(NdotV, fd);
+
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+        vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, F0, 1.0) * comp;
+        bsdf.throughput = 1.0 - dirAlbedo * weight;
+
+        if (scatter_mode != 0)
+        {
+            bsdf.response = mx_surface_transmission(N, V, X, safeAlpha, distribution, fd, safeTint) * weight;
+        }
+    }
+    else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
+    {
+        vec3 F = mx_compute_fresnel(NdotV, fd);
+
+        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
+        vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, F0, 1.0) * comp;
+        bsdf.throughput = 1.0 - dirAlbedo * weight;
+
+        vec3 Li = mx_environment_radiance(N, V, X, safeAlpha, distribution, fd);
+        bsdf.response = Li * safeTint * comp * weight;
+    }
 }
 
 const float FUJII_CONSTANT_1 = 0.5 - 2.0 / (3.0 * M_PI);
@@ -2161,62 +2288,19 @@ void mx_oren_nayar_diffuse_bsdf(ClosureData closureData, float weight, vec3 colo
         bsdf.response = Li * diffuse * weight;
     }
 }
-
-void mx_translucent_bsdf(ClosureData closureData, float weight, vec3 color, vec3 N, inout BSDF bsdf)
+void mx_roughness_anisotropy(float roughness, float anisotropy, out vec2 result)
 {
-    bsdf.throughput = vec3(0.0);
-
-    if (weight < M_FLOAT_EPS)
+    float roughness_sqr = clamp(roughness*roughness, M_FLOAT_EPS, 1.0);
+    if (anisotropy > 0.0)
     {
-        return;
+        float aspect = sqrt(1.0 - clamp(anisotropy, 0.0, 0.98));
+        result.x = min(roughness_sqr / aspect, 1.0);
+        result.y = roughness_sqr * aspect;
     }
-
-    vec3 V = closureData.V;
-    vec3 L = closureData.L;
-
-    // Invert normal since we're transmitting light from the other side
-    N = -N;
-
-    if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
+    else
     {
-        float NdotL = clamp(dot(N, L), 0.0, 1.0);
-        bsdf.response = color * weight * NdotL * M_PI_INV;
-    }
-    else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
-    {
-        vec3 Li = mx_environment_irradiance(N);
-        bsdf.response = Li * color * weight;
-    }
-}
-
-void mx_subsurface_bsdf(ClosureData closureData, float weight, vec3 color, vec3 radius, float anisotropy, vec3 N, inout BSDF bsdf)
-{
-    bsdf.throughput = vec3(0.0);
-
-    if (weight < M_FLOAT_EPS)
-    {
-        return;
-    }
-
-    vec3 V = closureData.V;
-    vec3 L = closureData.L;
-    vec3 P = closureData.P;
-    float occlusion = closureData.occlusion;
-
-    N = mx_forward_facing_normal(N, V);
-
-    if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
-    {
-        vec3 sss = mx_subsurface_scattering_approx(N, L, P, color, radius);
-        float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
-        float visibleOcclusion = 1.0 - NdotL * (1.0 - occlusion);
-        bsdf.response = sss * visibleOcclusion * weight;
-    }
-    else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
-    {
-        // For now, we render indirect subsurface as simple indirect diffuse.
-        vec3 Li = mx_environment_irradiance(N);
-        bsdf.response = Li * color * weight;
+        result.x = roughness_sqr;
+        result.y = roughness_sqr;
     }
 }
 
@@ -2466,82 +2550,38 @@ void mx_sheen_bsdf(ClosureData closureData, float weight, vec3 color, float roug
     }
 }
 
-void mx_dielectric_bsdf(ClosureData closureData, float weight, vec3 tint, float ior, vec2 roughness, bool retroreflective, float thinfilm_thickness, float thinfilm_ior, vec3 N, vec3 X, int distribution, int scatter_mode, inout BSDF bsdf)
+void mx_subsurface_bsdf(ClosureData closureData, float weight, vec3 color, vec3 radius, float anisotropy, vec3 N, inout BSDF bsdf)
 {
+    bsdf.throughput = vec3(0.0);
+
     if (weight < M_FLOAT_EPS)
-    {
-        return;
-    }
-    if (closureData.closureType != CLOSURE_TYPE_TRANSMISSION && scatter_mode == 1)
     {
         return;
     }
 
     vec3 V = closureData.V;
     vec3 L = closureData.L;
+    vec3 P = closureData.P;
+    float occlusion = closureData.occlusion;
 
-    // Retroreflective mode is only supported for reflection and indirect
-    if (retroreflective && (closureData.closureType != CLOSURE_TYPE_TRANSMISSION))
-        V = reflect(-V, N);
-    
     N = mx_forward_facing_normal(N, V);
-    float NdotV = clamp(dot(N, V), M_FLOAT_EPS, 1.0);
-
-    FresnelData fd = mx_init_fresnel_dielectric(ior, thinfilm_thickness, thinfilm_ior);
-    float F0 = mx_ior_to_f0(ior);
-
-    vec2 safeAlpha = clamp(roughness, M_FLOAT_EPS, 1.0);
-    float avgAlpha = mx_average_alpha(safeAlpha);
-    vec3 safeTint = max(tint, 0.0);
 
     if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
     {
-        X = normalize(X - dot(X, N) * N);
-        vec3 Y = cross(N, X);
-        vec3 H = normalize(L + V);
-
+        vec3 sss = mx_subsurface_scattering_approx(N, L, P, color, radius);
         float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
-        float VdotH = clamp(dot(V, H), M_FLOAT_EPS, 1.0);
-
-        vec3 Ht = vec3(dot(H, X), dot(H, Y), dot(H, N));
-
-        vec3 F = mx_compute_fresnel(VdotH, fd);
-        float D = mx_ggx_NDF(Ht, safeAlpha);
-        float G = mx_ggx_smith_G2(NdotL, NdotV, avgAlpha);
-
-        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
-        vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, F0, 1.0) * comp;
-        bsdf.throughput = 1.0 - dirAlbedo * weight;
-
-        bsdf.response = D * F * G * comp * safeTint * closureData.occlusion * weight / (4.0 * NdotV);
-    }
-    else if (closureData.closureType == CLOSURE_TYPE_TRANSMISSION)
-    {
-        vec3 F = mx_compute_fresnel(NdotV, fd);
-
-        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
-        vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, F0, 1.0) * comp;
-        bsdf.throughput = 1.0 - dirAlbedo * weight;
-
-        if (scatter_mode != 0)
-        {
-            bsdf.response = mx_surface_transmission(N, V, X, safeAlpha, distribution, fd, safeTint) * weight;
-        }
+        float visibleOcclusion = 1.0 - NdotL * (1.0 - occlusion);
+        bsdf.response = sss * visibleOcclusion * weight;
     }
     else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
     {
-        vec3 F = mx_compute_fresnel(NdotV, fd);
-
-        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
-        vec3 dirAlbedo = mx_ggx_dir_albedo(NdotV, avgAlpha, F0, 1.0) * comp;
-        bsdf.throughput = 1.0 - dirAlbedo * weight;
-
-        vec3 Li = mx_environment_radiance(N, V, X, safeAlpha, distribution, fd);
-        bsdf.response = Li * safeTint * comp * weight;
+        // For now, we render indirect subsurface as simple indirect diffuse.
+        vec3 Li = mx_environment_irradiance(N);
+        bsdf.response = Li * color * weight;
     }
 }
 
-void mx_conductor_bsdf(ClosureData closureData, float weight, vec3 ior_n, vec3 ior_k, vec2 roughness, bool retroreflective, float thinfilm_thickness, float thinfilm_ior, vec3 N, vec3 X, int distribution, inout BSDF bsdf)
+void mx_translucent_bsdf(ClosureData closureData, float weight, vec3 color, vec3 N, inout BSDF bsdf)
 {
     bsdf.throughput = vec3(0.0);
 
@@ -2553,59 +2593,19 @@ void mx_conductor_bsdf(ClosureData closureData, float weight, vec3 ior_n, vec3 i
     vec3 V = closureData.V;
     vec3 L = closureData.L;
 
-    V = retroreflective ? reflect(-V, N) : V;
-    N = mx_forward_facing_normal(N, V);
-    float NdotV = clamp(dot(N, V), M_FLOAT_EPS, 1.0);
-
-    FresnelData fd = mx_init_fresnel_conductor(ior_n, ior_k, thinfilm_thickness, thinfilm_ior);
-
-    vec2 safeAlpha = clamp(roughness, M_FLOAT_EPS, 1.0);
-    float avgAlpha = mx_average_alpha(safeAlpha);
+    // Invert normal since we're transmitting light from the other side
+    N = -N;
 
     if (closureData.closureType == CLOSURE_TYPE_REFLECTION)
     {
-        X = normalize(X - dot(X, N) * N);
-        vec3 Y = cross(N, X);
-        vec3 H = normalize(L + V);
-
-        float NdotL = clamp(dot(N, L), M_FLOAT_EPS, 1.0);
-        float VdotH = clamp(dot(V, H), M_FLOAT_EPS, 1.0);
-
-        vec3 Ht = vec3(dot(H, X), dot(H, Y), dot(H, N));
-
-        vec3 F = mx_compute_fresnel(VdotH, fd);
-        float D = mx_ggx_NDF(Ht, safeAlpha);
-        float G = mx_ggx_smith_G2(NdotL, NdotV, avgAlpha);
-
-        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
-
-        // Note: NdotL is cancelled out
-        bsdf.response = D * F * G * comp * closureData.occlusion * weight / (4.0 * NdotV);
+        float NdotL = clamp(dot(N, L), 0.0, 1.0);
+        bsdf.response = color * weight * NdotL * M_PI_INV;
     }
     else if (closureData.closureType == CLOSURE_TYPE_INDIRECT)
     {
-        vec3 F = mx_compute_fresnel(NdotV, fd);
-        vec3 comp = mx_ggx_energy_compensation(NdotV, avgAlpha, F);
-        vec3 Li = mx_environment_radiance(N, V, X, safeAlpha, distribution, fd);
-        bsdf.response = Li * comp * weight;
+        vec3 Li = mx_environment_irradiance(N);
+        bsdf.response = Li * color * weight;
     }
-}
-void mx_artistic_ior(vec3 reflectivity, vec3 edge_color, out vec3 ior, out vec3 extinction)
-{
-    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
-    // http://jcgt.org/published/0003/04/03/paper.pdf
-
-    vec3 r = clamp(reflectivity, 0.0, 0.99);
-    vec3 r_sqrt = sqrt(r);
-    vec3 n_min = (1.0 - r) / (1.0 + r);
-    vec3 n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
-    ior = mix(n_max, n_min, edge_color);
-
-    vec3 np1 = ior + 1.0;
-    vec3 nm1 = ior - 1.0;
-    vec3 k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
-    k2 = max(k2, 0.0);
-    extinction = sqrt(k2);
 }
 // Rodrigues' rotation formula.
 // 
