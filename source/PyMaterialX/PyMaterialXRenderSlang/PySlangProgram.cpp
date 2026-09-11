@@ -22,7 +22,9 @@ void bindPySlangProgram(py::module& mod)
         .def("hasUniform", &mx::SlangProgram::hasUniform)
         .def("bindUniform", &mx::SlangProgram::bindUniform,
             py::arg("name"), py::arg("value"), py::arg("errorIfMissing") = true)
-        .def("bindMesh", static_cast<void (mx::SlangProgram::*)(mx::MeshPtr)>(&mx::SlangProgram::bindMesh))
+        // Note: bindMesh(MeshPtr) is not exposed because it dereferences
+        // internal _renderState which Python cannot initialize via bind().
+        // Mesh binding happens internally during SlangRenderer::render().
         .def("unbindGeometry", &mx::SlangProgram::unbindGeometry)
         .def("bindTextures", &mx::SlangProgram::bindTextures)
         .def("bindLighting", &mx::SlangProgram::bindLighting)

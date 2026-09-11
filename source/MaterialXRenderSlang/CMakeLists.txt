@@ -10,8 +10,7 @@ mx_add_library(MaterialXRenderSlang
         MaterialXRender
         MaterialXRenderHw
     EXPORT_DEFINE
-        MATERIALX_RENDERSLANG_EXPORTS
-    SKIP_INSTALL)
+        MATERIALX_RENDERSLANG_EXPORTS)
 
 set(SLANG_RHI_BINARY_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>)
 add_subdirectory(${MATERIALX_SLANG_RHI_SOURCE_DIR} build)
