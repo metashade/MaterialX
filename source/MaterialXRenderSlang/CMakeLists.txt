@@ -9,6 +9,7 @@ mx_add_library(MaterialXRenderSlang
     MTLX_MODULES
         MaterialXRender
         MaterialXRenderHw
+        MaterialXGenSlang
     EXPORT_DEFINE
         MATERIALX_RENDERSLANG_EXPORTS
     SKIP_INSTALL)
@@ -19,9 +20,11 @@ target_link_libraries(MaterialXRenderSlang PUBLIC slang-rhi)
 
 # Install MaterialXRenderSlang without joining the MaterialX export set,
 # since its public slang-rhi dependency is not export-set compatible.
+# Include headers so downstream C++ consumers can compile against the SDK.
 if(NOT SKBUILD)
     install(TARGETS MaterialXRenderSlang
             ARCHIVE DESTINATION ${MATERIALX_INSTALL_LIB_PATH}
             LIBRARY DESTINATION ${MATERIALX_INSTALL_LIB_PATH}
-            RUNTIME DESTINATION ${MATERIALX_INSTALL_BIN_PATH})
+            RUNTIME DESTINATION ${MATERIALX_INSTALL_BIN_PATH}
+            FILE_SET mxHeaders DESTINATION ${MATERIALX_INSTALL_INCLUDE_PATH})
 endif()

@@ -28,28 +28,41 @@ target_link_libraries(
 install(TARGETS PyMaterialXRenderSlang
         DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}")
 
-# Install Slang runtime libraries alongside the Python module.
+# Install Slang runtime libraries.
 # Use target-based paths so the correct location is resolved on all platforms,
 # since slang-rhi's imported targets may place libraries outside
 # CMAKE_RUNTIME_OUTPUT_DIRECTORY on non-Windows.
-install(FILES $<TARGET_FILE:slang>
-    DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
-    OPTIONAL)
-if(WIN32)
-    install(FILES
-        $<TARGET_FILE_DIR:slang>/slang-compiler.dll
-        $<TARGET_FILE_DIR:slang>/dxcompiler.dll
-        $<TARGET_FILE_DIR:slang>/dxil.dll
-        DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
-        OPTIONAL)
-elseif(APPLE)
-    install(FILES
-        $<TARGET_FILE_DIR:slang>/libslang-compiler.dylib
-        DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
-        OPTIONAL)
+#
+# For SKBUILD wheels, install only to the Python package directory.
+# For SDK installs, also install to lib/bin so MaterialXRenderSlang
+# (installed under lib/) can resolve its slang-rhi dependency at runtime.
+if(SKBUILD)
+    set(_slang_install_destinations "${MATERIALX_PYTHON_FOLDER_NAME}")
 else()
-    install(FILES
-        $<TARGET_FILE_DIR:slang>/libslang-compiler.so
-        DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
-        OPTIONAL)
+    set(_slang_install_destinations "${MATERIALX_PYTHON_FOLDER_NAME}")
+    list(APPEND _slang_install_destinations "${MATERIALX_INSTALL_LIB_PATH}")
 endif()
+
+foreach(_dest IN LISTS _slang_install_destinations)
+    install(FILES $<TARGET_FILE:slang>
+        DESTINATION "${_dest}"
+        OPTIONAL)
+    if(WIN32)
+        install(FILES
+            $<TARGET_FILE_DIR:slang>/slang-compiler.dll
+            $<TARGET_FILE_DIR:slang>/dxcompiler.dll
+            $<TARGET_FILE_DIR:slang>/dxil.dll
+            DESTINATION "${_dest}"
+            OPTIONAL)
+    elseif(APPLE)
+        install(FILES
+            $<TARGET_FILE_DIR:slang>/libslang-compiler.dylib
+            DESTINATION "${_dest}"
+            OPTIONAL)
+    else()
+        install(FILES
+            $<TARGET_FILE_DIR:slang>/libslang-compiler.so
+            DESTINATION "${_dest}"
+            OPTIONAL)
+    endif()
+endforeach()
