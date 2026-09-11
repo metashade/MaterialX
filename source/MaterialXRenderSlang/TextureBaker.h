@@ -17,6 +17,7 @@
 #include <MaterialXRenderSlang/Export.h>
 
 #include <MaterialXRenderSlang/SlangRenderer.h>
+#include <MaterialXRenderSlang/SlangFramebuffer.h>
 #include <MaterialXGenSlang/SlangShaderGenerator.h>
 
 MATERIALX_NAMESPACE_BEGIN

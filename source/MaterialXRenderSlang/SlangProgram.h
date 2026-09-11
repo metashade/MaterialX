@@ -23,7 +23,7 @@ MATERIALX_NAMESPACE_BEGIN
 using SlangFramebufferPtr = std::shared_ptr<class SlangFramebuffer>;
 using SlangProgramPtr = std::shared_ptr<class SlangProgram>;
 
-class SlangProgram
+class MX_RENDERSLANG_API SlangProgram
 {
   public:
     static SlangProgramPtr create(SlangContextPtr context);

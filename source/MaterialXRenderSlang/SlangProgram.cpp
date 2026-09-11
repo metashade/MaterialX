@@ -1013,6 +1013,12 @@ const SlangProgram::UniformInputMap& SlangProgram::updateUniformsList()
             }
         }
 
+        if (fieldIndex < cursor.m_typeLayout->getFieldCount() &&
+            std::string(cursor.m_typeLayout->getFieldByIndex(fieldIndex)->getName()) == HW::LIGHT_DATA_INSTANCE)
+        {
+            ++fieldIndex;
+        }
+
         if (fieldIndex != cursor.m_typeLayout->getFieldCount())
             throw ExceptionRenderError("ShaderCursor has " + std::to_string(cursor.m_typeLayout->getFieldCount()) + " members, while Uniforms have " + std::to_string(fieldIndex) + " ports.");
     };
