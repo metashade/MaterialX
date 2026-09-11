@@ -9,6 +9,7 @@ mx_add_library(MaterialXRenderSlang
     MTLX_MODULES
         MaterialXRender
         MaterialXRenderHw
+        MaterialXGenSlang
     EXPORT_DEFINE
         MATERIALX_RENDERSLANG_EXPORTS
     SKIP_INSTALL)

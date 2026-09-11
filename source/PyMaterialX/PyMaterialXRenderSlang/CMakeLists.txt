@@ -28,25 +28,28 @@ target_link_libraries(
 install(TARGETS PyMaterialXRenderSlang
         DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}")
 
+# Install Slang runtime libraries alongside the Python module.
+# Use target-based paths so the correct location is resolved on all platforms,
+# since slang-rhi's imported targets may place libraries outside
+# CMAKE_RUNTIME_OUTPUT_DIRECTORY on non-Windows.
+install(FILES $<TARGET_FILE:slang>
+    DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
+    OPTIONAL)
 if(WIN32)
-    # Install slang-rhi runtime DLL dependencies to python package directory
     install(FILES
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/slang.dll
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/slang-compiler.dll
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/dxcompiler.dll
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/dxil.dll
+        $<TARGET_FILE_DIR:slang>/slang-compiler.dll
+        $<TARGET_FILE_DIR:slang>/dxcompiler.dll
+        $<TARGET_FILE_DIR:slang>/dxil.dll
         DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
         OPTIONAL)
 elseif(APPLE)
     install(FILES
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang.dylib
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang-compiler.dylib
+        $<TARGET_FILE_DIR:slang>/libslang-compiler.dylib
         DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
         OPTIONAL)
 else()
     install(FILES
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang.so
-        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libslang-compiler.so
+        $<TARGET_FILE_DIR:slang>/libslang-compiler.so
         DESTINATION "${MATERIALX_PYTHON_FOLDER_NAME}"
         OPTIONAL)
 endif()
