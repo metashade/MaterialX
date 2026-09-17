@@ -277,9 +277,14 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+# Materials where subsurface is actively used (non-zero constant or
+# texture-driven): jade (0.5), marble_solid (0.4), chess_set King/Queen
+# (texture-driven subsurface output).
+_SUBSURFACE_ACTIVE = frozenset({"jade", "marble_solid", "chess_set"})
+
 _SUBSURFACE_INACTIVE_TEST_PATHS = tuple(
     p for p in _STANDARD_SURFACE_TEST_PATHS
-    if "jade" not in p.lower()
+    if not any(name in p.lower() for name in _SUBSURFACE_ACTIVE)
 )
 
 
@@ -301,18 +306,57 @@ class TestRenderMetashadeStandardSurfacePruned(MetashadeOverrideTestBase):
     """Test rendering with a pruned Standard Surface variant.
 
     Uses the ``standard_surface_pruned`` override library where inactive
-    BSDF lobes are pruned at code-generation time.  Scoped to materials
-    that keep subsurface at its default (0) so the pruned path is
-    functionally identical to the full variant.
+    BSDF lobes are pruned at code-generation time.  Each material is
+    rewritten via :meth:`Permutation.prune_material` to target the
+    pruned surfaceshader nodedef.  Scoped to materials that keep
+    subsurface at its default (0) so the pruned path is functionally
+    identical to the full variant.
     FLIP-compares against the stdlib renders.
     """
     SUBDIR = "standard_surface_pruned"
     IMAGE_REF_ENV_SUBPATH = Path("renders")
 
+    @pytest.fixture(scope="class")
+    def pruned_permutation(self, override_stdlib):
+        """Create a subsurface-pruned Permutation from the override stdlib."""
+        from metashade.mtlx.standard_surface import Permutation
+        return Permutation(override_stdlib, subsurface=False)
+
     @pytest.mark.parametrize("case", _get_subsurface_inactive_test_files())
-    def test_render(self, case: RenderTestCase, subtests, override_env):
+    def test_render(
+        self, case: RenderTestCase, subtests, override_env,
+        pruned_permutation,
+    ):
         """Test rendering with pruned Standard Surface override."""
-        override_env.run_test(case, subtests)
+        doc = mx.createDocument()
+        mx.readFromXmlFile(doc, str(case.input_path))
+
+        pruned_doc = pruned_permutation.prune_material(doc)
+        assert pruned_doc is not None, (
+            "prune_material() returned None for a pruned permutation"
+        )
+
+        # Write pruned material next to the rendered images / shader
+        # dumps so it is committed as a reviewable test reference.
+        # Flatten xi:include so the file is self-contained.
+        write_opts = mx.XmlWriteOptions()
+        write_opts.writeXIncludeEnable = False
+        output_dir = override_env.get_output_path(case)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        pruned_path = output_dir / case.input_path.name
+        mx.writeToXmlFile(pruned_doc, str(pruned_path), write_opts)
+
+        # Ensure textures referenced by the original material resolve
+        # when rendering from the output directory.
+        override_env.search_path.append(
+            str(case.input_path.parent.resolve())
+        )
+
+        pruned_case = RenderTestCase(
+            input_path=pruned_path,
+            output_subpath=case.output_subpath,
+        )
+        override_env.run_test(pruned_case, subtests)
 
 
 def _get_adsk_metashade_test_files():

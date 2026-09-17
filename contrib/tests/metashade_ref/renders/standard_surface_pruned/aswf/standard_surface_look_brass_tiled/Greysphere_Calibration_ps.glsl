@@ -56,11 +56,6 @@ uniform vec3 SR_Greysphere_Calibration_transmission_scatter = vec3(0.000000, 0.0
 uniform float SR_Greysphere_Calibration_transmission_scatter_anisotropy = 0.000000;
 uniform float SR_Greysphere_Calibration_transmission_dispersion = 0.000000;
 uniform float SR_Greysphere_Calibration_transmission_extra_roughness = 0.000000;
-uniform float SR_Greysphere_Calibration_subsurface = 0.000000;
-uniform vec3 SR_Greysphere_Calibration_subsurface_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 SR_Greysphere_Calibration_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_Greysphere_Calibration_subsurface_scale = 1.000000;
-uniform float SR_Greysphere_Calibration_subsurface_anisotropy = 0.000000;
 uniform float SR_Greysphere_Calibration_sheen = 0.000000;
 uniform vec3 SR_Greysphere_Calibration_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float SR_Greysphere_Calibration_sheen_roughness = 0.300000;
@@ -77,7 +72,6 @@ uniform float SR_Greysphere_Calibration_thin_film_IOR = 1.500000;
 uniform float SR_Greysphere_Calibration_emission = 0.000000;
 uniform vec3 SR_Greysphere_Calibration_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 SR_Greysphere_Calibration_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool SR_Greysphere_Calibration_thin_walled = false;
 
 in VertexData
 {
@@ -1796,7 +1790,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1863,7 +1857,7 @@ void main()
     vec3 image1_out_cm_out = vec3(0.0);
     NG_srgb_texture_to_lin_rec709_color3(image1_out, image1_out_cm_out);
     surfaceshader SR_Greysphere_Calibration_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(SR_Greysphere_Calibration_base, image1_out_cm_out, SR_Greysphere_Calibration_diffuse_roughness, SR_Greysphere_Calibration_metalness, SR_Greysphere_Calibration_specular, SR_Greysphere_Calibration_specular_color, SR_Greysphere_Calibration_specular_roughness, SR_Greysphere_Calibration_specular_IOR, SR_Greysphere_Calibration_specular_anisotropy, SR_Greysphere_Calibration_specular_rotation, SR_Greysphere_Calibration_transmission, SR_Greysphere_Calibration_transmission_color, SR_Greysphere_Calibration_transmission_depth, SR_Greysphere_Calibration_transmission_scatter, SR_Greysphere_Calibration_transmission_scatter_anisotropy, SR_Greysphere_Calibration_transmission_dispersion, SR_Greysphere_Calibration_transmission_extra_roughness, SR_Greysphere_Calibration_subsurface, SR_Greysphere_Calibration_subsurface_color, SR_Greysphere_Calibration_subsurface_radius, SR_Greysphere_Calibration_subsurface_scale, SR_Greysphere_Calibration_subsurface_anisotropy, SR_Greysphere_Calibration_sheen, SR_Greysphere_Calibration_sheen_color, SR_Greysphere_Calibration_sheen_roughness, SR_Greysphere_Calibration_coat, SR_Greysphere_Calibration_coat_color, SR_Greysphere_Calibration_coat_roughness, SR_Greysphere_Calibration_coat_anisotropy, SR_Greysphere_Calibration_coat_rotation, SR_Greysphere_Calibration_coat_IOR, geomprop_Nworld_out1, SR_Greysphere_Calibration_coat_affect_color, SR_Greysphere_Calibration_coat_affect_roughness, SR_Greysphere_Calibration_thin_film_thickness, SR_Greysphere_Calibration_thin_film_IOR, SR_Greysphere_Calibration_emission, SR_Greysphere_Calibration_emission_color, SR_Greysphere_Calibration_opacity, SR_Greysphere_Calibration_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_Greysphere_Calibration_out);
+    NG_metashade_standard_surface_subsurface0(SR_Greysphere_Calibration_base, image1_out_cm_out, SR_Greysphere_Calibration_diffuse_roughness, SR_Greysphere_Calibration_metalness, SR_Greysphere_Calibration_specular, SR_Greysphere_Calibration_specular_color, SR_Greysphere_Calibration_specular_roughness, SR_Greysphere_Calibration_specular_IOR, SR_Greysphere_Calibration_specular_anisotropy, SR_Greysphere_Calibration_specular_rotation, SR_Greysphere_Calibration_transmission, SR_Greysphere_Calibration_transmission_color, SR_Greysphere_Calibration_transmission_depth, SR_Greysphere_Calibration_transmission_scatter, SR_Greysphere_Calibration_transmission_scatter_anisotropy, SR_Greysphere_Calibration_transmission_dispersion, SR_Greysphere_Calibration_transmission_extra_roughness, SR_Greysphere_Calibration_sheen, SR_Greysphere_Calibration_sheen_color, SR_Greysphere_Calibration_sheen_roughness, SR_Greysphere_Calibration_coat, SR_Greysphere_Calibration_coat_color, SR_Greysphere_Calibration_coat_roughness, SR_Greysphere_Calibration_coat_anisotropy, SR_Greysphere_Calibration_coat_rotation, SR_Greysphere_Calibration_coat_IOR, geomprop_Nworld_out1, SR_Greysphere_Calibration_coat_affect_color, SR_Greysphere_Calibration_coat_affect_roughness, SR_Greysphere_Calibration_thin_film_thickness, SR_Greysphere_Calibration_thin_film_IOR, SR_Greysphere_Calibration_emission, SR_Greysphere_Calibration_emission_color, SR_Greysphere_Calibration_opacity, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_Greysphere_Calibration_out);
     material Greysphere_Calibration_out = SR_Greysphere_Calibration_out;
     out1 = vec4(Greysphere_Calibration_out.color, 1.0);
 }

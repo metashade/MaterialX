@@ -284,7 +284,7 @@ jobs:
 
     - name: Install Contrib Test Dependencies
       if: matrix.contrib_tests == 'ON'
-      run: pip install pytest pytest-html pytest-metadata pytest-subtests
+      run: pip install pytest pytest-html pytest-metadata pytest-subtests contrib/metashade
 
     - name: pytest test_render.py
       if: matrix.contrib_tests == 'ON'
