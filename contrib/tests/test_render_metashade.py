@@ -301,18 +301,48 @@ class TestRenderMetashadeStandardSurfacePruned(MetashadeOverrideTestBase):
     """Test rendering with a pruned Standard Surface variant.
 
     Uses the ``standard_surface_pruned`` override library where inactive
-    BSDF lobes are pruned at code-generation time.  Scoped to materials
-    that keep subsurface at its default (0) so the pruned path is
-    functionally identical to the full variant.
+    BSDF lobes are pruned at code-generation time.  Each material is
+    rewritten via :meth:`Permutation.prune_material` to target the
+    pruned surfaceshader nodedef.  Scoped to materials that keep
+    subsurface at its default (0) so the pruned path is functionally
+    identical to the full variant.
     FLIP-compares against the stdlib renders.
     """
     SUBDIR = "standard_surface_pruned"
     IMAGE_REF_ENV_SUBPATH = Path("renders")
 
+    @pytest.fixture(scope="class")
+    def pruned_permutation(self, override_stdlib):
+        """Create a subsurface-pruned Permutation from the override stdlib."""
+        from metashade.mtlx.standard_surface import Permutation
+        return Permutation(override_stdlib, subsurface=False)
+
     @pytest.mark.parametrize("case", _get_subsurface_inactive_test_files())
-    def test_render(self, case: RenderTestCase, subtests, override_env):
+    def test_render(
+        self, case: RenderTestCase, subtests, override_env,
+        pruned_permutation,
+    ):
         """Test rendering with pruned Standard Surface override."""
-        override_env.run_test(case, subtests)
+        doc = mx.createDocument()
+        mx.readFromXmlFile(doc, str(case.input_path))
+
+        pruned_doc = pruned_permutation.prune_material(doc)
+        if pruned_doc is None:
+            override_env.run_test(case, subtests)
+            return
+
+        # Write pruned material next to the rendered images / shader
+        # dumps so it is committed as a reviewable test reference.
+        output_dir = override_env.get_output_path(case)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        pruned_path = output_dir / case.input_path.name
+        mx.writeToXmlFile(pruned_doc, str(pruned_path))
+
+        pruned_case = RenderTestCase(
+            input_path=pruned_path,
+            output_subpath=case.output_subpath,
+        )
+        override_env.run_test(pruned_case, subtests)
 
 
 def _get_adsk_metashade_test_files():

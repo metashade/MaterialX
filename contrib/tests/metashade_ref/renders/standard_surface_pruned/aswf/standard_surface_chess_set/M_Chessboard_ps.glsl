@@ -83,9 +83,6 @@ uniform vec3 Chessboard_transmission_scatter = vec3(0.000000, 0.000000, 0.000000
 uniform float Chessboard_transmission_scatter_anisotropy = 0.000000;
 uniform float Chessboard_transmission_dispersion = 0.000000;
 uniform float Chessboard_transmission_extra_roughness = 0.000000;
-uniform float Chessboard_subsurface = 0.000000;
-uniform float Chessboard_subsurface_scale = 0.003000;
-uniform float Chessboard_subsurface_anisotropy = 0.000000;
 uniform float Chessboard_sheen = 0.000000;
 uniform vec3 Chessboard_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float Chessboard_sheen_roughness = 0.300000;
@@ -102,7 +99,6 @@ uniform float Chessboard_thin_film_IOR = 1.500000;
 uniform float Chessboard_emission = 0.000000;
 uniform vec3 Chessboard_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 Chessboard_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool Chessboard_thin_walled = false;
 
 in VertexData
 {
@@ -1798,7 +1794,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1872,7 +1868,7 @@ void main()
     vec3 mtlxnormalmap12_out = vec3(0.0);
     mx_normalmap_float(mtlximage15_out, mtlxnormalmap12_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, mtlxnormalmap12_out);
     surfaceshader Chessboard_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(Chessboard_base, mtlximage13_out_cm_out, Chessboard_diffuse_roughness, mtlximage16_out, Chessboard_specular, Chessboard_specular_color, mtlximage17_out, Chessboard_specular_IOR, Chessboard_specular_anisotropy, Chessboard_specular_rotation, Chessboard_transmission, Chessboard_transmission_color, Chessboard_transmission_depth, Chessboard_transmission_scatter, Chessboard_transmission_scatter_anisotropy, Chessboard_transmission_dispersion, Chessboard_transmission_extra_roughness, Chessboard_subsurface, mtlximage13_out_cm_out, mtlximage13_out_cm_out, Chessboard_subsurface_scale, Chessboard_subsurface_anisotropy, Chessboard_sheen, Chessboard_sheen_color, Chessboard_sheen_roughness, Chessboard_coat, Chessboard_coat_color, Chessboard_coat_roughness, Chessboard_coat_anisotropy, Chessboard_coat_rotation, Chessboard_coat_IOR, geomprop_Nworld_out1, Chessboard_coat_affect_color, Chessboard_coat_affect_roughness, Chessboard_thin_film_thickness, Chessboard_thin_film_IOR, Chessboard_emission, Chessboard_emission_color, Chessboard_opacity, Chessboard_thin_walled, mtlxnormalmap12_out, geomprop_Tworld_out1, Chessboard_out);
+    NG_metashade_standard_surface_subsurface0(Chessboard_base, mtlximage13_out_cm_out, Chessboard_diffuse_roughness, mtlximage16_out, Chessboard_specular, Chessboard_specular_color, mtlximage17_out, Chessboard_specular_IOR, Chessboard_specular_anisotropy, Chessboard_specular_rotation, Chessboard_transmission, Chessboard_transmission_color, Chessboard_transmission_depth, Chessboard_transmission_scatter, Chessboard_transmission_scatter_anisotropy, Chessboard_transmission_dispersion, Chessboard_transmission_extra_roughness, Chessboard_sheen, Chessboard_sheen_color, Chessboard_sheen_roughness, Chessboard_coat, Chessboard_coat_color, Chessboard_coat_roughness, Chessboard_coat_anisotropy, Chessboard_coat_rotation, Chessboard_coat_IOR, geomprop_Nworld_out1, Chessboard_coat_affect_color, Chessboard_coat_affect_roughness, Chessboard_thin_film_thickness, Chessboard_thin_film_IOR, Chessboard_emission, Chessboard_emission_color, Chessboard_opacity, mtlxnormalmap12_out, geomprop_Tworld_out1, Chessboard_out);
     material M_Chessboard_out = Chessboard_out;
     out1 = vec4(M_Chessboard_out.color, 1.0);
 }

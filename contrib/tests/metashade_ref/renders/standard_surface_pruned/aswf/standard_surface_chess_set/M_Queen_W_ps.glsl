@@ -57,17 +57,6 @@ uniform int roughness1_frameoffset = 0;
 uniform int roughness1_frameendaction = 0;
 uniform vec2 roughness1_uv_scale = vec2(1.000000, 1.000000);
 uniform vec2 roughness1_uv_offset = vec2(0.000000, 0.000000);
-uniform sampler2D sss1_file;
-uniform int sss1_layer = 0;
-uniform float sss1_default = 0.000000;
-uniform int sss1_uaddressmode = 2;
-uniform int sss1_vaddressmode = 2;
-uniform int sss1_filtertype = 1;
-uniform int sss1_framerange = 0;
-uniform int sss1_frameoffset = 0;
-uniform int sss1_frameendaction = 0;
-uniform vec2 sss1_uv_scale = vec2(1.000000, 1.000000);
-uniform vec2 sss1_uv_offset = vec2(0.000000, 0.000000);
 uniform sampler2D normal1_file;
 uniform int normal1_layer = 0;
 uniform vec3 normal1_default = vec3(0.000000, 0.000000, 0.000000);
@@ -94,8 +83,6 @@ uniform vec3 Queen_W_transmission_scatter = vec3(0.000000, 0.000000, 0.000000);
 uniform float Queen_W_transmission_scatter_anisotropy = 0.000000;
 uniform float Queen_W_transmission_dispersion = 0.000000;
 uniform float Queen_W_transmission_extra_roughness = 0.000000;
-uniform float Queen_W_subsurface_scale = 0.001000;
-uniform float Queen_W_subsurface_anisotropy = 0.000000;
 uniform float Queen_W_sheen = 0.000000;
 uniform vec3 Queen_W_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float Queen_W_sheen_roughness = 0.300000;
@@ -112,7 +99,6 @@ uniform float Queen_W_thin_film_IOR = 1.500000;
 uniform float Queen_W_emission = 0.000000;
 uniform vec3 Queen_W_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 Queen_W_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool Queen_W_thin_walled = false;
 
 in VertexData
 {
@@ -1808,7 +1794,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1875,8 +1861,6 @@ void main()
     mx_image_float(metallic1_file, metallic1_layer, metallic1_default, geomprop_UV0_out1, metallic1_uaddressmode, metallic1_vaddressmode, metallic1_filtertype, metallic1_framerange, metallic1_frameoffset, metallic1_frameendaction, metallic1_uv_scale, metallic1_uv_offset, metallic1_out);
     float roughness1_out = 0.0;
     mx_image_float(roughness1_file, roughness1_layer, roughness1_default, geomprop_UV0_out1, roughness1_uaddressmode, roughness1_vaddressmode, roughness1_filtertype, roughness1_framerange, roughness1_frameoffset, roughness1_frameendaction, roughness1_uv_scale, roughness1_uv_offset, roughness1_out);
-    float sss1_out = 0.0;
-    mx_image_float(sss1_file, sss1_layer, sss1_default, geomprop_UV0_out1, sss1_uaddressmode, sss1_vaddressmode, sss1_filtertype, sss1_framerange, sss1_frameoffset, sss1_frameendaction, sss1_uv_scale, sss1_uv_offset, sss1_out);
     vec3 normal1_out = vec3(0.0);
     mx_image_vector3(normal1_file, normal1_layer, normal1_default, geomprop_UV0_out1, normal1_uaddressmode, normal1_vaddressmode, normal1_filtertype, normal1_framerange, normal1_frameoffset, normal1_frameendaction, normal1_uv_scale, normal1_uv_offset, normal1_out);
     vec3 diffuse1_out_cm_out = vec3(0.0);
@@ -1884,7 +1868,7 @@ void main()
     vec3 mtlxnormalmap3_out = vec3(0.0);
     mx_normalmap_float(normal1_out, mtlxnormalmap3_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, mtlxnormalmap3_out);
     surfaceshader Queen_W_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(Queen_W_base, diffuse1_out_cm_out, Queen_W_diffuse_roughness, metallic1_out, Queen_W_specular, Queen_W_specular_color, roughness1_out, Queen_W_specular_IOR, Queen_W_specular_anisotropy, Queen_W_specular_rotation, Queen_W_transmission, Queen_W_transmission_color, Queen_W_transmission_depth, Queen_W_transmission_scatter, Queen_W_transmission_scatter_anisotropy, Queen_W_transmission_dispersion, Queen_W_transmission_extra_roughness, sss1_out, diffuse1_out_cm_out, diffuse1_out_cm_out, Queen_W_subsurface_scale, Queen_W_subsurface_anisotropy, Queen_W_sheen, Queen_W_sheen_color, Queen_W_sheen_roughness, Queen_W_coat, Queen_W_coat_color, Queen_W_coat_roughness, Queen_W_coat_anisotropy, Queen_W_coat_rotation, Queen_W_coat_IOR, geomprop_Nworld_out1, Queen_W_coat_affect_color, Queen_W_coat_affect_roughness, Queen_W_thin_film_thickness, Queen_W_thin_film_IOR, Queen_W_emission, Queen_W_emission_color, Queen_W_opacity, Queen_W_thin_walled, mtlxnormalmap3_out, geomprop_Tworld_out1, Queen_W_out);
+    NG_metashade_standard_surface_subsurface0(Queen_W_base, diffuse1_out_cm_out, Queen_W_diffuse_roughness, metallic1_out, Queen_W_specular, Queen_W_specular_color, roughness1_out, Queen_W_specular_IOR, Queen_W_specular_anisotropy, Queen_W_specular_rotation, Queen_W_transmission, Queen_W_transmission_color, Queen_W_transmission_depth, Queen_W_transmission_scatter, Queen_W_transmission_scatter_anisotropy, Queen_W_transmission_dispersion, Queen_W_transmission_extra_roughness, Queen_W_sheen, Queen_W_sheen_color, Queen_W_sheen_roughness, Queen_W_coat, Queen_W_coat_color, Queen_W_coat_roughness, Queen_W_coat_anisotropy, Queen_W_coat_rotation, Queen_W_coat_IOR, geomprop_Nworld_out1, Queen_W_coat_affect_color, Queen_W_coat_affect_roughness, Queen_W_thin_film_thickness, Queen_W_thin_film_IOR, Queen_W_emission, Queen_W_emission_color, Queen_W_opacity, mtlxnormalmap3_out, geomprop_Tworld_out1, Queen_W_out);
     material M_Queen_W_out = Queen_W_out;
     out1 = vec4(M_Queen_W_out.color, 1.0);
 }

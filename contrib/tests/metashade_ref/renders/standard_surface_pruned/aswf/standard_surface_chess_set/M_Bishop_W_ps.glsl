@@ -83,9 +83,6 @@ uniform vec3 Bishop_W_transmission_scatter = vec3(0.000000, 0.000000, 0.000000);
 uniform float Bishop_W_transmission_scatter_anisotropy = 0.000000;
 uniform float Bishop_W_transmission_dispersion = 0.000000;
 uniform float Bishop_W_transmission_extra_roughness = 0.000000;
-uniform float Bishop_W_subsurface = 0.000000;
-uniform float Bishop_W_subsurface_scale = 0.003000;
-uniform float Bishop_W_subsurface_anisotropy = 0.000000;
 uniform float Bishop_W_sheen = 0.000000;
 uniform vec3 Bishop_W_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float Bishop_W_sheen_roughness = 0.300000;
@@ -102,7 +99,6 @@ uniform float Bishop_W_thin_film_IOR = 1.500000;
 uniform float Bishop_W_emission = 0.000000;
 uniform vec3 Bishop_W_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 Bishop_W_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool Bishop_W_thin_walled = false;
 
 in VertexData
 {
@@ -1798,7 +1794,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1872,7 +1868,7 @@ void main()
     vec3 mtlxnormalmap5_out = vec3(0.0);
     mx_normalmap_float(normal3_out, mtlxnormalmap5_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, mtlxnormalmap5_out);
     surfaceshader Bishop_W_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(Bishop_W_base, diffuse3_out_cm_out, Bishop_W_diffuse_roughness, metallic3_out, Bishop_W_specular, Bishop_W_specular_color, roughness3_out, Bishop_W_specular_IOR, Bishop_W_specular_anisotropy, Bishop_W_specular_rotation, Bishop_W_transmission, Bishop_W_transmission_color, Bishop_W_transmission_depth, Bishop_W_transmission_scatter, Bishop_W_transmission_scatter_anisotropy, Bishop_W_transmission_dispersion, Bishop_W_transmission_extra_roughness, Bishop_W_subsurface, diffuse3_out_cm_out, diffuse3_out_cm_out, Bishop_W_subsurface_scale, Bishop_W_subsurface_anisotropy, Bishop_W_sheen, Bishop_W_sheen_color, Bishop_W_sheen_roughness, Bishop_W_coat, Bishop_W_coat_color, Bishop_W_coat_roughness, Bishop_W_coat_anisotropy, Bishop_W_coat_rotation, Bishop_W_coat_IOR, geomprop_Nworld_out1, Bishop_W_coat_affect_color, Bishop_W_coat_affect_roughness, Bishop_W_thin_film_thickness, Bishop_W_thin_film_IOR, Bishop_W_emission, Bishop_W_emission_color, Bishop_W_opacity, Bishop_W_thin_walled, mtlxnormalmap5_out, geomprop_Tworld_out1, Bishop_W_out);
+    NG_metashade_standard_surface_subsurface0(Bishop_W_base, diffuse3_out_cm_out, Bishop_W_diffuse_roughness, metallic3_out, Bishop_W_specular, Bishop_W_specular_color, roughness3_out, Bishop_W_specular_IOR, Bishop_W_specular_anisotropy, Bishop_W_specular_rotation, Bishop_W_transmission, Bishop_W_transmission_color, Bishop_W_transmission_depth, Bishop_W_transmission_scatter, Bishop_W_transmission_scatter_anisotropy, Bishop_W_transmission_dispersion, Bishop_W_transmission_extra_roughness, Bishop_W_sheen, Bishop_W_sheen_color, Bishop_W_sheen_roughness, Bishop_W_coat, Bishop_W_coat_color, Bishop_W_coat_roughness, Bishop_W_coat_anisotropy, Bishop_W_coat_rotation, Bishop_W_coat_IOR, geomprop_Nworld_out1, Bishop_W_coat_affect_color, Bishop_W_coat_affect_roughness, Bishop_W_thin_film_thickness, Bishop_W_thin_film_IOR, Bishop_W_emission, Bishop_W_emission_color, Bishop_W_opacity, mtlxnormalmap5_out, geomprop_Tworld_out1, Bishop_W_out);
     material M_Bishop_W_out = Bishop_W_out;
     out1 = vec4(M_Bishop_W_out.color, 1.0);
 }

@@ -63,11 +63,6 @@ uniform vec3 N_StandardSurface_transmission_scatter = vec3(0.000000, 0.000000, 0
 uniform float N_StandardSurface_transmission_scatter_anisotropy = 0.000000;
 uniform float N_StandardSurface_transmission_dispersion = 0.000000;
 uniform float N_StandardSurface_transmission_extra_roughness = 0.000000;
-uniform float N_StandardSurface_subsurface = 0.000000;
-uniform vec3 N_StandardSurface_subsurface_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 N_StandardSurface_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float N_StandardSurface_subsurface_scale = 1.000000;
-uniform float N_StandardSurface_subsurface_anisotropy = 0.000000;
 uniform float N_StandardSurface_sheen = 0.000000;
 uniform vec3 N_StandardSurface_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float N_StandardSurface_sheen_roughness = 0.300000;
@@ -84,7 +79,6 @@ uniform float N_StandardSurface_thin_film_IOR = 1.500000;
 uniform float N_StandardSurface_emission = 0.000000;
 uniform vec3 N_StandardSurface_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 N_StandardSurface_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool N_StandardSurface_thin_walled = false;
 
 in VertexData
 {
@@ -1965,7 +1959,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -2035,7 +2029,7 @@ void main()
     NG_srgb_texture_to_lin_rec709_color3(image_color_out, image_color_out_cm_out);
     float image_roughness_float_out = image_roughness_out[image_roughness_float_index];
     surfaceshader N_StandardSurface_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(N_StandardSurface_base, image_color_out_cm_out, N_StandardSurface_diffuse_roughness, N_StandardSurface_metalness, N_StandardSurface_specular, N_StandardSurface_specular_color, image_roughness_float_out, N_StandardSurface_specular_IOR, N_StandardSurface_specular_anisotropy, N_StandardSurface_specular_rotation, N_StandardSurface_transmission, N_StandardSurface_transmission_color, N_StandardSurface_transmission_depth, N_StandardSurface_transmission_scatter, N_StandardSurface_transmission_scatter_anisotropy, N_StandardSurface_transmission_dispersion, N_StandardSurface_transmission_extra_roughness, N_StandardSurface_subsurface, N_StandardSurface_subsurface_color, N_StandardSurface_subsurface_radius, N_StandardSurface_subsurface_scale, N_StandardSurface_subsurface_anisotropy, N_StandardSurface_sheen, N_StandardSurface_sheen_color, N_StandardSurface_sheen_roughness, N_StandardSurface_coat, N_StandardSurface_coat_color, N_StandardSurface_coat_roughness, N_StandardSurface_coat_anisotropy, N_StandardSurface_coat_rotation, N_StandardSurface_coat_IOR, geomprop_Nworld_out1, N_StandardSurface_coat_affect_color, N_StandardSurface_coat_affect_roughness, N_StandardSurface_thin_film_thickness, N_StandardSurface_thin_film_IOR, N_StandardSurface_emission, N_StandardSurface_emission_color, N_StandardSurface_opacity, N_StandardSurface_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, N_StandardSurface_out);
+    NG_metashade_standard_surface_subsurface0(N_StandardSurface_base, image_color_out_cm_out, N_StandardSurface_diffuse_roughness, N_StandardSurface_metalness, N_StandardSurface_specular, N_StandardSurface_specular_color, image_roughness_float_out, N_StandardSurface_specular_IOR, N_StandardSurface_specular_anisotropy, N_StandardSurface_specular_rotation, N_StandardSurface_transmission, N_StandardSurface_transmission_color, N_StandardSurface_transmission_depth, N_StandardSurface_transmission_scatter, N_StandardSurface_transmission_scatter_anisotropy, N_StandardSurface_transmission_dispersion, N_StandardSurface_transmission_extra_roughness, N_StandardSurface_sheen, N_StandardSurface_sheen_color, N_StandardSurface_sheen_roughness, N_StandardSurface_coat, N_StandardSurface_coat_color, N_StandardSurface_coat_roughness, N_StandardSurface_coat_anisotropy, N_StandardSurface_coat_rotation, N_StandardSurface_coat_IOR, geomprop_Nworld_out1, N_StandardSurface_coat_affect_color, N_StandardSurface_coat_affect_roughness, N_StandardSurface_thin_film_thickness, N_StandardSurface_thin_film_IOR, N_StandardSurface_emission, N_StandardSurface_emission_color, N_StandardSurface_opacity, geomprop_Nworld_out1, geomprop_Tworld_out1, N_StandardSurface_out);
     material M_OnyxHextiled_out = N_StandardSurface_out;
     out1 = vec4(M_OnyxHextiled_out.color, 1.0);
 }

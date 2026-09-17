@@ -52,10 +52,6 @@ uniform vec3 SR_marble1_transmission_scatter = vec3(0.000000, 0.000000, 0.000000
 uniform float SR_marble1_transmission_scatter_anisotropy = 0.000000;
 uniform float SR_marble1_transmission_dispersion = 0.000000;
 uniform float SR_marble1_transmission_extra_roughness = 0.000000;
-uniform float SR_marble1_subsurface = 0.400000;
-uniform vec3 SR_marble1_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_marble1_subsurface_scale = 1.000000;
-uniform float SR_marble1_subsurface_anisotropy = 0.000000;
 uniform float SR_marble1_sheen = 0.000000;
 uniform vec3 SR_marble1_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float SR_marble1_sheen_roughness = 0.300000;
@@ -72,7 +68,6 @@ uniform float SR_marble1_thin_film_IOR = 1.500000;
 uniform float SR_marble1_emission = 0.000000;
 uniform vec3 SR_marble1_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 SR_marble1_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool SR_marble1_thin_walled = false;
 
 in VertexData
 {
@@ -2447,7 +2442,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -2520,7 +2515,7 @@ void main()
     float power_out = pow(bias_out, power_in2);
     vec3 color_mix_out = mix(color_mix_bg, color_mix_fg, power_out);
     surfaceshader SR_marble1_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(SR_marble1_base, color_mix_out, SR_marble1_diffuse_roughness, SR_marble1_metalness, SR_marble1_specular, SR_marble1_specular_color, SR_marble1_specular_roughness, SR_marble1_specular_IOR, SR_marble1_specular_anisotropy, SR_marble1_specular_rotation, SR_marble1_transmission, SR_marble1_transmission_color, SR_marble1_transmission_depth, SR_marble1_transmission_scatter, SR_marble1_transmission_scatter_anisotropy, SR_marble1_transmission_dispersion, SR_marble1_transmission_extra_roughness, SR_marble1_subsurface, color_mix_out, SR_marble1_subsurface_radius, SR_marble1_subsurface_scale, SR_marble1_subsurface_anisotropy, SR_marble1_sheen, SR_marble1_sheen_color, SR_marble1_sheen_roughness, SR_marble1_coat, SR_marble1_coat_color, SR_marble1_coat_roughness, SR_marble1_coat_anisotropy, SR_marble1_coat_rotation, SR_marble1_coat_IOR, geomprop_Nworld_out1, SR_marble1_coat_affect_color, SR_marble1_coat_affect_roughness, SR_marble1_thin_film_thickness, SR_marble1_thin_film_IOR, SR_marble1_emission, SR_marble1_emission_color, SR_marble1_opacity, SR_marble1_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_marble1_out);
+    NG_metashade_standard_surface_subsurface0(SR_marble1_base, color_mix_out, SR_marble1_diffuse_roughness, SR_marble1_metalness, SR_marble1_specular, SR_marble1_specular_color, SR_marble1_specular_roughness, SR_marble1_specular_IOR, SR_marble1_specular_anisotropy, SR_marble1_specular_rotation, SR_marble1_transmission, SR_marble1_transmission_color, SR_marble1_transmission_depth, SR_marble1_transmission_scatter, SR_marble1_transmission_scatter_anisotropy, SR_marble1_transmission_dispersion, SR_marble1_transmission_extra_roughness, SR_marble1_sheen, SR_marble1_sheen_color, SR_marble1_sheen_roughness, SR_marble1_coat, SR_marble1_coat_color, SR_marble1_coat_roughness, SR_marble1_coat_anisotropy, SR_marble1_coat_rotation, SR_marble1_coat_IOR, geomprop_Nworld_out1, SR_marble1_coat_affect_color, SR_marble1_coat_affect_roughness, SR_marble1_thin_film_thickness, SR_marble1_thin_film_IOR, SR_marble1_emission, SR_marble1_emission_color, SR_marble1_opacity, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_marble1_out);
     material Marble_3D_out = SR_marble1_out;
     out1 = vec4(Marble_3D_out.color, 1.0);
 }

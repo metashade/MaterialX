@@ -64,11 +64,6 @@ uniform vec3 Pawn_Top_B_transmission_scatter = vec3(0.000000, 0.000000, 0.000000
 uniform float Pawn_Top_B_transmission_scatter_anisotropy = 0.000000;
 uniform float Pawn_Top_B_transmission_dispersion = 0.000000;
 uniform float Pawn_Top_B_transmission_extra_roughness = 0.000000;
-uniform float Pawn_Top_B_subsurface = 0.000000;
-uniform vec3 Pawn_Top_B_subsurface_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 Pawn_Top_B_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float Pawn_Top_B_subsurface_scale = 0.003000;
-uniform float Pawn_Top_B_subsurface_anisotropy = 0.000000;
 uniform float Pawn_Top_B_sheen = 0.000000;
 uniform vec3 Pawn_Top_B_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float Pawn_Top_B_sheen_roughness = 0.300000;
@@ -85,7 +80,6 @@ uniform float Pawn_Top_B_thin_film_IOR = 1.500000;
 uniform float Pawn_Top_B_emission = 0.000000;
 uniform vec3 Pawn_Top_B_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 Pawn_Top_B_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool Pawn_Top_B_thin_walled = false;
 
 in VertexData
 {
@@ -1728,7 +1722,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1796,7 +1790,7 @@ void main()
     vec3 mtlxnormalmap14_out = vec3(0.0);
     mx_normalmap_float(mtlximage18_out, mtlxnormalmap14_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, mtlxnormalmap14_out);
     surfaceshader Pawn_Top_B_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(Pawn_Top_B_base, Pawn_Top_B_base_color, Pawn_Top_B_diffuse_roughness, Pawn_Top_B_metalness, Pawn_Top_B_specular, Pawn_Top_B_specular_color, mtlximage19_out, Pawn_Top_B_specular_IOR, Pawn_Top_B_specular_anisotropy, Pawn_Top_B_specular_rotation, Pawn_Top_B_transmission, Pawn_Top_B_transmission_color, Pawn_Top_B_transmission_depth, Pawn_Top_B_transmission_scatter, Pawn_Top_B_transmission_scatter_anisotropy, Pawn_Top_B_transmission_dispersion, Pawn_Top_B_transmission_extra_roughness, Pawn_Top_B_subsurface, Pawn_Top_B_subsurface_color, Pawn_Top_B_subsurface_radius, Pawn_Top_B_subsurface_scale, Pawn_Top_B_subsurface_anisotropy, Pawn_Top_B_sheen, Pawn_Top_B_sheen_color, Pawn_Top_B_sheen_roughness, Pawn_Top_B_coat, Pawn_Top_B_coat_color, Pawn_Top_B_coat_roughness, Pawn_Top_B_coat_anisotropy, Pawn_Top_B_coat_rotation, Pawn_Top_B_coat_IOR, geomprop_Nworld_out1, Pawn_Top_B_coat_affect_color, Pawn_Top_B_coat_affect_roughness, Pawn_Top_B_thin_film_thickness, Pawn_Top_B_thin_film_IOR, Pawn_Top_B_emission, Pawn_Top_B_emission_color, Pawn_Top_B_opacity, Pawn_Top_B_thin_walled, mtlxnormalmap14_out, geomprop_Tworld_out1, Pawn_Top_B_out);
+    NG_metashade_standard_surface_subsurface0(Pawn_Top_B_base, Pawn_Top_B_base_color, Pawn_Top_B_diffuse_roughness, Pawn_Top_B_metalness, Pawn_Top_B_specular, Pawn_Top_B_specular_color, mtlximage19_out, Pawn_Top_B_specular_IOR, Pawn_Top_B_specular_anisotropy, Pawn_Top_B_specular_rotation, Pawn_Top_B_transmission, Pawn_Top_B_transmission_color, Pawn_Top_B_transmission_depth, Pawn_Top_B_transmission_scatter, Pawn_Top_B_transmission_scatter_anisotropy, Pawn_Top_B_transmission_dispersion, Pawn_Top_B_transmission_extra_roughness, Pawn_Top_B_sheen, Pawn_Top_B_sheen_color, Pawn_Top_B_sheen_roughness, Pawn_Top_B_coat, Pawn_Top_B_coat_color, Pawn_Top_B_coat_roughness, Pawn_Top_B_coat_anisotropy, Pawn_Top_B_coat_rotation, Pawn_Top_B_coat_IOR, geomprop_Nworld_out1, Pawn_Top_B_coat_affect_color, Pawn_Top_B_coat_affect_roughness, Pawn_Top_B_thin_film_thickness, Pawn_Top_B_thin_film_IOR, Pawn_Top_B_emission, Pawn_Top_B_emission_color, Pawn_Top_B_opacity, mtlxnormalmap14_out, geomprop_Tworld_out1, Pawn_Top_B_out);
     material M_Pawn_Top_B_out = Pawn_Top_B_out;
     float outAlpha = clamp(1.0 - dot(M_Pawn_Top_B_out.transparency, vec3(0.3333)), 0.0, 1.0);
     out1 = vec4(M_Pawn_Top_B_out.color, outAlpha);
