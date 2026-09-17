@@ -60,11 +60,6 @@ uniform vec3 SR_brass1_transmission_scatter = vec3(0.000000, 0.000000, 0.000000)
 uniform float SR_brass1_transmission_scatter_anisotropy = 0.000000;
 uniform float SR_brass1_transmission_dispersion = 0.000000;
 uniform float SR_brass1_transmission_extra_roughness = 0.000000;
-uniform float SR_brass1_subsurface = 0.000000;
-uniform vec3 SR_brass1_subsurface_color = vec3(1.000000, 1.000000, 1.000000);
-uniform vec3 SR_brass1_subsurface_radius = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_brass1_subsurface_scale = 1.000000;
-uniform float SR_brass1_subsurface_anisotropy = 0.000000;
 uniform float SR_brass1_sheen = 0.000000;
 uniform vec3 SR_brass1_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float SR_brass1_sheen_roughness = 0.300000;
@@ -79,7 +74,6 @@ uniform float SR_brass1_thin_film_IOR = 1.500000;
 uniform float SR_brass1_emission = 0.000000;
 uniform vec3 SR_brass1_emission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform vec3 SR_brass1_opacity = vec3(1.000000, 1.000000, 1.000000);
-uniform bool SR_brass1_thin_walled = false;
 
 in VertexData
 {
@@ -1775,7 +1769,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface, vec3 subsurface_color, vec3 subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, bool thin_walled, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1842,7 +1836,7 @@ void main()
     vec3 image_color_out_cm_out = vec3(0.0);
     NG_srgb_texture_to_lin_rec709_color3(image_color_out, image_color_out_cm_out);
     surfaceshader SR_brass1_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(SR_brass1_base, SR_brass1_base_color, SR_brass1_diffuse_roughness, SR_brass1_metalness, SR_brass1_specular, SR_brass1_specular_color, image_roughness_out, SR_brass1_specular_IOR, SR_brass1_specular_anisotropy, SR_brass1_specular_rotation, SR_brass1_transmission, SR_brass1_transmission_color, SR_brass1_transmission_depth, SR_brass1_transmission_scatter, SR_brass1_transmission_scatter_anisotropy, SR_brass1_transmission_dispersion, SR_brass1_transmission_extra_roughness, SR_brass1_subsurface, SR_brass1_subsurface_color, SR_brass1_subsurface_radius, SR_brass1_subsurface_scale, SR_brass1_subsurface_anisotropy, SR_brass1_sheen, SR_brass1_sheen_color, SR_brass1_sheen_roughness, SR_brass1_coat, image_color_out_cm_out, image_roughness_out, SR_brass1_coat_anisotropy, SR_brass1_coat_rotation, SR_brass1_coat_IOR, geomprop_Nworld_out1, SR_brass1_coat_affect_color, SR_brass1_coat_affect_roughness, SR_brass1_thin_film_thickness, SR_brass1_thin_film_IOR, SR_brass1_emission, SR_brass1_emission_color, SR_brass1_opacity, SR_brass1_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_brass1_out);
+    NG_metashade_standard_surface_subsurface0(SR_brass1_base, SR_brass1_base_color, SR_brass1_diffuse_roughness, SR_brass1_metalness, SR_brass1_specular, SR_brass1_specular_color, image_roughness_out, SR_brass1_specular_IOR, SR_brass1_specular_anisotropy, SR_brass1_specular_rotation, SR_brass1_transmission, SR_brass1_transmission_color, SR_brass1_transmission_depth, SR_brass1_transmission_scatter, SR_brass1_transmission_scatter_anisotropy, SR_brass1_transmission_dispersion, SR_brass1_transmission_extra_roughness, SR_brass1_sheen, SR_brass1_sheen_color, SR_brass1_sheen_roughness, SR_brass1_coat, image_color_out_cm_out, image_roughness_out, SR_brass1_coat_anisotropy, SR_brass1_coat_rotation, SR_brass1_coat_IOR, geomprop_Nworld_out1, SR_brass1_coat_affect_color, SR_brass1_coat_affect_roughness, SR_brass1_thin_film_thickness, SR_brass1_thin_film_IOR, SR_brass1_emission, SR_brass1_emission_color, SR_brass1_opacity, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_brass1_out);
     material Tiled_Brass_out = SR_brass1_out;
     out1 = vec4(Tiled_Brass_out.color, 1.0);
 }
