@@ -280,9 +280,6 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
 _SUBSURFACE_INACTIVE_TEST_PATHS = tuple(
     p for p in _STANDARD_SURFACE_TEST_PATHS
     if "jade" not in p.lower()
-    # look files use xi:include which can't resolve from the pruned
-    # output directory; the underlying materials are tested directly.
-    and "look" not in p.lower()
 )
 
 
@@ -336,10 +333,13 @@ class TestRenderMetashadeStandardSurfacePruned(MetashadeOverrideTestBase):
 
         # Write pruned material next to the rendered images / shader
         # dumps so it is committed as a reviewable test reference.
+        # Flatten xi:include so the file is self-contained.
+        write_opts = mx.XmlWriteOptions()
+        write_opts.writeXIncludeEnable = False
         output_dir = override_env.get_output_path(case)
         output_dir.mkdir(parents=True, exist_ok=True)
         pruned_path = output_dir / case.input_path.name
-        mx.writeToXmlFile(pruned_doc, str(pruned_path))
+        mx.writeToXmlFile(pruned_doc, str(pruned_path), write_opts)
 
         # Ensure textures referenced by the original material resolve
         # when rendering from the output directory.
