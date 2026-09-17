@@ -277,9 +277,14 @@ class TestRenderMetashadeStandardSurface(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+# Materials where subsurface is actively used (non-zero constant or
+# texture-driven): jade (0.5), marble_solid (0.4), chess_set King/Queen
+# (texture-driven subsurface output).
+_SUBSURFACE_ACTIVE = frozenset({"jade", "marble_solid", "chess_set"})
+
 _SUBSURFACE_INACTIVE_TEST_PATHS = tuple(
     p for p in _STANDARD_SURFACE_TEST_PATHS
-    if "jade" not in p.lower()
+    if not any(name in p.lower() for name in _SUBSURFACE_ACTIVE)
 )
 
 
