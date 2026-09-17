@@ -327,9 +327,9 @@ class TestRenderMetashadeStandardSurfacePruned(MetashadeOverrideTestBase):
         mx.readFromXmlFile(doc, str(case.input_path))
 
         pruned_doc = pruned_permutation.prune_material(doc)
-        if pruned_doc is None:
-            override_env.run_test(case, subtests)
-            return
+        assert pruned_doc is not None, (
+            "prune_material() returned None for a pruned permutation"
+        )
 
         # Write pruned material next to the rendered images / shader
         # dumps so it is committed as a reviewable test reference.
