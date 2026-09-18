@@ -41,10 +41,10 @@
     </image>
     <output name="out1" type="color3" nodename="image1" />
   </nodegraph>
-  <metashade_standard_surface_subsurface0 name="SR_Greysphere_Calibration" type="surfaceshader" fileprefix="../../../Images/" colorspace="lin_rec709">
+  <metashade_standard_surface_coat0_subsurface0 name="SR_Greysphere_Calibration" type="surfaceshader" fileprefix="../../../Images/" colorspace="lin_rec709">
     <input name="base_color" type="color3" nodegraph="NG_Greysphere_Calibration" output="out1" />
     <input name="specular_roughness" type="float" value="0.7" />
-  </metashade_standard_surface_subsurface0>
+  </metashade_standard_surface_coat0_subsurface0>
   <surfacematerial name="Greysphere_Calibration" type="material" fileprefix="../../../Images/" colorspace="lin_rec709">
     <input name="surfaceshader" type="surfaceshader" nodename="SR_Greysphere_Calibration" />
   </surfacematerial>

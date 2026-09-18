@@ -59,14 +59,6 @@ uniform float SR_Greysphere_Calibration_transmission_extra_roughness = 0.000000;
 uniform float SR_Greysphere_Calibration_sheen = 0.000000;
 uniform vec3 SR_Greysphere_Calibration_sheen_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float SR_Greysphere_Calibration_sheen_roughness = 0.300000;
-uniform float SR_Greysphere_Calibration_coat = 0.000000;
-uniform vec3 SR_Greysphere_Calibration_coat_color = vec3(1.000000, 1.000000, 1.000000);
-uniform float SR_Greysphere_Calibration_coat_roughness = 0.100000;
-uniform float SR_Greysphere_Calibration_coat_anisotropy = 0.000000;
-uniform float SR_Greysphere_Calibration_coat_rotation = 0.000000;
-uniform float SR_Greysphere_Calibration_coat_IOR = 1.500000;
-uniform float SR_Greysphere_Calibration_coat_affect_color = 0.000000;
-uniform float SR_Greysphere_Calibration_coat_affect_roughness = 0.000000;
 uniform float SR_Greysphere_Calibration_thin_film_thickness = 0.000000;
 uniform float SR_Greysphere_Calibration_thin_film_IOR = 1.500000;
 uniform float SR_Greysphere_Calibration_emission = 0.000000;
@@ -1666,16 +1658,12 @@ void _mx_metashade_rotate_vector3(vec3 in_, float amount, vec3 axis, out vec3 re
 	result = ((in_ * c) + (cross(in_, axis_n) * s)) + ((axis_n * dot(axis_n, in_)) * (1 - c));
 }
 
-void mx_metashade_standard_surface_subsurface0_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
+void mx_metashade_standard_surface_coat0_subsurface0_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
 {
-	// 
-	// Coat affect roughness: blend specular roughness toward 1.0
-	float coat_roughness_factor = (coat_affect_roughness * coat) * coat_roughness;
-	float coat_affected_specular_roughness = (specular_roughness * (1 - coat_roughness_factor)) + coat_roughness_factor;
 	// 
 	// Roughness
 	vec2 main_roughness;
-	mx_roughness_anisotropy(coat_affected_specular_roughness, specular_anisotropy, main_roughness);
+	mx_roughness_anisotropy(specular_roughness, specular_anisotropy, main_roughness);
 	// 
 	// Tangent rotation
 	vec3 main_tangent = tangent;
@@ -1687,25 +1675,11 @@ void mx_metashade_standard_surface_subsurface0_bsdf(ClosureData closureData, flo
 		main_tangent = normalize(tangent_rotated);
 	}
 	// 
-	// Coat tangent rotation
-	vec3 coat_tangent = tangent;
-	if (coat_anisotropy > 0.0)
-	{
-		float coat_tangent_rotate_degree = coat_rotation * 360.0;
-		vec3 coat_tangent_rotated;
-		_mx_metashade_rotate_vector3(tangent, coat_tangent_rotate_degree, coat_normal, coat_tangent_rotated);
-		coat_tangent = normalize(coat_tangent_rotated);
-	}
-	// 
-	// Coat affect color: darken diffuse under the coat
-	vec3 coat_gamma = vec3((clamp(coat, 0.0, 1.0) * coat_affect_color) + 1.0);
-	vec3 coat_affected_diffuse_color = pow(clamp(base_color, 0.0, 1.0), coat_gamma);
-	// 
 	// Diffuse BSDF (Oren-Nayar)
 	// `energy_compensation=false` to match the Standard Surface spec, 
 	// instead of the more physically-correct `true` in OpenPBR
 	BSDF diffuse_bsdf = BSDF(vec3(0), vec3(1));
-	mx_oren_nayar_diffuse_bsdf(closureData, base, coat_affected_diffuse_color, diffuse_roughness, normal, false, diffuse_bsdf);
+	mx_oren_nayar_diffuse_bsdf(closureData, base, base_color, diffuse_roughness, normal, false, diffuse_bsdf);
 	BSDF subsurface_mix = diffuse_bsdf;
 	// 
 	// Sheen BSDF
@@ -1716,9 +1690,9 @@ void mx_metashade_standard_surface_subsurface0_bsdf(ClosureData closureData, flo
 	bsdf.response = sheen_bsdf_out.response + (subsurface_mix.response * sheen_bsdf_out.throughput);
 	bsdf.throughput = sheen_bsdf_out.throughput * subsurface_mix.throughput;
 	// 
-	// Transmission roughness (coat-affected)
 	float transmission_roughness_clamped = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
-	float transmission_roughness_scalar = (transmission_roughness_clamped * (1 - coat_roughness_factor)) + coat_roughness_factor;
+	// Transmission roughness
+	float transmission_roughness_scalar = transmission_roughness_clamped;
 	vec2 transmission_roughness;
 	mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
 	// 
@@ -1755,24 +1729,6 @@ void mx_metashade_standard_surface_subsurface0_bsdf(ClosureData closureData, flo
 	float one_minus_metalness = 1 - metalness;
 	bsdf.response = metal_bsdf.response + (bsdf.response * one_minus_metalness);
 	bsdf.throughput = metal_bsdf.throughput + (bsdf.throughput * one_minus_metalness);
-	// 
-	// Coat attenuation: tint underlying layers by coat color
-	// Float3 coercion needed: RgbF lerp result -> Float3 for BSDF multiply
-	vec3 coat_attenuation = mix(vec3(1.0), coat_color, coat);
-	bsdf.response = bsdf.response * coat_attenuation;
-	bsdf.throughput = bsdf.throughput * coat_attenuation;
-	// 
-	// Coat roughness
-	vec2 coat_roughness_vec;
-	mx_roughness_anisotropy(coat_roughness, coat_anisotropy, coat_roughness_vec);
-	// 
-	// Coat BSDF (dielectric reflection)
-	BSDF coat_bsdf = BSDF(vec3(0), vec3(1));
-	mx_dielectric_bsdf(closureData, coat, vec3(1.0, 1.0, 1.0), coat_IOR, coat_roughness_vec, false, 0.0, 1.5, coat_normal, coat_tangent, 0, 0, coat_bsdf);
-	// 
-	// Coat layer: coat over attenuated base
-	bsdf.response = coat_bsdf.response + (bsdf.response * coat_bsdf.throughput);
-	bsdf.throughput = coat_bsdf.throughput * bsdf.throughput;
 }
 
 
@@ -1790,7 +1746,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float coat, vec3 coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vec3 coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_coat0_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float sheen, vec3 sheen_color, float sheen_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1816,7 +1772,7 @@ void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, floa
         {
             ClosureData closureData = makeClosureData(CLOSURE_TYPE_INDIRECT, L, V, N, P, occlusion);
             BSDF std_surface_bsdf = BSDF(vec3(0.0),vec3(1.0));
-            mx_metashade_standard_surface_subsurface0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, sheen, sheen_color, sheen_roughness, coat, coat_color, coat_roughness, coat_anisotropy, coat_rotation, coat_IOR, coat_normal, coat_affect_color, coat_affect_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
+            mx_metashade_standard_surface_coat0_subsurface0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, sheen, sheen_color, sheen_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
 
             surface_ctor_out.color += occlusion * std_surface_bsdf.response;
         }
@@ -1832,7 +1788,7 @@ void NG_metashade_standard_surface_subsurface0(float base, vec3 base_color, floa
         // Calculate the BSDF transmission for viewing direction
         ClosureData closureData = makeClosureData(CLOSURE_TYPE_TRANSMISSION, L, V, N, P, occlusion);
         BSDF std_surface_bsdf = BSDF(vec3(0.0),vec3(1.0));
-        mx_metashade_standard_surface_subsurface0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, sheen, sheen_color, sheen_roughness, coat, coat_color, coat_roughness, coat_anisotropy, coat_rotation, coat_IOR, coat_normal, coat_affect_color, coat_affect_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
+        mx_metashade_standard_surface_coat0_subsurface0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, sheen, sheen_color, sheen_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
         surface_ctor_out.color += std_surface_bsdf.response;
 
         // Compute and apply surface opacity
@@ -1857,7 +1813,7 @@ void main()
     vec3 image1_out_cm_out = vec3(0.0);
     NG_srgb_texture_to_lin_rec709_color3(image1_out, image1_out_cm_out);
     surfaceshader SR_Greysphere_Calibration_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_subsurface0(SR_Greysphere_Calibration_base, image1_out_cm_out, SR_Greysphere_Calibration_diffuse_roughness, SR_Greysphere_Calibration_metalness, SR_Greysphere_Calibration_specular, SR_Greysphere_Calibration_specular_color, SR_Greysphere_Calibration_specular_roughness, SR_Greysphere_Calibration_specular_IOR, SR_Greysphere_Calibration_specular_anisotropy, SR_Greysphere_Calibration_specular_rotation, SR_Greysphere_Calibration_transmission, SR_Greysphere_Calibration_transmission_color, SR_Greysphere_Calibration_transmission_depth, SR_Greysphere_Calibration_transmission_scatter, SR_Greysphere_Calibration_transmission_scatter_anisotropy, SR_Greysphere_Calibration_transmission_dispersion, SR_Greysphere_Calibration_transmission_extra_roughness, SR_Greysphere_Calibration_sheen, SR_Greysphere_Calibration_sheen_color, SR_Greysphere_Calibration_sheen_roughness, SR_Greysphere_Calibration_coat, SR_Greysphere_Calibration_coat_color, SR_Greysphere_Calibration_coat_roughness, SR_Greysphere_Calibration_coat_anisotropy, SR_Greysphere_Calibration_coat_rotation, SR_Greysphere_Calibration_coat_IOR, geomprop_Nworld_out1, SR_Greysphere_Calibration_coat_affect_color, SR_Greysphere_Calibration_coat_affect_roughness, SR_Greysphere_Calibration_thin_film_thickness, SR_Greysphere_Calibration_thin_film_IOR, SR_Greysphere_Calibration_emission, SR_Greysphere_Calibration_emission_color, SR_Greysphere_Calibration_opacity, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_Greysphere_Calibration_out);
+    NG_metashade_standard_surface_coat0_subsurface0(SR_Greysphere_Calibration_base, image1_out_cm_out, SR_Greysphere_Calibration_diffuse_roughness, SR_Greysphere_Calibration_metalness, SR_Greysphere_Calibration_specular, SR_Greysphere_Calibration_specular_color, SR_Greysphere_Calibration_specular_roughness, SR_Greysphere_Calibration_specular_IOR, SR_Greysphere_Calibration_specular_anisotropy, SR_Greysphere_Calibration_specular_rotation, SR_Greysphere_Calibration_transmission, SR_Greysphere_Calibration_transmission_color, SR_Greysphere_Calibration_transmission_depth, SR_Greysphere_Calibration_transmission_scatter, SR_Greysphere_Calibration_transmission_scatter_anisotropy, SR_Greysphere_Calibration_transmission_dispersion, SR_Greysphere_Calibration_transmission_extra_roughness, SR_Greysphere_Calibration_sheen, SR_Greysphere_Calibration_sheen_color, SR_Greysphere_Calibration_sheen_roughness, SR_Greysphere_Calibration_thin_film_thickness, SR_Greysphere_Calibration_thin_film_IOR, SR_Greysphere_Calibration_emission, SR_Greysphere_Calibration_emission_color, SR_Greysphere_Calibration_opacity, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_Greysphere_Calibration_out);
     material Greysphere_Calibration_out = SR_Greysphere_Calibration_out;
     out1 = vec4(Greysphere_Calibration_out.color, 1.0);
 }
