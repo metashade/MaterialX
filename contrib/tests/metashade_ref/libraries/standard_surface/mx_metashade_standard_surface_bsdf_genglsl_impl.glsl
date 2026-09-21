@@ -135,8 +135,8 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	// Coat attenuation: tint underlying layers by coat color
 	// Float3 coercion needed: RgbF lerp result -> Float3 for BSDF multiply
 	vec3 coat_attenuation = mix(vec3(1.0), coat_color, coat);
-	bsdf.response = bsdf.response * coat_attenuation;
-	bsdf.throughput = bsdf.throughput * coat_attenuation;
+	bsdf.response *= coat_attenuation;
+	bsdf.throughput *= coat_attenuation;
 	// 
 	// Coat roughness
 	vec2 coat_roughness_vec;
