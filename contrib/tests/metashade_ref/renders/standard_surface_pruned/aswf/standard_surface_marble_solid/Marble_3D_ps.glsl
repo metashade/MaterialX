@@ -2421,9 +2421,8 @@ void mx_metashade_standard_surface_coat0_bsdf(ClosureData closureData, float bas
 	bsdf.response = sheen_bsdf_out.response + (subsurface_mix.response * sheen_bsdf_out.throughput);
 	bsdf.throughput = sheen_bsdf_out.throughput * subsurface_mix.throughput;
 	// 
-	float transmission_roughness_clamped = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
 	// Transmission roughness
-	float transmission_roughness_scalar = transmission_roughness_clamped;
+	float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
 	vec2 transmission_roughness;
 	mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
 	// 
