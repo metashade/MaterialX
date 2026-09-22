@@ -12,7 +12,7 @@
     <output name="out_color" type="color3" nodename="image_color" />
     <output name="out_roughness" type="float" nodename="image_roughness" />
   </nodegraph>
-  <metashade_standard_surface_subsurface0 name="SR_brass1" type="surfaceshader" fileprefix="../../../Images/" colorspace="lin_rec709">
+  <metashade_standard_surface_sheen0_subsurface0 name="SR_brass1" type="surfaceshader" fileprefix="../../../Images/" colorspace="lin_rec709">
     <input name="base" type="float" value="1" />
     <input name="base_color" type="color3" value="1, 1, 1" />
     <input name="specular" type="float" value="0" />
@@ -21,7 +21,7 @@
     <input name="coat" type="float" value="1" />
     <input name="coat_color" type="color3" nodegraph="NG_brass1" output="out_color" />
     <input name="coat_roughness" type="float" nodegraph="NG_brass1" output="out_roughness" />
-  </metashade_standard_surface_subsurface0>
+  </metashade_standard_surface_sheen0_subsurface0>
   <surfacematerial name="Tiled_Brass" type="material" fileprefix="../../../Images/" colorspace="lin_rec709">
     <input name="surfaceshader" type="surfaceshader" nodename="SR_brass1" />
   </surfacematerial>
@@ -41,10 +41,10 @@
     </image>
     <output name="out1" type="color3" nodename="image1" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="SR_Greysphere_Calibration" type="surfaceshader" fileprefix="../../../Images/" colorspace="lin_rec709">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="SR_Greysphere_Calibration" type="surfaceshader" fileprefix="../../../Images/" colorspace="lin_rec709">
     <input name="base_color" type="color3" nodegraph="NG_Greysphere_Calibration" output="out1" />
     <input name="specular_roughness" type="float" value="0.7" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="Greysphere_Calibration" type="material" fileprefix="../../../Images/" colorspace="lin_rec709">
     <input name="surfaceshader" type="surfaceshader" nodename="SR_Greysphere_Calibration" />
   </surfacematerial>

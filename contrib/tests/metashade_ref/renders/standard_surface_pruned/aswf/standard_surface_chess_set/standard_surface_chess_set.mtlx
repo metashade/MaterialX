@@ -21,12 +21,12 @@
     <output name="roughness_output" type="float" nodename="roughness2" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap4" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Bishop_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Bishop_B" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_BishopBlack" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_BishopBlack" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_BishopBlack" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_BishopBlack" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Bishop_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Bishop_B" />
   </surfacematerial>
@@ -51,12 +51,12 @@
     <output name="roughness_output" type="float" nodename="roughness3" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap5" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Bishop_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Bishop_W" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_BishopWhite" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_BishopWhite" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_BishopWhite" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_BishopWhite" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Bishop_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Bishop_W" />
   </surfacematerial>
@@ -81,12 +81,12 @@
     <output name="roughness_output" type="float" nodename="roughness6" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap8" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Castle_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Castle_B" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_CastleBlack" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_CastleBlack" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_CastleBlack" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_CastleBlack" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Castle_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Castle_B" />
   </surfacematerial>
@@ -111,12 +111,12 @@
     <output name="roughness_output" type="float" nodename="roughness7" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap9" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Castle_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Castle_W" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_CastleWhite" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_CastleWhite" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_CastleWhite" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_CastleWhite" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Castle_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Castle_W" />
   </surfacematerial>
@@ -141,12 +141,12 @@
     <output name="roughness_output" type="float" nodename="mtlximage17" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap12" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Chessboard" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Chessboard" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_ChessBoard" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_ChessBoard" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_ChessBoard" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_ChessBoard" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Chessboard" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Chessboard" />
   </surfacematerial>
@@ -175,7 +175,7 @@
     <output name="subsurface_output" type="float" nodename="mtlximage3" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap1" />
   </nodegraph>
-  <metashade_standard_surface_coat0 name="King_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0 name="King_B" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_KingBlack" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_KingBlack" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_KingBlack" output="roughness_output" />
@@ -184,7 +184,7 @@
     <input name="subsurface_radius" type="color3" nodegraph="NG_KingBlack" output="base_color_output" />
     <input name="subsurface_scale" type="float" value="0.003" />
     <input name="normal" type="vector3" nodegraph="NG_KingBlack" output="normal_output" />
-  </metashade_standard_surface_coat0>
+  </metashade_standard_surface_coat0_sheen0>
   <surfacematerial name="M_King_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="King_B" />
   </surfacematerial>
@@ -213,7 +213,7 @@
     <output name="subsurface_output" type="float" nodename="mtlximage8" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap11" />
   </nodegraph>
-  <metashade_standard_surface_coat0 name="King_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0 name="King_W" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_KingWhite" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_KingWhite" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_KingWhite" output="roughness_output" />
@@ -222,7 +222,7 @@
     <input name="subsurface_radius" type="color3" nodegraph="NG_KingWhite" output="base_color_output" />
     <input name="subsurface_scale" type="float" value="0.003" />
     <input name="normal" type="vector3" nodegraph="NG_KingWhite" output="normal_output" />
-  </metashade_standard_surface_coat0>
+  </metashade_standard_surface_coat0_sheen0>
   <surfacematerial name="M_King_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="King_W" />
   </surfacematerial>
@@ -243,11 +243,11 @@
     <output name="roughness_output" type="float" nodename="roughness4" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap6" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Knight_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Knight_B" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_KnightBlack" output="base_color_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_KnightBlack" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_KnightBlack" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Knight_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Knight_B" />
   </surfacematerial>
@@ -268,11 +268,11 @@
     <output name="roughness_output" type="float" nodename="roughness5" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap7" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Knight_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Knight_W" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_KnightWhite" output="base_color_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_KnightWhite" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_KnightWhite" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Knight_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Knight_W" />
   </surfacematerial>
@@ -297,12 +297,12 @@
     <output name="roughness_output" type="float" nodename="roughness9" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap13" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Pawn_Body_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Pawn_Body_B" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_PawnBodyBlack" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_PawnBodyBlack" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_PawnBodyBlack" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_PawnBodyBlack" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Pawn_Body_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Pawn_Body_B" />
   </surfacematerial>
@@ -327,12 +327,12 @@
     <output name="roughness_output" type="float" nodename="roughness8" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap10" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Pawn_Body_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Pawn_Body_W" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_PawnBodyWhite" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_PawnBodyWhite" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_PawnBodyWhite" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_PawnBodyWhite" output="normal_output" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Pawn_Body_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Pawn_Body_W" />
   </surfacematerial>
@@ -349,13 +349,13 @@
     <output name="roughness_output" type="float" nodename="mtlximage19" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap14" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Pawn_Top_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Pawn_Top_B" type="surfaceshader">
     <input name="specular_roughness" type="float" nodegraph="NG_PawnTopBlack" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_PawnTopBlack" output="normal_output" />
     <input name="base_color" type="color3" value="1, 1, 1" />
     <input name="transmission" type="float" value="1" />
     <input name="transmission_color" type="color3" value="0.2995, 0.5, 0.450276" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Pawn_Top_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Pawn_Top_B" />
   </surfacematerial>
@@ -372,13 +372,13 @@
     <output name="roughness_output" type="float" nodename="mtlximage21" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap15" />
   </nodegraph>
-  <metashade_standard_surface_coat0_subsurface0 name="Pawn_Top_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0_subsurface0 name="Pawn_Top_W" type="surfaceshader">
     <input name="specular_roughness" type="float" nodegraph="NG_PawnTopWhite" output="roughness_output" />
     <input name="normal" type="vector3" nodegraph="NG_PawnTopWhite" output="normal_output" />
     <input name="base_color" type="color3" value="1, 1, 1" />
     <input name="transmission" type="float" value="1" />
     <input name="transmission_color" type="color3" value="1, 1, 0.828" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_sheen0_subsurface0>
   <surfacematerial name="M_Pawn_Top_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Pawn_Top_W" />
   </surfacematerial>
@@ -407,7 +407,7 @@
     <output name="subsurface_output" type="float" nodename="sss" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap2" />
   </nodegraph>
-  <metashade_standard_surface_coat0 name="Queen_B" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0 name="Queen_B" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_QueenBlack" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_QueenBlack" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_QueenBlack" output="roughness_output" />
@@ -416,7 +416,7 @@
     <input name="subsurface_radius" type="color3" nodegraph="NG_QueenBlack" output="base_color_output" />
     <input name="subsurface_scale" type="float" value="0.003" />
     <input name="normal" type="vector3" nodegraph="NG_QueenBlack" output="normal_output" />
-  </metashade_standard_surface_coat0>
+  </metashade_standard_surface_coat0_sheen0>
   <surfacematerial name="M_Queen_B" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Queen_B" />
   </surfacematerial>
@@ -445,7 +445,7 @@
     <output name="subsurface_output" type="float" nodename="sss1" />
     <output name="normal_output" type="vector3" nodename="mtlxnormalmap3" />
   </nodegraph>
-  <metashade_standard_surface_coat0 name="Queen_W" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0 name="Queen_W" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_QueenWhite" output="base_color_output" />
     <input name="metalness" type="float" nodegraph="NG_QueenWhite" output="metalness_output" />
     <input name="specular_roughness" type="float" nodegraph="NG_QueenWhite" output="roughness_output" />
@@ -454,7 +454,7 @@
     <input name="subsurface_radius" type="color3" nodegraph="NG_QueenWhite" output="base_color_output" />
     <input name="subsurface_scale" type="float" value="0.001" />
     <input name="normal" type="vector3" nodegraph="NG_QueenWhite" output="normal_output" />
-  </metashade_standard_surface_coat0>
+  </metashade_standard_surface_coat0_sheen0>
   <surfacematerial name="M_Queen_W" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="Queen_W" />
   </surfacematerial>

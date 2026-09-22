@@ -54,13 +54,13 @@
     </mix>
     <output name="out" type="color3" nodename="color_mix" />
   </nodegraph>
-  <metashade_standard_surface_coat0 name="SR_marble1" type="surfaceshader">
+  <metashade_standard_surface_coat0_sheen0 name="SR_marble1" type="surfaceshader">
     <input name="base" type="float" value="1" />
     <input name="base_color" type="color3" nodegraph="NG_marble1" output="out" />
     <input name="specular_roughness" type="float" value="0.1" />
     <input name="subsurface" type="float" value="0.4" />
     <input name="subsurface_color" type="color3" nodegraph="NG_marble1" output="out" />
-  </metashade_standard_surface_coat0>
+  </metashade_standard_surface_coat0_sheen0>
   <surfacematerial name="Marble_3D" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="SR_marble1" />
   </surfacematerial>
