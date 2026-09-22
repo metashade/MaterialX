@@ -1,6 +1,8 @@
 #include "mx_artistic_ior.glsl"
 #include "mx_conductor_bsdf.glsl"
 #include "mx_dielectric_bsdf.glsl"
+#include "mx_layer_bsdf.glsl"
+#include "mx_mix_bsdf.glsl"
 #include "mx_oren_nayar_diffuse_bsdf.glsl"
 #include "mx_roughness_anisotropy.glsl"
 // Rodrigues' rotation formula.
@@ -49,33 +51,28 @@ void mx_metashade_standard_surface_coat0_sheen0_subsurface0_bsdf(ClosureData clo
 	mx_oren_nayar_diffuse_bsdf(closureData, base, base_color, diffuse_roughness, normal, false, diffuse_bsdf);
 	bsdf = diffuse_bsdf;
 	// 
-	// Transmission roughness
-	float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
-	vec2 transmission_roughness;
-	mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
-	// 
-	// Transmission BSDF (dielectric transmission)
+	// Transmission
 	{
+		float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
+		vec2 transmission_roughness;
+		mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
+		// 
+		// Transmission BSDF (dielectric transmission)
 		BSDF transmission_bsdf = BSDF(vec3(0), vec3(1));
 		mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, main_tangent, 0, 1, transmission_bsdf);
-		// 
-		// Transmission mix: blend transmission with sheen layer
-		bsdf.response = mix(bsdf.response, transmission_bsdf.response, transmission);
-		bsdf.throughput = mix(bsdf.throughput, transmission_bsdf.throughput, transmission);
+		mx_mix_bsdf(closureData, transmission_bsdf, bsdf, transmission, bsdf);
 	}
 	// 
 	// Specular BSDF (dielectric reflection)
 	{
 		BSDF specular_bsdf = BSDF(vec3(0), vec3(1));
 		mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, 0, specular_bsdf);
-		// 
-		// Layer: specular over transmission mix
-		bsdf.response = specular_bsdf.response + (bsdf.response * specular_bsdf.throughput);
-		bsdf.throughput = specular_bsdf.throughput * bsdf.throughput;
+		mx_layer_bsdf(closureData, specular_bsdf, bsdf, bsdf);
 	}
 	// 
-	// Artistic IOR (reflectivity/edge-color -> physical IOR/extinction)
+	// Metalness
 	{
+		// Artistic IOR (reflectivity/edge-color -> physical IOR/extinction)
 		vec3 metal_reflectivity = base_color * base;
 		vec3 metal_edgecolor = specular_color * specular;
 		vec3 ior_n;

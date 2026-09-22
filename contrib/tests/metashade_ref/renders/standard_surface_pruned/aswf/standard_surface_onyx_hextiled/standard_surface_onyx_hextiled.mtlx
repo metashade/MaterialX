@@ -32,10 +32,10 @@
     <output name="out_color" type="color3" nodename="image_color" />
     <output name="out_roughness" type="float" nodename="image_roughness_float" />
   </nodegraph>
-  <metashade_standard_surface_coat0_sheen0_subsurface0 name="N_StandardSurface" type="surfaceshader">
+  <metashade_standard_surface_coat0_metalness0_sheen0_subsurface0_transmission0 name="N_StandardSurface" type="surfaceshader">
     <input name="base_color" type="color3" nodegraph="NG_OnyxHextiled" output="out_color" />
     <input name="specular_roughness" type="float" nodegraph="NG_OnyxHextiled" output="out_roughness" />
-  </metashade_standard_surface_coat0_sheen0_subsurface0>
+  </metashade_standard_surface_coat0_metalness0_sheen0_subsurface0_transmission0>
   <surfacematerial name="M_OnyxHextiled" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="N_StandardSurface" />
   </surfacematerial>

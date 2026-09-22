@@ -76,13 +76,10 @@ uniform vec3 Pawn_Body_W_specular_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float Pawn_Body_W_specular_IOR = 1.500000;
 uniform float Pawn_Body_W_specular_anisotropy = 0.000000;
 uniform float Pawn_Body_W_specular_rotation = 0.000000;
-uniform float Pawn_Body_W_transmission = 0.000000;
-uniform vec3 Pawn_Body_W_transmission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float Pawn_Body_W_transmission_depth = 0.000000;
 uniform vec3 Pawn_Body_W_transmission_scatter = vec3(0.000000, 0.000000, 0.000000);
 uniform float Pawn_Body_W_transmission_scatter_anisotropy = 0.000000;
 uniform float Pawn_Body_W_transmission_dispersion = 0.000000;
-uniform float Pawn_Body_W_transmission_extra_roughness = 0.000000;
 uniform float Pawn_Body_W_thin_film_thickness = 0.000000;
 uniform float Pawn_Body_W_thin_film_IOR = 1.500000;
 uniform float Pawn_Body_W_emission = 0.000000;
@@ -1149,6 +1146,18 @@ void mx_dielectric_bsdf(ClosureData closureData, float weight, vec3 tint, float 
     }
 }
 
+void mx_layer_bsdf(ClosureData closureData, BSDF top, BSDF base, out BSDF result)
+{
+    result.response = top.response + base.response * top.throughput;
+    result.throughput = top.throughput * base.throughput;
+}
+
+void mx_mix_bsdf(ClosureData closureData, BSDF fg, BSDF bg, float mixValue, out BSDF result)
+{
+    result.response = mix(bg.response, fg.response, mixValue);
+    result.throughput = mix(bg.throughput, fg.throughput, mixValue);
+}
+
 const float FUJII_CONSTANT_1 = 0.5 - 2.0 / (3.0 * M_PI);
 const float FUJII_CONSTANT_2 = 2.0 / 3.0 - 28.0 / (15.0 * M_PI);
 
@@ -1425,7 +1434,7 @@ vec3 _mx_metashade_rotate_tangent(vec3 tangent, float anisotropy, float rotation
 	return tangent;
 }
 
-void mx_metashade_standard_surface_coat0_sheen0_subsurface0_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_extra_roughness, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
+void mx_metashade_standard_surface_coat0_sheen0_subsurface0_transmission0_bsdf(ClosureData closureData, float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float thin_film_thickness, float thin_film_IOR, vec3 normal, vec3 tangent, inout BSDF bsdf)
 {
 	// 
 	// Roughness
@@ -1442,33 +1451,16 @@ void mx_metashade_standard_surface_coat0_sheen0_subsurface0_bsdf(ClosureData clo
 	mx_oren_nayar_diffuse_bsdf(closureData, base, base_color, diffuse_roughness, normal, false, diffuse_bsdf);
 	bsdf = diffuse_bsdf;
 	// 
-	// Transmission roughness
-	float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
-	vec2 transmission_roughness;
-	mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
-	// 
-	// Transmission BSDF (dielectric transmission)
-	{
-		BSDF transmission_bsdf = BSDF(vec3(0), vec3(1));
-		mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, main_tangent, 0, 1, transmission_bsdf);
-		// 
-		// Transmission mix: blend transmission with sheen layer
-		bsdf.response = mix(bsdf.response, transmission_bsdf.response, transmission);
-		bsdf.throughput = mix(bsdf.throughput, transmission_bsdf.throughput, transmission);
-	}
-	// 
 	// Specular BSDF (dielectric reflection)
 	{
 		BSDF specular_bsdf = BSDF(vec3(0), vec3(1));
 		mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, 0, specular_bsdf);
-		// 
-		// Layer: specular over transmission mix
-		bsdf.response = specular_bsdf.response + (bsdf.response * specular_bsdf.throughput);
-		bsdf.throughput = specular_bsdf.throughput * bsdf.throughput;
+		mx_layer_bsdf(closureData, specular_bsdf, bsdf, bsdf);
 	}
 	// 
-	// Artistic IOR (reflectivity/edge-color -> physical IOR/extinction)
+	// Metalness
 	{
+		// Artistic IOR (reflectivity/edge-color -> physical IOR/extinction)
 		vec3 metal_reflectivity = base_color * base;
 		vec3 metal_edgecolor = specular_color * specular;
 		vec3 ior_n;
@@ -1503,7 +1495,7 @@ void mx_uniform_edf(ClosureData closureData, vec3 color, out EDF result)
     }
 }
 
-void NG_metashade_standard_surface_coat0_sheen0_subsurface0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, vec3 transmission_color, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
+void NG_metashade_standard_surface_coat0_sheen0_subsurface0_transmission0(float base, vec3 base_color, float diffuse_roughness, float metalness, float specular, vec3 specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission_depth, vec3 transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float thin_film_thickness, float thin_film_IOR, float emission, vec3 emission_color, vec3 opacity, vec3 normal, vec3 tangent, out surfaceshader out1)
 {
     vec3 emission_weight_out = emission_color * emission;
     vec3 opacity_luminance_out = vec3(0.0);
@@ -1529,7 +1521,7 @@ void NG_metashade_standard_surface_coat0_sheen0_subsurface0(float base, vec3 bas
         {
             ClosureData closureData = makeClosureData(CLOSURE_TYPE_INDIRECT, L, V, N, P, occlusion);
             BSDF std_surface_bsdf = BSDF(vec3(0.0),vec3(1.0));
-            mx_metashade_standard_surface_coat0_sheen0_subsurface0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
+            mx_metashade_standard_surface_coat0_sheen0_subsurface0_transmission0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
 
             surface_ctor_out.color += occlusion * std_surface_bsdf.response;
         }
@@ -1545,7 +1537,7 @@ void NG_metashade_standard_surface_coat0_sheen0_subsurface0(float base, vec3 bas
         // Calculate the BSDF transmission for viewing direction
         ClosureData closureData = makeClosureData(CLOSURE_TYPE_TRANSMISSION, L, V, N, P, occlusion);
         BSDF std_surface_bsdf = BSDF(vec3(0.0),vec3(1.0));
-        mx_metashade_standard_surface_coat0_sheen0_subsurface0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, transmission, transmission_color, transmission_extra_roughness, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
+        mx_metashade_standard_surface_coat0_sheen0_subsurface0_transmission0_bsdf(closureData, base, base_color, diffuse_roughness, metalness, specular, specular_color, specular_roughness, specular_IOR, specular_anisotropy, specular_rotation, thin_film_thickness, thin_film_IOR, normal, tangent, std_surface_bsdf);
         surface_ctor_out.color += std_surface_bsdf.response;
 
         // Compute and apply surface opacity
@@ -1577,7 +1569,7 @@ void main()
     vec3 mtlxnormalmap10_out = vec3(0.0);
     mx_normalmap_float(normal8_out, mtlxnormalmap10_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, mtlxnormalmap10_out);
     surfaceshader Pawn_Body_W_out = surfaceshader(vec3(0.0),vec3(0.0));
-    NG_metashade_standard_surface_coat0_sheen0_subsurface0(Pawn_Body_W_base, diffuse8_out_cm_out, Pawn_Body_W_diffuse_roughness, metallic8_out, Pawn_Body_W_specular, Pawn_Body_W_specular_color, roughness8_out, Pawn_Body_W_specular_IOR, Pawn_Body_W_specular_anisotropy, Pawn_Body_W_specular_rotation, Pawn_Body_W_transmission, Pawn_Body_W_transmission_color, Pawn_Body_W_transmission_depth, Pawn_Body_W_transmission_scatter, Pawn_Body_W_transmission_scatter_anisotropy, Pawn_Body_W_transmission_dispersion, Pawn_Body_W_transmission_extra_roughness, Pawn_Body_W_thin_film_thickness, Pawn_Body_W_thin_film_IOR, Pawn_Body_W_emission, Pawn_Body_W_emission_color, Pawn_Body_W_opacity, mtlxnormalmap10_out, geomprop_Tworld_out1, Pawn_Body_W_out);
+    NG_metashade_standard_surface_coat0_sheen0_subsurface0_transmission0(Pawn_Body_W_base, diffuse8_out_cm_out, Pawn_Body_W_diffuse_roughness, metallic8_out, Pawn_Body_W_specular, Pawn_Body_W_specular_color, roughness8_out, Pawn_Body_W_specular_IOR, Pawn_Body_W_specular_anisotropy, Pawn_Body_W_specular_rotation, Pawn_Body_W_transmission_depth, Pawn_Body_W_transmission_scatter, Pawn_Body_W_transmission_scatter_anisotropy, Pawn_Body_W_transmission_dispersion, Pawn_Body_W_thin_film_thickness, Pawn_Body_W_thin_film_IOR, Pawn_Body_W_emission, Pawn_Body_W_emission_color, Pawn_Body_W_opacity, mtlxnormalmap10_out, geomprop_Tworld_out1, Pawn_Body_W_out);
     material M_Pawn_Body_W_out = Pawn_Body_W_out;
     out1 = vec4(M_Pawn_Body_W_out.color, 1.0);
 }
