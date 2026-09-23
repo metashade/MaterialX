@@ -1164,6 +1164,18 @@ void mx_dielectric_bsdf(ClosureData closureData, float weight, vec3 tint, float 
     }
 }
 
+void mx_layer_bsdf(ClosureData closureData, BSDF top, BSDF base, out BSDF result)
+{
+    result.response = top.response + base.response * top.throughput;
+    result.throughput = top.throughput * base.throughput;
+}
+
+void mx_mix_bsdf(ClosureData closureData, BSDF fg, BSDF bg, float mixValue, out BSDF result)
+{
+    result.response = mix(bg.response, fg.response, mixValue);
+    result.throughput = mix(bg.throughput, fg.throughput, mixValue);
+}
+
 const float FUJII_CONSTANT_1 = 0.5 - 2.0 / (3.0 * M_PI);
 const float FUJII_CONSTANT_2 = 2.0 / 3.0 - 28.0 / (15.0 * M_PI);
 
@@ -1773,90 +1785,87 @@ void mx_metashade_standard_surface_bsdf(ClosureData closureData, float base, vec
 	// instead of the more physically-correct `true` in OpenPBR
 	BSDF diffuse_bsdf = BSDF(vec3(0), vec3(1));
 	mx_oren_nayar_diffuse_bsdf(closureData, base, coat_affected_diffuse_color, diffuse_roughness, normal, false, diffuse_bsdf);
+	bsdf = diffuse_bsdf;
 	// 
 	// Subsurface scattering
-	vec3 subsurface_radius_scaled = subsurface_radius * subsurface_scale;
-	BSDF sss_bsdf = BSDF(vec3(0), vec3(1));
-	if (thin_walled)
 	{
-		mx_translucent_bsdf(closureData, 1.0, subsurface_color, normal, sss_bsdf);
+		vec3 subsurface_radius_scaled = subsurface_radius * subsurface_scale;
+		BSDF sss_bsdf = BSDF(vec3(0), vec3(1));
+		if (thin_walled)
+		{
+			mx_translucent_bsdf(closureData, 1.0, subsurface_color, normal, sss_bsdf);
+		}
+		else
+		{
+			mx_subsurface_bsdf(closureData, 1.0, subsurface_color, subsurface_radius_scaled, subsurface_anisotropy, normal, sss_bsdf);
+		}
+		mx_mix_bsdf(closureData, sss_bsdf, bsdf, subsurface, bsdf);
 	}
-	else
-	{
-		mx_subsurface_bsdf(closureData, 1.0, subsurface_color, subsurface_radius_scaled, subsurface_anisotropy, normal, sss_bsdf);
-	}
-	// 
-	// Subsurface mix: blend SSS with diffuse
-	BSDF subsurface_mix;
-	subsurface_mix.response = mix(diffuse_bsdf.response, sss_bsdf.response, subsurface);
-	subsurface_mix.throughput = mix(diffuse_bsdf.throughput, sss_bsdf.throughput, subsurface);
 	// 
 	// Sheen BSDF
-	BSDF sheen_bsdf_out = BSDF(vec3(0), vec3(1));
-	mx_sheen_bsdf(closureData, sheen, sheen_color, sheen_roughness, normal, 0, sheen_bsdf_out);
+	{
+		BSDF sheen_bsdf_out = BSDF(vec3(0), vec3(1));
+		mx_sheen_bsdf(closureData, sheen, sheen_color, sheen_roughness, normal, 0, sheen_bsdf_out);
+		mx_layer_bsdf(closureData, sheen_bsdf_out, bsdf, bsdf);
+	}
 	// 
-	// Sheen layer: sheen over subsurface mix
-	bsdf.response = sheen_bsdf_out.response + (subsurface_mix.response * sheen_bsdf_out.throughput);
-	bsdf.throughput = sheen_bsdf_out.throughput * subsurface_mix.throughput;
-	// 
-	// Transmission roughness
-	float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
-	// Coat-affected
-	transmission_roughness_scalar = mix(transmission_roughness_scalar, 1, coat_roughness_factor);
-	vec2 transmission_roughness;
-	mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
-	// 
-	// Transmission BSDF (dielectric transmission)
-	BSDF transmission_bsdf = BSDF(vec3(0), vec3(1));
-	mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, main_tangent, 0, 1, transmission_bsdf);
-	// 
-	// Transmission mix: blend transmission with sheen layer
-	bsdf.response = mix(bsdf.response, transmission_bsdf.response, transmission);
-	bsdf.throughput = mix(bsdf.throughput, transmission_bsdf.throughput, transmission);
+	// Transmission
+	{
+		float transmission_roughness_scalar = clamp(specular_roughness + transmission_extra_roughness, 0.0, 1.0);
+		// Coat-affected
+		transmission_roughness_scalar = mix(transmission_roughness_scalar, 1, coat_roughness_factor);
+		vec2 transmission_roughness;
+		mx_roughness_anisotropy(transmission_roughness_scalar, specular_anisotropy, transmission_roughness);
+		// 
+		// Transmission BSDF (dielectric transmission)
+		BSDF transmission_bsdf = BSDF(vec3(0), vec3(1));
+		mx_dielectric_bsdf(closureData, 1.0, transmission_color, specular_IOR, transmission_roughness, false, 0.0, 1.5, normal, main_tangent, 0, 1, transmission_bsdf);
+		mx_mix_bsdf(closureData, transmission_bsdf, bsdf, transmission, bsdf);
+	}
 	// 
 	// Specular BSDF (dielectric reflection)
-	BSDF specular_bsdf = BSDF(vec3(0), vec3(1));
-	mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, 0, specular_bsdf);
+	{
+		BSDF specular_bsdf = BSDF(vec3(0), vec3(1));
+		mx_dielectric_bsdf(closureData, specular, specular_color, specular_IOR, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, 0, specular_bsdf);
+		mx_layer_bsdf(closureData, specular_bsdf, bsdf, bsdf);
+	}
 	// 
-	// Layer: specular over transmission mix
-	bsdf.response = specular_bsdf.response + (bsdf.response * specular_bsdf.throughput);
-	bsdf.throughput = specular_bsdf.throughput * bsdf.throughput;
+	// Metalness
+	{
+		// Artistic IOR (reflectivity/edge-color -> physical IOR/extinction)
+		vec3 metal_reflectivity = base_color * base;
+		vec3 metal_edgecolor = specular_color * specular;
+		vec3 ior_n;
+		vec3 ior_k;
+		mx_artistic_ior(metal_reflectivity, metal_edgecolor, ior_n, ior_k);
+		// 
+		// Conductor BSDF (metal reflection)
+		BSDF metal_bsdf = BSDF(vec3(0), vec3(1));
+		mx_conductor_bsdf(closureData, metalness, ior_n, ior_k, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, metal_bsdf);
+		// 
+		// Metalness mix: conductor (fg) vs specular layer (bg)
+		// Conductor response is already scaled by metalness (the weight),
+		// so we just add it to the attenuated specular layer.
+		float one_minus_metalness = 1 - metalness;
+		bsdf.response = metal_bsdf.response + (bsdf.response * one_minus_metalness);
+		bsdf.throughput = metal_bsdf.throughput + (bsdf.throughput * one_minus_metalness);
+	}
 	// 
-	// Artistic IOR (reflectivity/edge-color -> physical IOR/extinction)
-	vec3 metal_reflectivity = base_color * base;
-	vec3 metal_edgecolor = specular_color * specular;
-	vec3 ior_n;
-	vec3 ior_k;
-	mx_artistic_ior(metal_reflectivity, metal_edgecolor, ior_n, ior_k);
-	// 
-	// Conductor BSDF (metal reflection)
-	BSDF metal_bsdf = BSDF(vec3(0), vec3(1));
-	mx_conductor_bsdf(closureData, metalness, ior_n, ior_k, main_roughness, false, thin_film_thickness, thin_film_IOR, normal, main_tangent, 0, metal_bsdf);
-	// 
-	// Metalness mix: conductor (fg) vs specular layer (bg)
-	// Conductor response is already scaled by metalness (the weight),
-	// so we just add it to the attenuated specular layer.
-	float one_minus_metalness = 1 - metalness;
-	bsdf.response = metal_bsdf.response + (bsdf.response * one_minus_metalness);
-	bsdf.throughput = metal_bsdf.throughput + (bsdf.throughput * one_minus_metalness);
-	// 
-	// Coat attenuation: tint underlying layers by coat color
-	// Float3 coercion needed: RgbF lerp result -> Float3 for BSDF multiply
-	vec3 coat_attenuation = mix(vec3(1.0), coat_color, coat);
-	bsdf.response = bsdf.response * coat_attenuation;
-	bsdf.throughput = bsdf.throughput * coat_attenuation;
-	// 
-	// Coat roughness
-	vec2 coat_roughness_vec;
-	mx_roughness_anisotropy(coat_roughness, coat_anisotropy, coat_roughness_vec);
-	// 
-	// Coat BSDF (dielectric reflection)
-	BSDF coat_bsdf = BSDF(vec3(0), vec3(1));
-	mx_dielectric_bsdf(closureData, coat, vec3(1.0, 1.0, 1.0), coat_IOR, coat_roughness_vec, false, 0.0, 1.5, coat_normal, coat_tangent, 0, 0, coat_bsdf);
-	// 
-	// Coat layer: coat over attenuated base
-	bsdf.response = coat_bsdf.response + (bsdf.response * coat_bsdf.throughput);
-	bsdf.throughput = coat_bsdf.throughput * bsdf.throughput;
+	// Coat attenuation and layer
+	{
+		vec3 coat_attenuation = mix(vec3(1.0), coat_color, coat);
+		bsdf.response *= coat_attenuation;
+		bsdf.throughput *= coat_attenuation;
+		// 
+		// Coat roughness
+		vec2 coat_roughness_vec;
+		mx_roughness_anisotropy(coat_roughness, coat_anisotropy, coat_roughness_vec);
+		// 
+		// Coat BSDF (dielectric reflection)
+		BSDF coat_bsdf = BSDF(vec3(0), vec3(1));
+		mx_dielectric_bsdf(closureData, coat, vec3(1.0), coat_IOR, coat_roughness_vec, false, 0.0, 1.5, coat_normal, coat_tangent, 0, 0, coat_bsdf);
+		mx_layer_bsdf(closureData, coat_bsdf, bsdf, bsdf);
+	}
 }
 
 

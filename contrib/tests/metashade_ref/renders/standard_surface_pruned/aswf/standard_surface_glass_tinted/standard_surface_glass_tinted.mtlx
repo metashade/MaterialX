@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <materialx version="1.39" colorspace="lin_rec709">
-  <metashade_standard_surface_coat0_subsurface0 name="SR_glass_tinted" type="surfaceshader">
+  <metashade_standard_surface_coat0_metalness0_sheen0_subsurface0 name="SR_glass_tinted" type="surfaceshader">
     <input name="base" type="float" value="0" />
     <input name="specular" type="float" value="1" />
     <input name="specular_color" type="color3" value="1, 1, 1" />
@@ -8,7 +8,7 @@
     <input name="specular_IOR" type="float" value="1.54" />
     <input name="transmission" type="float" value="1" />
     <input name="transmission_color" type="color3" value="0.2, 0.1, 1" />
-  </metashade_standard_surface_coat0_subsurface0>
+  </metashade_standard_surface_coat0_metalness0_sheen0_subsurface0>
   <surfacematerial name="GlassTinted" type="material">
     <input name="surfaceshader" type="surfaceshader" nodename="SR_glass_tinted" />
   </surfacematerial>
