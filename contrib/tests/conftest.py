@@ -76,26 +76,6 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_collection_modifyitems(config, items):
-    """Skip test classes based on --renderer selection."""
-    renderer_opt = config.getoption("--renderer")
-    if renderer_opt == "all":
-        return
-
-    skip_glsl = pytest.mark.skip(reason="--renderer=osl excludes GLSL tests")
-    skip_osl = pytest.mark.skip(reason="--renderer=glsl excludes OSL tests")
-
-    for item in items:
-        cls = item.cls
-        if cls is None:
-            continue
-        cls_name = cls.__name__
-        if renderer_opt == "osl" and "Osl" not in cls_name:
-            item.add_marker(skip_glsl)
-        elif renderer_opt == "glsl" and "Osl" in cls_name:
-            item.add_marker(skip_osl)
-
-
 # ---------------------------------------------------------------------------
 # Dataclass fixtures
 # ---------------------------------------------------------------------------
@@ -226,34 +206,39 @@ def glsl_renderer(stdlib, search_path, repo_root, mtlx_test_options):
     return renderer
 
 
-@pytest.fixture(scope="session")
-def renderer(request, cli_options, stdlib, search_path):
-    """
-    Session-scoped GLSL renderer fixture.
-    
-    When ``--no-render`` is active, returns a lightweight
-    :class:`ShaderGenWrapper` that only needs the CPU-based shader
-    generator (no OpenGL context).  Otherwise resolves the full
-    ``glsl_renderer`` fixture on demand.
-    """
-    if cli_options.no_render:
-        from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
-        return ShaderGenWrapper(stdlib, search_path)
-    return request.getfixturevalue("glsl_renderer")
+def _requested_backends(config) -> list[str]:
+    """Return the backend ids selected by ``--renderer``."""
+    opt = config.getoption("--renderer", default="glsl")
+    if opt == "all":
+        return ["glsl", "osl"]
+    return [opt]
 
 
-@pytest.fixture(scope="session")
-def osl_renderer(stdlib, search_path):
-    """
-    Session-scoped OSL shader-generation renderer.
+@pytest.fixture(scope="session", params=["glsl", "osl"])
+def backend(request, cli_options, stdlib, search_path):
+    """Session-scoped :class:`RenderBackend`, parametrized over targets.
 
-    OSL rendering requires an external toolchain (``oslc`` +
-    ``testrender``).  This fixture always returns a CPU-only
-    :class:`ShaderGenWrapper` targeting ``genosl``.  Full OSL
-    rendering support will be added once the toolchain is wired in.
+    Pytest generates the cross-product: every material × every backend.
+    ``--renderer glsl|osl|all`` controls which backends are active.
     """
-    from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
-    return ShaderGenWrapper(stdlib, search_path, target='genosl')
+    backend_id = request.param
+    if backend_id not in _requested_backends(request.config):
+        pytest.skip(f"--renderer excludes {backend_id}")
+
+    from rendertest.mtlxutils.mxrenderer import (
+        ShaderGenWrapper, GlslBackend, OslBackend,
+    )
+
+    if backend_id == "glsl":
+        if cli_options.no_render:
+            renderer = ShaderGenWrapper(stdlib, search_path, target="genglsl")
+        else:
+            renderer = request.getfixturevalue("glsl_renderer")
+        return GlslBackend(renderer)
+
+    elif backend_id == "osl":
+        renderer = ShaderGenWrapper(stdlib, search_path, target="genosl")
+        return OslBackend(renderer)
 
 
 # ---------------------------------------------------------------------------
@@ -261,11 +246,11 @@ def osl_renderer(stdlib, search_path):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def stdlib_env(renderer, stdlib, search_path, cli_options):
+def stdlib_env(backend, stdlib, search_path, cli_options):
     """RenderEnvironment for ASWF standard library materials tests."""
     from test_render import RenderEnvironment
     return RenderEnvironment(
-        renderer=renderer,
+        backend=backend,
         data_library=stdlib,
         search_path=search_path,
         cli_options=cli_options,
@@ -274,65 +259,18 @@ def stdlib_env(renderer, stdlib, search_path, cli_options):
 
 
 @pytest.fixture(scope="session")
-def adsk_env(renderer, data_library, search_path, cli_options):
+def adsk_env(backend, data_library, search_path, cli_options):
     """RenderEnvironment for Autodesk materials tests.
 
-    Shares the ``renders/`` env_subpath with stdlib -- the ``adsk/``
+    Shares the ``renders/`` env_subpath with stdlib — the ``adsk/``
     prefix lives in each :class:`RenderTestCase`'s ``output_subpath``.
     """
     from test_render import RenderEnvironment
     return RenderEnvironment(
-        renderer=renderer,
+        backend=backend,
         data_library=data_library,
         search_path=search_path,
         cli_options=cli_options,
-        env_subpath=Path("renders"),
-    )
-
-
-@pytest.fixture(scope="session")
-def osl_cli_options(request, repo_root):
-    """CLI options forced to no-render for OSL (no toolchain yet)."""
-    from test_render import CliOptions
-
-    output_opt = request.config.getoption("--output-dir")
-    output_root = Path(output_opt) if output_opt else repo_root / "contrib"
-
-    try:
-        html_report = bool(request.config.getoption("htmlpath"))
-    except ValueError:
-        html_report = False
-
-    return CliOptions(
-        output_root=output_root,
-        no_render=True,
-        flip_threshold=request.config.getoption("--flip-threshold"),
-        html_report=html_report,
-    )
-
-
-@pytest.fixture(scope="session")
-def osl_stdlib_env(osl_renderer, stdlib, search_path, osl_cli_options):
-    """RenderEnvironment for ASWF materials with OSL codegen."""
-    from test_render import RenderEnvironment
-    return RenderEnvironment(
-        renderer=osl_renderer,
-        data_library=stdlib,
-        search_path=search_path,
-        cli_options=osl_cli_options,
-        env_subpath=Path("renders"),
-    )
-
-
-@pytest.fixture(scope="session")
-def osl_adsk_env(osl_renderer, data_library, search_path, osl_cli_options):
-    """RenderEnvironment for Autodesk materials with OSL codegen."""
-    from test_render import RenderEnvironment
-    return RenderEnvironment(
-        renderer=osl_renderer,
-        data_library=data_library,
-        search_path=search_path,
-        cli_options=osl_cli_options,
         env_subpath=Path("renders"),
     )
 

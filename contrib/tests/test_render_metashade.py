@@ -154,8 +154,9 @@ class MetashadeOverrideTestBase:
             "subclassing MetashadeOverrideTestBase"
         )
 
+        from rendertest.mtlxutils.mxrenderer import GlslBackend
         return RenderEnvironment(
-            renderer=override_renderer,
+            backend=GlslBackend(override_renderer),
             data_library=override_stdlib,
             search_path=override_search_path,
             cli_options=cli_options,
@@ -356,8 +357,9 @@ class TestRenderMetashadeAdskMaterials(MetashadeOverrideTestBase):
         override_search_path, cli_options,
     ):
         """RenderEnvironment with Metashade override and adsklib loaded."""
+        from rendertest.mtlxutils.mxrenderer import GlslBackend
         return RenderEnvironment(
-            renderer=override_renderer,
+            backend=GlslBackend(override_renderer),
             data_library=override_data_library,
             search_path=override_search_path,
             cli_options=cli_options,

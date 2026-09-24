@@ -138,11 +138,11 @@ class ShaderGenWrapper:
 
         self.activeShader, self.activeShaderErrors = self.mxgen.generateShader(node)
         if self.activeShader:
-            try:
-                self.sourceCode[mx_gen_shader.VERTEX_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.VERTEX_STAGE)
-            except LookupError:
-                pass
-            self.sourceCode[mx_gen_shader.PIXEL_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
+            for stage in (mx_gen_shader.VERTEX_STAGE, mx_gen_shader.PIXEL_STAGE):
+                try:
+                    self.sourceCode[stage] = self.activeShader.getSourceCode(stage)
+                except LookupError:
+                    pass
 
         return self.activeShader
 
@@ -712,3 +712,96 @@ def performRender(glslRenderer, doc, inputFilename, outputPath, searchPath) -> (
     imageHandler.setSearchPath(imageSearchPathPrev)
 
     return rendered, renderErrors
+
+
+# ---------------------------------------------------------------------------
+# RenderBackend hierarchy
+# ---------------------------------------------------------------------------
+
+class RenderBackend:
+    """Base class for MaterialX code generation and rendering backends.
+
+    Encapsulates all target-specific knowledge: generator target name,
+    file extension, stage layout, and shader dump format.  Subclasses
+    override class attributes and optionally add rendering capability.
+
+    ``renderer`` is the underlying :class:`ShaderGenWrapper` (or
+    :class:`GlslRenderer`) used for shader generation and rendering.
+    """
+
+    target: str               # e.g. "genglsl", "genosl"
+    file_extension: str       # e.g. "glsl", "osl"
+    has_vertex_stage: bool    # True for raster targets
+
+    def __init__(self, renderer):
+        self.renderer = renderer
+
+    @property
+    def can_render(self) -> bool:
+        """Whether this backend can produce rendered images."""
+        return False
+
+    @property
+    def render_suffix(self) -> str:
+        """Suffix for rendered image filenames (e.g. ``glsl``, ``osl``)."""
+        return self.target.removeprefix("gen")
+
+    def dump_stages(self, shader, output_path, material_name: str) -> dict:
+        """Write shader source to files with backend-appropriate naming.
+
+        Raster backends produce ``_vs`` / ``_ps`` stage files.
+        Single-stage backends produce one file with just the element
+        name — matching upstream ``MaterialXTest`` conventions.
+
+        Returns a dict mapping stage name to the written file path.
+        """
+        from pathlib import Path
+        base = output_path / mx.createValidName(material_name)
+        paths = {}
+
+        if self.has_vertex_stage:
+            for stage_name, suffix in [
+                (mx_gen_shader.VERTEX_STAGE, "_vs"),
+                (mx_gen_shader.PIXEL_STAGE, "_ps"),
+            ]:
+                try:
+                    src = shader.getSourceCode(stage_name)
+                except LookupError:
+                    continue
+                if src:
+                    p = Path(f"{base}{suffix}.{self.file_extension}")
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(src, encoding="utf-8")
+                    paths[stage_name] = p
+        else:
+            try:
+                src = shader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
+            except LookupError:
+                return paths
+            if src:
+                p = Path(f"{base}.{self.file_extension}")
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(src, encoding="utf-8")
+                paths[mx_gen_shader.PIXEL_STAGE] = p
+
+        return paths
+
+
+class GlslBackend(RenderBackend):
+    """GLSL code generation and GPU rendering backend."""
+
+    target = "genglsl"
+    file_extension = "glsl"
+    has_vertex_stage = True
+
+    @property
+    def can_render(self) -> bool:
+        return not isinstance(self.renderer, ShaderGenWrapper)
+
+
+class OslBackend(RenderBackend):
+    """OSL shader generation backend (codegen only)."""
+
+    target = "genosl"
+    file_extension = "osl"
+    has_vertex_stage = False

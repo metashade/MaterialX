@@ -2,7 +2,8 @@
 Shared render logic for pytest test suite.
 
 This module encapsulates the per-material render logic so it can be called from
-pytest test cases (parametrized tests).
+pytest test cases (parametrized tests).  All target-specific knowledge lives in
+:class:`~mxrenderer.RenderBackend` subclasses; this module is backend-agnostic.
 """
 import MaterialX as mx
 import MaterialX.PyMaterialXGenShader as mx_gen_shader
@@ -30,66 +31,8 @@ def find_renderable_materials(doc) -> List:
     return gen.findRenderableElements(doc)
 
 
-_TARGET_EXTENSIONS = {
-    "genglsl": "glsl",
-    "genosl": "osl",
-    "genmsl": "metal",
-    "genslang": "slang",
-    "genmdl": "mdl",
-}
-
-# Rasterization targets have separate vertex/pixel stages.
-_RASTER_STAGE_SUFFIXES = {
-    mx_gen_shader.VERTEX_STAGE: "_vs",
-    mx_gen_shader.PIXEL_STAGE: "_ps",
-}
-
-# Targets with a single output (ray-tracing, offline).
-_SINGLE_STAGE_TARGETS = frozenset({"genosl", "genmdl"})
-
-
-def _dump_shader_stages(
-    shader, output_path: Path, material_name: str, target: str = "genglsl",
-) -> dict:
-    """Write shader stages to files with target-appropriate extensions.
-
-    Rasterization targets (GLSL, MSL, Slang) produce ``_vs`` / ``_ps``
-    stage files.  Single-stage targets (OSL, MDL) produce one file
-    with just the element name — matching upstream ``MaterialXTest``.
-
-    Returns a dict mapping stage name to the written file path.
-    """
-    lang_ext = _TARGET_EXTENSIONS.get(target, "glsl")
-    base = output_path / mx.createValidName(material_name)
-    paths = {}
-
-    if target in _SINGLE_STAGE_TARGETS:
-        try:
-            src = shader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
-        except LookupError:
-            return paths
-        if src:
-            p = Path(f"{base}.{lang_ext}")
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(src, encoding="utf-8")
-            paths[mx_gen_shader.PIXEL_STAGE] = p
-    else:
-        for stage_name, suffix in _RASTER_STAGE_SUFFIXES.items():
-            try:
-                src = shader.getSourceCode(stage_name)
-            except LookupError:
-                continue
-            if src:
-                p = Path(f"{base}{suffix}.{lang_ext}")
-                p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_text(src, encoding="utf-8")
-                paths[stage_name] = p
-
-    return paths
-
-
 def render_material(
-    renderer,
+    backend,
     doc,
     render_node,
     output_path: Optional[Path] = None,
@@ -101,70 +44,61 @@ def render_material(
     """
     Generate shaders and optionally render a single material node.
 
-    When *no_render* is ``True``, shader source is generated (and dumped
-    to *output_path* when provided) but GPU program creation, rendering
-    and image capture are skipped.
-
     Args:
-        renderer: Initialized GlslRenderer instance
-        doc: MaterialX document containing the material
-        render_node: The renderable node to render
-        output_path: Render output directory for images and shaders.
+        backend: A :class:`~mxrenderer.RenderBackend` instance.
+        doc: MaterialX document containing the material.
+        render_node: The renderable node to render.
+        output_path: Directory for images and shader dumps.
         search_path: MaterialX search path for source code and images.
-        target_colorspace: Target colorspace override
-        target_distance_unit: Target distance unit
+        target_colorspace: Target colorspace override.
+        target_distance_unit: Target distance unit.
         no_render: Skip GPU rendering; only generate and dump shaders.
 
     Returns:
-        RenderResult with success status and any errors
+        RenderResult with success status and any errors.
     """
     material_name = render_node.getNamePath()
-    
-    # Register search path for source code includes and images
-    # (mirrors performRender in mxrenderer.py)
+    renderer = backend.renderer
+
     if search_path is not None:
         generator = renderer.getCodeGenerator()
         generator.registerSourceCodeSearchPath(search_path)
         image_handler = renderer.getImageHandler()
         if image_handler is not None:
             image_handler.setSearchPath(search_path)
-    
-    # Handle material nodes that wrap surface shaders
-    # getShaderNodes only works on Node objects, not Outputs
+
     if isinstance(render_node, mx.Node) and render_node.getType() == 'material':
         shader_nodes = mx.getShaderNodes(render_node)
         if not shader_nodes:
             return RenderResult(
                 success=False,
                 material_name=material_name,
-                error=f"No surface shader found in material: {material_name}"
+                error=f"No surface shader found in material: {material_name}",
             )
-    
-    # Generate shader
-    shader = renderer.generateShader(render_node, target_colorspace, target_distance_unit)
+
+    shader = renderer.generateShader(
+        render_node, target_colorspace, target_distance_unit,
+    )
     if not shader:
         return RenderResult(
             success=False,
             material_name=material_name,
-            shader_errors=renderer.getActiveShaderErrors()
+            shader_errors=renderer.getActiveShaderErrors(),
         )
 
-    context = renderer.getCodeGenerator().getContext()
-    target = context.getShaderGenerator().getTarget()
-
-    # Dump shaders
     shader_dump_paths = {}
     if output_path:
-        shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
+        shader_dump_paths = backend.dump_stages(
+            shader, output_path, material_name,
+        )
 
-    if no_render:
+    if no_render or not backend.can_render:
         return RenderResult(
             success=True,
             material_name=material_name,
             shader_dump_paths=shader_dump_paths,
         )
 
-    # Create program
     if not renderer.createProgram():
         return RenderResult(
             success=False,
@@ -172,8 +106,7 @@ def render_material(
             error="Failed to create GPU program",
             shader_dump_paths=shader_dump_paths,
         )
-    
-    # Render
+
     rendered, errors = renderer.render()
     if not rendered:
         return RenderResult(
@@ -182,19 +115,21 @@ def render_material(
             error=str(errors),
             shader_dump_paths=shader_dump_paths,
         )
-    
+
     renderer.captureImage()
-    
+
     result = RenderResult(
         success=True,
         material_name=material_name,
         shader_dump_paths=shader_dump_paths,
     )
-    
+
     if output_path:
-        suffix = target.removeprefix("gen") if target else target
-        output_file = output_path / f"{mx.createValidName(material_name)}_{suffix}.png"
+        output_file = (
+            output_path
+            / f"{mx.createValidName(material_name)}_{backend.render_suffix}.png"
+        )
         renderer.saveCapture(str(output_file), True)
         result.output_path = output_file
-    
+
     return result
