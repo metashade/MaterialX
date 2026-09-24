@@ -765,3 +765,40 @@ class TestRenderAdskMaterials:
     ):
         """Test all renderable elements in an Autodesk material file."""
         adsk_env.run_test(case, subtests)
+
+
+# ---------------------------------------------------------------------------
+# OSL test classes
+# ---------------------------------------------------------------------------
+
+class TestRenderAswfMaterialsOsl:
+    """OSL shader generation for ASWF MaterialX library materials.
+
+    Validates that all ASWF materials compile through the OSL code
+    generator.  Full OSL rendering (via ``oslc`` + ``testrender``)
+    will be enabled once the toolchain is wired in.
+    """
+
+    @pytest.mark.parametrize("case", collect_aswf_test_files())
+    def test_render(
+        self,
+        case: RenderTestCase,
+        subtests,
+        osl_stdlib_env: RenderEnvironment,
+    ):
+        """Test OSL codegen for all renderable elements in an ASWF file."""
+        osl_stdlib_env.run_test(case, subtests)
+
+
+class TestRenderAdskMaterialsOsl:
+    """OSL shader generation for Autodesk contributed materials."""
+
+    @pytest.mark.parametrize("case", collect_adsk_test_files())
+    def test_render(
+        self,
+        case: RenderTestCase,
+        subtests,
+        osl_adsk_env: RenderEnvironment,
+    ):
+        """Test OSL codegen for all renderable elements in an Adsk file."""
+        osl_adsk_env.run_test(case, subtests)

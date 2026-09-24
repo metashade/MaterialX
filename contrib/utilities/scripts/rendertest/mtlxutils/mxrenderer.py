@@ -138,7 +138,10 @@ class ShaderGenWrapper:
 
         self.activeShader, self.activeShaderErrors = self.mxgen.generateShader(node)
         if self.activeShader:
-            self.sourceCode[mx_gen_shader.VERTEX_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.VERTEX_STAGE)
+            try:
+                self.sourceCode[mx_gen_shader.VERTEX_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.VERTEX_STAGE)
+            except LookupError:
+                pass
             self.sourceCode[mx_gen_shader.PIXEL_STAGE] = self.activeShader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
 
         return self.activeShader

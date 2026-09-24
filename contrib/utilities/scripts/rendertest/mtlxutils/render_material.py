@@ -30,21 +30,61 @@ def find_renderable_materials(doc) -> List:
     return gen.findRenderableElements(doc)
 
 
-def _dump_shader_stages(shader, output_path: Path, material_name: str) -> dict:
-    """Write vertex and pixel stage GLSL to files, matching MaterialXTest naming.
+_TARGET_EXTENSIONS = {
+    "genglsl": "glsl",
+    "genosl": "osl",
+    "genmsl": "metal",
+    "genslang": "slang",
+    "genmdl": "mdl",
+}
+
+# Rasterization targets have separate vertex/pixel stages.
+_RASTER_STAGE_SUFFIXES = {
+    mx_gen_shader.VERTEX_STAGE: "_vs",
+    mx_gen_shader.PIXEL_STAGE: "_ps",
+}
+
+# Targets with a single output (ray-tracing, offline).
+_SINGLE_STAGE_TARGETS = frozenset({"genosl", "genmdl"})
+
+
+def _dump_shader_stages(
+    shader, output_path: Path, material_name: str, target: str = "genglsl",
+) -> dict:
+    """Write shader stages to files with target-appropriate extensions.
+
+    Rasterization targets (GLSL, MSL, Slang) produce ``_vs`` / ``_ps``
+    stage files.  Single-stage targets (OSL, MDL) produce one file
+    with just the element name — matching upstream ``MaterialXTest``.
 
     Returns a dict mapping stage name to the written file path.
     """
+    lang_ext = _TARGET_EXTENSIONS.get(target, "glsl")
     base = output_path / mx.createValidName(material_name)
     paths = {}
-    for stage_name, ext in [(mx_gen_shader.VERTEX_STAGE, "_vs.glsl"),
-                            (mx_gen_shader.PIXEL_STAGE, "_ps.glsl")]:
-        src = shader.getSourceCode(stage_name)
+
+    if target in _SINGLE_STAGE_TARGETS:
+        try:
+            src = shader.getSourceCode(mx_gen_shader.PIXEL_STAGE)
+        except LookupError:
+            return paths
         if src:
-            p = Path(str(base) + ext)
+            p = Path(f"{base}.{lang_ext}")
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(src, encoding="utf-8")
-            paths[stage_name] = p
+            paths[mx_gen_shader.PIXEL_STAGE] = p
+    else:
+        for stage_name, suffix in _RASTER_STAGE_SUFFIXES.items():
+            try:
+                src = shader.getSourceCode(stage_name)
+            except LookupError:
+                continue
+            if src:
+                p = Path(f"{base}{suffix}.{lang_ext}")
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(src, encoding="utf-8")
+                paths[stage_name] = p
+
     return paths
 
 
@@ -115,7 +155,7 @@ def render_material(
     # Dump shaders
     shader_dump_paths = {}
     if output_path:
-        shader_dump_paths = _dump_shader_stages(shader, output_path, material_name)
+        shader_dump_paths = _dump_shader_stages(shader, output_path, material_name, target)
 
     if no_render:
         return RenderResult(
