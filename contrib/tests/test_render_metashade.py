@@ -409,7 +409,7 @@ class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
             data_library=override_data_library,
             search_path=override_search_path,
             cli_options=cli_options,
-            env_subpath=_RefPaths.ENV_SUBPATH / "standard_surface_pruned",
+            env_subpath=_RefPaths.ENV_SUBPATH / "adsklib_pruned",
             image_ref_env_subpath=self.IMAGE_REF_ENV_SUBPATH,
         )
 
