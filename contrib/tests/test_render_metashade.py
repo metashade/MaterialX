@@ -369,3 +369,51 @@ class TestRenderMetashadeAdskMaterials(MetashadeOverrideTestBase):
     def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test all renderable elements with Metashade SS override."""
         override_env.run_test(case, subtests)
+
+
+class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
+    """Test Autodesk materials with pruned adsklib nodegraphs.
+
+    Uses :func:`prune_library` to rewrite the ``standard_surface``
+    nodes inside adsk wrapper nodegraphs (``adsk:metal``,
+    ``adsk:opaque``, etc.) to pruned permutations.  The pruned
+    library is written as a test reference and loaded alongside the
+    pruned standard-surface permutation library.
+    FLIP-compares against the stock ``adsk_env`` renders.
+    """
+    SUBDIR = "standard_surface_pruned"
+    IMAGE_REF_ENV_SUBPATH = Path("renders")
+
+    @pytest.fixture(scope="class")
+    def override_data_library(self, override_stdlib, adsklib):
+        """Combined data library: overridden stdlib + pruned adsklib."""
+        from metashade.mtlx.standard_surface import prune_library
+
+        pruned_adsklib = mx.createDocument()
+        pruned_adsklib.importLibrary(adsklib)
+        prune_library(override_stdlib, pruned_adsklib)
+
+        lib = mx.createDocument()
+        lib.importLibrary(override_stdlib)
+        lib.importLibrary(pruned_adsklib)
+        return lib
+
+    @pytest.fixture(scope="class")
+    def override_env(
+        self, request, override_renderer, override_data_library,
+        override_search_path, cli_options,
+    ):
+        """RenderEnvironment with pruned adsklib loaded."""
+        return RenderEnvironment(
+            renderer=override_renderer,
+            data_library=override_data_library,
+            search_path=override_search_path,
+            cli_options=cli_options,
+            env_subpath=_RefPaths.ENV_SUBPATH / "standard_surface_pruned",
+            image_ref_env_subpath=self.IMAGE_REF_ENV_SUBPATH,
+        )
+
+    @pytest.mark.parametrize("case", _get_adsk_metashade_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test adsk materials with pruned library nodegraphs."""
+        override_env.run_test(case, subtests)
