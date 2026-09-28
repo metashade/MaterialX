@@ -385,18 +385,99 @@ class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
     IMAGE_REF_ENV_SUBPATH = Path("renders")
 
     @pytest.fixture(scope="class")
-    def override_data_library(self, override_stdlib, adsklib):
-        """Combined data library: overridden stdlib + pruned adsklib."""
-        from metashade.mtlx.standard_surface import prune_library
+    def override_search_path(self, search_path, repo_root):
+        """Search path with pruned adsklib prepended.
 
-        pruned_adsklib = mx.createDocument()
-        pruned_adsklib.importLibrary(adsklib)
-        prune_library(override_stdlib, pruned_adsklib)
+        ``metashade_ref/libraries/adsklib_pruned/`` contains an
+        ``adsklib/adsklib_ng.mtlx`` with pruned nodegraphs.
+        Prepending it before the stock path ensures
+        ``searchPath.find("adsklib")`` resolves the pruned version
+        first (MaterialX processes library folders in order and
+        ``find()`` returns the first match).
+        """
+        pruned_adsklib_root = (
+            repo_root / _RefPaths.LIBRARIES / "adsklib_pruned"
+        )
+        sp = mx.FileSearchPath(str(pruned_adsklib_root))
+        sp.append(search_path)
 
+        for p_str in search_path.asString().split(os.pathsep):
+            p = Path(p_str)
+            for lib in ("pbrlib", "stdlib"):
+                genglsl = p / "libraries" / lib / "genglsl"
+                if genglsl.exists():
+                    sp.append(genglsl.as_posix())
+                else:
+                    genglsl_local = p / lib / "genglsl"
+                    if genglsl_local.exists():
+                        sp.append(genglsl_local.as_posix())
+
+        libraries_dir = repo_root / _RefPaths.LIBRARIES
+        override_dir = libraries_dir / self.SUBDIR
+        sp.append(override_dir.as_posix())
+        return sp
+
+    @pytest.fixture(scope="class")
+    def override_data_library(self, override_search_path, repo_root):
+        """Load libraries with ``adsklib`` before ``libraries``.
+
+        ``loadLibraries`` processes the folder list in order and
+        ``searchPath.find()`` returns the first match.  By listing
+        ``"adsklib"`` first, the pruned ``adsklib_ng.mtlx`` (first
+        on the search path) is loaded before the stock copy inside
+        ``libraries/adsklib/``.
+        """
         lib = mx.createDocument()
-        lib.importLibrary(override_stdlib)
-        lib.importLibrary(pruned_adsklib)
+
+        libraries_dir = repo_root / _RefPaths.LIBRARIES
+        override_sp = mx.FileSearchPath(str(libraries_dir))
+        mx.loadLibraries([self.SUBDIR], override_sp, lib)
+
+        mx.loadLibraries(
+            ["adsklib"] + mx.getDefaultDataLibraryFolders(),
+            override_search_path,
+            lib,
+        )
         return lib
+
+    @pytest.fixture(scope="class")
+    def override_renderer(
+        self, override_data_library, override_search_path, repo_root,
+        mtlx_test_options, cli_options,
+    ):
+        """Renderer initialized with pruned adsklib + overridden stdlib."""
+        if cli_options.no_render:
+            from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
+            return ShaderGenWrapper(
+                override_data_library, override_search_path
+            )
+
+        lights_path = repo_root / "resources" / "Lights"
+        radiance_path = lights_path / "san_giuseppe_bridge.hdr"
+        irradiance_path = (
+            lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
+        )
+        geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
+        width = height = 512
+
+        from rendertest.mtlxutils import mxrenderer
+
+        renderer = mxrenderer.initializeRenderer(
+            override_data_library,
+            override_search_path,
+            str(radiance_path),
+            str(irradiance_path),
+            width,
+            height,
+            str(geometry_path),
+            envSampleCount=mtlx_test_options.env_sample_count,
+        )
+
+        geom_handler = renderer.renderer.getGeometryHandler()
+        for mesh in geom_handler.getMeshes():
+            add_additional_test_streams(mesh)
+
+        return renderer
 
     @pytest.fixture(scope="class")
     def override_env(
