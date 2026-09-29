@@ -369,3 +369,132 @@ class TestRenderMetashadeAdskMaterials(MetashadeOverrideTestBase):
     def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test all renderable elements with Metashade SS override."""
         override_env.run_test(case, subtests)
+
+
+class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
+    """Test Autodesk materials with pruned adsklib nodegraphs.
+
+    Uses :func:`prune_library` to rewrite the ``standard_surface``
+    nodes inside adsk wrapper nodegraphs (``adsk:metal``,
+    ``adsk:opaque``, etc.) to pruned permutations.  The pruned
+    library is written as a test reference and loaded alongside the
+    pruned standard-surface permutation library.
+    FLIP-compares against the stock ``adsk_env`` renders.
+    """
+    SUBDIR = "standard_surface_pruned"
+    IMAGE_REF_ENV_SUBPATH = Path("renders")
+
+    @pytest.fixture(scope="class")
+    def override_search_path(self, search_path, repo_root):
+        """Search path with pruned adsklib prepended.
+
+        ``metashade_ref/libraries/adsklib_pruned/`` contains an
+        ``adsklib/adsklib_ng.mtlx`` with pruned nodegraphs.
+        Prepending it before the stock path ensures
+        ``searchPath.find("adsklib")`` resolves the pruned version
+        first (MaterialX processes library folders in order and
+        ``find()`` returns the first match).
+        """
+        pruned_adsklib_root = (
+            repo_root / _RefPaths.LIBRARIES / "adsklib_pruned"
+        )
+        sp = mx.FileSearchPath(str(pruned_adsklib_root))
+        sp.append(search_path)
+
+        for p_str in search_path.asString().split(os.pathsep):
+            p = Path(p_str)
+            for lib in ("pbrlib", "stdlib"):
+                genglsl = p / "libraries" / lib / "genglsl"
+                if genglsl.exists():
+                    sp.append(genglsl.as_posix())
+                else:
+                    genglsl_local = p / lib / "genglsl"
+                    if genglsl_local.exists():
+                        sp.append(genglsl_local.as_posix())
+
+        libraries_dir = repo_root / _RefPaths.LIBRARIES
+        override_dir = libraries_dir / self.SUBDIR
+        sp.append(override_dir.as_posix())
+        return sp
+
+    @pytest.fixture(scope="class")
+    def override_data_library(self, override_search_path, repo_root):
+        """Load libraries with ``adsklib`` before ``libraries``.
+
+        ``loadLibraries`` processes the folder list in order and
+        ``searchPath.find()`` returns the first match.  By listing
+        ``"adsklib"`` first, the pruned ``adsklib_ng.mtlx`` (first
+        on the search path) is loaded before the stock copy inside
+        ``libraries/adsklib/``.
+        """
+        lib = mx.createDocument()
+
+        libraries_dir = repo_root / _RefPaths.LIBRARIES
+        override_sp = mx.FileSearchPath(str(libraries_dir))
+        mx.loadLibraries([self.SUBDIR], override_sp, lib)
+
+        mx.loadLibraries(
+            ["adsklib"] + mx.getDefaultDataLibraryFolders(),
+            override_search_path,
+            lib,
+        )
+        return lib
+
+    @pytest.fixture(scope="class")
+    def override_renderer(
+        self, override_data_library, override_search_path, repo_root,
+        mtlx_test_options, cli_options,
+    ):
+        """Renderer initialized with pruned adsklib + overridden stdlib."""
+        if cli_options.no_render:
+            from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
+            return ShaderGenWrapper(
+                override_data_library, override_search_path
+            )
+
+        lights_path = repo_root / "resources" / "Lights"
+        radiance_path = lights_path / "san_giuseppe_bridge.hdr"
+        irradiance_path = (
+            lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
+        )
+        geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
+        width = height = 512
+
+        from rendertest.mtlxutils import mxrenderer
+
+        renderer = mxrenderer.initializeRenderer(
+            override_data_library,
+            override_search_path,
+            str(radiance_path),
+            str(irradiance_path),
+            width,
+            height,
+            str(geometry_path),
+            envSampleCount=mtlx_test_options.env_sample_count,
+        )
+
+        geom_handler = renderer.renderer.getGeometryHandler()
+        for mesh in geom_handler.getMeshes():
+            add_additional_test_streams(mesh)
+
+        return renderer
+
+    @pytest.fixture(scope="class")
+    def override_env(
+        self, request, override_renderer, override_data_library,
+        override_search_path, cli_options,
+    ):
+        """RenderEnvironment with pruned adsklib loaded."""
+        return RenderEnvironment(
+            renderer=override_renderer,
+            data_library=override_data_library,
+            search_path=override_search_path,
+            cli_options=cli_options,
+            env_subpath=_RefPaths.ENV_SUBPATH / "adsklib_pruned",
+            image_ref_env_subpath=self.IMAGE_REF_ENV_SUBPATH,
+        )
+
+    @pytest.mark.parametrize("case", _get_adsk_metashade_test_files())
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test adsk materials with pruned library nodegraphs."""
+        override_env.run_test(case, subtests)
