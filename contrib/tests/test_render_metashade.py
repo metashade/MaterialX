@@ -415,6 +415,9 @@ class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
         libraries_dir = repo_root / _RefPaths.LIBRARIES
         override_dir = libraries_dir / self.SUBDIR
         sp.append(override_dir.as_posix())
+        # Full metashade SS override dir for fallback #includes
+        full_override_dir = libraries_dir / "standard_surface"
+        sp.append(full_override_dir.as_posix())
         return sp
 
     @pytest.fixture(scope="class")
@@ -431,7 +434,13 @@ class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
 
         libraries_dir = repo_root / _RefPaths.LIBRARIES
         override_sp = mx.FileSearchPath(str(libraries_dir))
+
+        # Load pruned SS permutations and full metashade SS override.
+        # No ordering constraint: pruned nodedefs have unique names
+        # (e.g. ND_metashade_..._coat0_sheen0_...) that don't collide
+        # with the full ND_standard_surface_surfaceshader override.
         mx.loadLibraries([self.SUBDIR], override_sp, lib)
+        mx.loadLibraries(["standard_surface"], override_sp, lib)
 
         mx.loadLibraries(
             ["adsklib"] + mx.getDefaultDataLibraryFolders(),
