@@ -94,7 +94,7 @@ HwShaderGenerator::HwShaderGenerator(TypeSystemPtr typeSystem, SyntaxPtr syntax)
 void HwShaderGenerator::applyDefaultOptions(GenOptions& options) const
 {
     ShaderGenerator::applyDefaultOptions(options);
-    options.premultipliedBsdfAdd = true;
+    options.premultipliedBsdfAdd = false;
 }
 
 ShaderPtr HwShaderGenerator::createShader(const string& name, ElementPtr element, GenContext& context) const

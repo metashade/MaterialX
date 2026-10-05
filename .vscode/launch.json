@@ -13,8 +13,8 @@
                 "${workspaceFolder}/build/installed/resources/Geometry/sphere.obj",
                 "--envRad",
                 "${workspaceFolder}/build/installed/resources/Lights/san_giuseppe_bridge.hdr",
-                "--library",
-                "${workspaceFolder}/build/installed/libraries"
+                "--frameTiming",
+                "true"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/installed/bin",
@@ -366,6 +366,133 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "FPS: Stock Greysphere",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/installed/bin/MaterialXView.exe",
+            "args": [
+                "--material",
+                "${workspaceFolder}/build/installed/libraries/bxdf/standard_surface.mtlx",
+                "--mesh",
+                "${workspaceFolder}/build/installed/resources/Geometry/sphere.obj",
+                "--envRad",
+                "${workspaceFolder}/build/installed/resources/Lights/san_giuseppe_bridge.hdr",
+                "--frameTiming", "true",
+                "--envSampleCount", "1024"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/installed/bin",
+            "environment": [
+                {
+                    "name": "MATERIALX_SEARCH_PATH",
+                    "value": "${workspaceFolder}/build/installed/libraries"
+                }
+            ],
+            "console": "internalConsole"
+        },
+        {
+            "name": "FPS: Stock Carpaint",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/installed/bin/MaterialXView.exe",
+            "args": [
+                "--material",
+                "${workspaceFolder}/build/installed/resources/Materials/Examples/StandardSurface/standard_surface_carpaint.mtlx",
+                "--mesh",
+                "${workspaceFolder}/build/installed/resources/Geometry/sphere.obj",
+                "--envRad",
+                "${workspaceFolder}/build/installed/resources/Lights/san_giuseppe_bridge.hdr",
+                "--frameTiming", "true",
+                "--envSampleCount", "1024"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/installed/bin",
+            "environment": [
+                {
+                    "name": "MATERIALX_SEARCH_PATH",
+                    "value": "${workspaceFolder}/build/installed/libraries"
+                }
+            ],
+            "console": "internalConsole"
+        },
+        {
+            "name": "FPS: Stock Chess Set",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/installed/bin/MaterialXView.exe",
+            "args": [
+                "--material",
+                "${workspaceFolder}/build/installed/resources/Materials/Examples/StandardSurface/standard_surface_chess_set.mtlx",
+                "--mesh",
+                "${workspaceFolder}/build/installed/resources/Geometry/chess_set.glb",
+                "--envRad",
+                "${workspaceFolder}/build/installed/resources/Lights/san_giuseppe_bridge.hdr",
+                "--frameTiming", "true",
+                "--envSampleCount", "1024"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/installed/bin",
+            "environment": [
+                {
+                    "name": "MATERIALX_SEARCH_PATH",
+                    "value": "${workspaceFolder}/build/installed/libraries"
+                }
+            ],
+            "console": "internalConsole"
+        },
+        {
+            "name": "FPS: Metashade Greysphere (unpruned)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/installed/bin/MaterialXView.exe",
+            "args": [
+                "--material",
+                "${workspaceFolder}/build/installed/libraries/bxdf/standard_surface.mtlx",
+                "--mesh",
+                "${workspaceFolder}/build/installed/resources/Geometry/sphere.obj",
+                "--envRad",
+                "${workspaceFolder}/build/installed/resources/Lights/san_giuseppe_bridge.hdr",
+                "--library", "standard_surface",
+                "--frameTiming", "true",
+                "--envSampleCount", "1024"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/installed/bin",
+            "environment": [
+                {
+                    "name": "MATERIALX_SEARCH_PATH",
+                    "value": "${workspaceFolder}/build/installed/libraries"
+                }
+            ],
+            "console": "internalConsole"
+        },
+        {
+            "name": "FPS: Metashade Carpaint (unpruned)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/installed/bin/MaterialXView.exe",
+            "args": [
+                "--material",
+                "${workspaceFolder}/build/installed/resources/Materials/Examples/StandardSurface/standard_surface_carpaint.mtlx",
+                "--mesh",
+                "${workspaceFolder}/build/installed/resources/Geometry/sphere.obj",
+                "--envRad",
+                "${workspaceFolder}/build/installed/resources/Lights/san_giuseppe_bridge.hdr",
+                "--library", "standard_surface",
+                "--frameTiming", "true",
+                "--envSampleCount", "1024"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/installed/bin",
+            "environment": [
+                {
+                    "name": "MATERIALX_SEARCH_PATH",
+                    "value": "${workspaceFolder}/build/installed/libraries"
+                }
+            ],
+            "console": "internalConsole"
         }
     ]
 }
