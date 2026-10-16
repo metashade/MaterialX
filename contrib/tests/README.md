@@ -1,8 +1,16 @@
 # MaterialX Contrib Test Framework
 
 Pytest-based render and shader-generation tests for MaterialX contrib materials,
-built on top of the `rendertest` utilities from Bernard Kwok's
+originally built on the `rendertest` utilities from Bernard Kwok's
 [MaterialX_Learn](https://github.com/kwokcb/MaterialX_Learn).
+
+Support code lives in the `rendertest/` package next to the tests:
+
+| Module | Contents |
+|---|---|
+| `codegen.py` | Configures a MaterialX `GenContext` and generates shaders |
+| `scene_setup.py` | Camera, geometry, lighting and image setup for C++ `ShaderRenderer`s |
+| `backends.py` | One `Backend` per shader generator, with an optional renderer |
 
 ## Prerequisites
 
@@ -25,6 +33,7 @@ From the `contrib/tests` directory:
 pytest test_render.py -v                # all ASWF materials
 pytest test_render.py -k "brass" -v     # single material by keyword
 pytest test_render.py --no-render -v    # shader generation only (no GPU)
+pytest test_render.py -m osl --no-render -v  # OSL backend (off by default)
 
 pytest test_render_metashade.py -v      # Metashade override tests
 ```
@@ -176,6 +185,11 @@ means running `test_render.py` (stdlib) before
 | `--output-dir` | `contrib/` | Output root directory |
 | `--no-render` | off | Skip GPU rendering (shader generation only) |
 | `--flip-threshold` | `0.05` | Mean FLIP error threshold |
+
+Tests that use the `backend` fixture run once per backend (`glsl`, `osl`).
+Each backend id is also a marker; `pyproject.toml` deselects `osl` by
+default because it has no committed baselines yet.  Select backends with
+`-m`, e.g. `-m osl` or `-m "glsl or osl"`.
 
 ## CI Workflow
 

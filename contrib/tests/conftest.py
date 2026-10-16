@@ -6,20 +6,13 @@ Each pytest-xdist worker process gets its own fixture instances.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-_rendertest_path = Path(__file__).parent.parent / "utilities" / "scripts"
-_mtlxutils_path = _rendertest_path / "rendertest"
-sys.path.insert(0, str(_rendertest_path))
-sys.path.insert(0, str(_mtlxutils_path))
-
 import MaterialX as mx
-import MaterialX.PyMaterialXGenShader as mx_gen_shader
-import MaterialX.PyMaterialXRender as mx_render
-from rendertest.mtlxutils import mxrenderer
+from rendertest.backends import BACKENDS
+from rendertest.scene_setup import SceneOptions
 
 
 def get_repo_root() -> Path:
@@ -62,17 +55,6 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Skip GPU rendering; only generate shaders and run source comparisons.",
-    )
-    parser.addoption(
-        "--renderer",
-        action="store",
-        default="glsl",
-        choices=["glsl", "osl", "all"],
-        help=(
-            "Render backend(s) to test.  'glsl' (default) runs GLSL "
-            "tests only; 'osl' runs OSL shader generation tests; "
-            "'all' runs both."
-        ),
     )
 
 
@@ -169,76 +151,29 @@ def data_library(stdlib, adsklib):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def glsl_renderer(stdlib, search_path, repo_root, mtlx_test_options):
-    """
-    Initialize GLSL renderer once per worker process.
-    
-    This is the expensive setup that we want to share across tests.
-    """
-    # IBL paths
-    lights_path = repo_root / "resources" / "Lights"
-    radiance_path = lights_path / "san_giuseppe_bridge.hdr"
-    irradiance_path = lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
-    
-    # Geometry
-    geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
-    
-    # Render size
-    width = height = 512
-    
-    renderer = mxrenderer.initializeRenderer(
-        stdlib,
-        search_path,
-        str(radiance_path),
-        str(irradiance_path),
-        width,
-        height,
-        str(geometry_path),
-        envSampleCount=mtlx_test_options.env_sample_count,
-    )
-    
-    # Add test geometry streams for geompropvalue, streams, and struct_texcoord tests
-    from test_render import add_additional_test_streams
-    geom_handler = renderer.renderer.getGeometryHandler()
-    for mesh in geom_handler.getMeshes():
-        add_additional_test_streams(mesh)
-    
-    return renderer
-
-
-def _requested_backends(config) -> list[str]:
-    """Return the backend ids selected by ``--renderer``."""
-    opt = config.getoption("--renderer", default="glsl")
-    if opt == "all":
-        return ["glsl", "osl"]
-    return [opt]
-
-
-@pytest.fixture(scope="session", params=["glsl", "osl"])
-def backend(request, cli_options, stdlib, search_path):
-    """Session-scoped :class:`RenderBackend`, parametrized over targets.
-
-    Pytest generates the cross-product: every material × every backend.
-    ``--renderer glsl|osl|all`` controls which backends are active.
-    """
-    backend_id = request.param
-    if backend_id not in _requested_backends(request.config):
-        pytest.skip(f"--renderer excludes {backend_id}")
-
-    from rendertest.mtlxutils.mxrenderer import (
-        ShaderGenWrapper, GlslBackend, OslBackend,
+def scene_options(repo_root, mtlx_test_options, cli_options):
+    """Scene inputs for rendering, or ``None`` under ``--no-render``."""
+    if cli_options.no_render:
+        return None
+    return SceneOptions.from_repo(
+        repo_root, mtlx_test_options.env_sample_count,
     )
 
-    if backend_id == "glsl":
-        if cli_options.no_render:
-            renderer = ShaderGenWrapper(stdlib, search_path, target="genglsl")
-        else:
-            renderer = request.getfixturevalue("glsl_renderer")
-        return GlslBackend(renderer)
 
-    elif backend_id == "osl":
-        renderer = ShaderGenWrapper(stdlib, search_path, target="genosl")
-        return OslBackend(renderer)
+@pytest.fixture(
+    scope="session",
+    params=[
+        pytest.param(backend_id, marks=getattr(pytest.mark, backend_id))
+        for backend_id in BACKENDS
+    ],
+)
+def backend(request, stdlib, search_path, scene_options):
+    """Session-scoped :class:`~rendertest.backends.Backend` per generator.
+
+    Every test using it runs once per backend.  Each backend id is also
+    a marker, so select backends with ``-m``, e.g. ``-m osl``.
+    """
+    return BACKENDS[request.param].create(stdlib, search_path, scene_options)
 
 
 # ---------------------------------------------------------------------------
