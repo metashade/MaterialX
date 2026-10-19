@@ -3,10 +3,18 @@ name: main
 on:
   push:
   pull_request:
-  schedule:
-    # Nightly build
-    - cron: '30 10 * * *'
+  workflow_call:
+    inputs:
+      extended:
+        description: Run the extended build, with additional dependencies and tests
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      extended:
+        description: Run the extended build, with additional dependencies and tests
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -21,7 +29,7 @@ jobs:
     name: Build
     runs-on: ${{ matrix.os }}
     env:
-      IS_EXTENDED_BUILD: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+      IS_EXTENDED_BUILD: ${{ inputs.extended == true }}
     strategy:
       fail-fast: false
       matrix:
