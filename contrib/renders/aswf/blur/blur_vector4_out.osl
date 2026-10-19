@@ -1,0 +1,107 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+vector2 mx_transform_uv(vector2 texcoord)
+{
+    return vector2(texcoord.x, 1.0 - texcoord.y);
+}
+
+void mx_image_vector4(textureresource file, string layer, vector4 default_value, vector2 texcoord, string uaddressmode, string vaddressmode, string filtertype, string framerange, int frameoffset, string frameendaction, output vector4 out)
+{
+    if (file.filename == "" ||
+        (uaddressmode == "constant" && (texcoord.x<0.0 || texcoord.x>1.0)) ||
+        (vaddressmode == "constant" && (texcoord.y<0.0 || texcoord.y>1.0)))
+    {
+        out = default_value;
+        return;
+    }
+
+    color missingColor = color(default_value.x, default_value.y, default_value.z);
+    float missingAlpha = default_value.w;
+    vector2 st = mx_transform_uv(texcoord);
+    float alpha;
+    color rgb = texture(file.filename, st.x, st.y, "alpha", alpha,
+                        "subimage", layer, "interp", filtertype,
+                        "missingcolor", missingColor, "missingalpha", missingAlpha,
+                        "swrap", uaddressmode, "twrap", vaddressmode);
+
+    out = vector4(rgb[0], rgb[1], rgb[2], alpha);
+}
+
+void NG_tiledimage_vector4(textureresource  file, vector4 default1, vector2 texcoord, vector2 uvtiling, vector2 uvoffset, vector2 realworldimagesize, vector2 realworldtilesize, string filtertype, string framerange, int frameoffset, string frameendaction, output vector4 out)
+{
+    vector2 N_mult_vector4_out = texcoord * uvtiling;
+    vector2 N_sub_vector4_out = N_mult_vector4_out - uvoffset;
+    vector2 N_divtilesize_vector4_out = N_sub_vector4_out / realworldimagesize;
+    vector2 N_multtilesize_vector4_out = N_divtilesize_vector4_out * realworldtilesize;
+    vector4 N_img_vector4_out = vector4(0.0, 0.0, 0.0, 0.0);
+    mx_image_vector4(file, "", default1, N_multtilesize_vector4_out, "periodic", "periodic", filtertype, framerange, frameoffset, frameendaction, N_img_vector4_out);
+    out = N_img_vector4_out;
+}
+
+void NG_blur_vector4(vector4 in, float size, string filtertype, output vector4 out)
+{
+    out = in;
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    int geomprop_UV0_index = 0
+    [[
+        string widget = "number"
+    ]],
+    string tiledimage1_file = "resources/Images/grid.png"
+    [[
+        string widget = "filename"
+    ]],
+    string tiledimage1_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    vector4 tiledimage1_default = {0.000000, 0.000000, 0.000000, 0.000000},
+    vector2 tiledimage1_uvtiling = {1.000000, 1.000000},
+    vector2 tiledimage1_uvoffset = {0.000000, 0.000000},
+    vector2 tiledimage1_realworldimagesize = {1.000000, 1.000000},
+    vector2 tiledimage1_realworldtilesize = {1.000000, 1.000000},
+    string tiledimage1_filtertype = "linear",
+    string tiledimage1_framerange = "",
+    int tiledimage1_frameoffset = 0
+    [[
+        string widget = "number"
+    ]],
+    string tiledimage1_frameendaction = "constant",
+    float blur_vector4_size = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    string blur_vector4_filtertype = "box",
+    output vector4 out1 = {0.0, 0.0, 0.0, 0.0}
+)
+{
+    textureresource tiledimage1_file_ = {tiledimage1_file, tiledimage1_file_colorspace};
+    vector2 geomprop_UV0_out1 = vector2(u,v);
+    vector4 tiledimage1_out = vector4(0.0, 0.0, 0.0, 0.0);
+    NG_tiledimage_vector4(tiledimage1_file_, tiledimage1_default, geomprop_UV0_out1, tiledimage1_uvtiling, tiledimage1_uvoffset, tiledimage1_realworldimagesize, tiledimage1_realworldtilesize, tiledimage1_filtertype, tiledimage1_framerange, tiledimage1_frameoffset, tiledimage1_frameendaction, tiledimage1_out);
+    vector4 blur_vector4_out = vector4(0.0, 0.0, 0.0, 0.0);
+    NG_blur_vector4(tiledimage1_out, blur_vector4_size, blur_vector4_filtertype, blur_vector4_out);
+    out1 = blur_vector4_out;
+}
+

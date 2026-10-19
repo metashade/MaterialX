@@ -1,0 +1,97 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_generalized_schlick_bsdf(float weight, color color0, color color82, color color90, float exponent, vector2 roughness, int retroreflective, float thinfilm_thickness, float thinfilm_ior, normal N, vector U, string distribution, string scatter_mode, output BSDF bsdf)
+{
+    color reflection_tint = (scatter_mode == "T") ? color(0.0) : color(1.0);
+    color transmission_tint = (scatter_mode == "R") ? color(0.0) : color(1.0);
+    bsdf = weight * generalized_schlick_bsdf(N, U, reflection_tint, transmission_tint, roughness.x, roughness.y, color0, color90, exponent, distribution, "thinfilm_thickness", thinfilm_thickness, "thinfilm_ior", thinfilm_ior);
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    string geomprop_Nworld_space = "world",
+    string geomprop_Tworld_space = "world",
+    int geomprop_Tworld_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float generalized_schlick_brdf_1_weight = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    color generalized_schlick_brdf_1_color0 = color(0.040000, 0.040000, 0.040000),
+    color generalized_schlick_brdf_1_color82 = color(1.000000, 1.000000, 1.000000),
+    color generalized_schlick_brdf_1_color90 = color(1.000000, 1.000000, 1.000000),
+    float generalized_schlick_brdf_1_exponent = 5.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 generalized_schlick_brdf_1_roughness = {0.000000, 0.000000},
+    int generalized_schlick_brdf_1_retroreflective = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    float generalized_schlick_brdf_1_thinfilm_thickness = 550.000000
+    [[
+        string widget = "number"
+    ]],
+    float generalized_schlick_brdf_1_thinfilm_ior = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    string generalized_schlick_brdf_1_distribution = "ggx",
+    string generalized_schlick_brdf_1_scatter_mode = "R",
+    float surface1_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int surface1_thin_walled = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    output MATERIAL out1 = 0
+)
+{
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    BSDF generalized_schlick_brdf_1_out = null_closure();
+    mx_generalized_schlick_bsdf(generalized_schlick_brdf_1_weight, generalized_schlick_brdf_1_color0, generalized_schlick_brdf_1_color82, generalized_schlick_brdf_1_color90, generalized_schlick_brdf_1_exponent, generalized_schlick_brdf_1_roughness, generalized_schlick_brdf_1_retroreflective, generalized_schlick_brdf_1_thinfilm_thickness, generalized_schlick_brdf_1_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, generalized_schlick_brdf_1_distribution, generalized_schlick_brdf_1_scatter_mode, generalized_schlick_brdf_1_out);
+    surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(generalized_schlick_brdf_1_out, null_closure(), surface1_opacity, surface1_thin_walled, surface1_out);
+    MATERIAL _surfacematerial__out = null_closure();
+    mx_surfacematerial(surface1_out, surfaceshader(null_closure(), null_closure(), 1.0), vector(0.0), _surfacematerial__out);
+    out1 = _surfacematerial__out;
+}
+

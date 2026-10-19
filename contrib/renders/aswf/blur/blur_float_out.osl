@@ -1,0 +1,95 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+vector2 mx_transform_uv(vector2 texcoord)
+{
+    return vector2(texcoord.x, 1.0 - texcoord.y);
+}
+
+void mx_image_float(textureresource file, string layer, float default_value, vector2 texcoord, string uaddressmode, string vaddressmode, string filtertype, string framerange, int frameoffset, string frameendaction, output float out)
+{
+    if (file.filename == "" ||
+        (uaddressmode == "constant" && (texcoord.x<0.0 || texcoord.x>1.0)) ||
+        (vaddressmode == "constant" && (texcoord.y<0.0 || texcoord.y>1.0)))
+    {
+        out = default_value;
+        return;
+    }
+
+    color missingColor = color(default_value);
+    vector2 st = mx_transform_uv(texcoord);
+    color rgb = texture(file.filename, st.x, st.y,
+                        "subimage", layer, "interp", filtertype,
+                        "missingcolor", missingColor,
+                        "swrap", uaddressmode, "twrap", vaddressmode);
+    out = rgb[0];
+}
+
+void NG_blur_float(float in, float size, string filtertype, output float out)
+{
+    out = in;
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    int geomprop_UV0_index = 0
+    [[
+        string widget = "number"
+    ]],
+    string image1_file = "resources/Images/grid.png"
+    [[
+        string widget = "filename"
+    ]],
+    string image1_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    string image1_layer = "",
+    float image1_default = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    string image1_uaddressmode = "periodic",
+    string image1_vaddressmode = "periodic",
+    string image1_filtertype = "linear",
+    string image1_framerange = "",
+    int image1_frameoffset = 0
+    [[
+        string widget = "number"
+    ]],
+    string image1_frameendaction = "constant",
+    float blur_float_size = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    string blur_float_filtertype = "box",
+    output float out1 = 0.0
+)
+{
+    textureresource image1_file_ = {image1_file, image1_file_colorspace};
+    vector2 geomprop_UV0_out1 = vector2(u,v);
+    float image1_out = 0.0;
+    mx_image_float(image1_file_, image1_layer, image1_default, geomprop_UV0_out1, image1_uaddressmode, image1_vaddressmode, image1_filtertype, image1_framerange, image1_frameoffset, image1_frameendaction, image1_out);
+    float blur_float_out = 0.0;
+    NG_blur_float(image1_out, blur_float_size, blur_float_filtertype, blur_float_out);
+    out1 = blur_float_out;
+}
+

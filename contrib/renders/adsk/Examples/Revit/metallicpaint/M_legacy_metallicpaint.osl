@@ -1,0 +1,594 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void NG_switch_floatI(float in1, float in2, float in3, float in4, float in5, float in6, float in7, float in8, float in9, float in10, int which, output float out)
+{
+    int ifgreater_10_value1_tmp = 10;
+    float ifgreater_10_in2_tmp = 0.000000;
+    float ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    int ifgreater_9_value1_tmp = 9;
+    float ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    int ifgreater_8_value1_tmp = 8;
+    float ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    int ifgreater_7_value1_tmp = 7;
+    float ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    int ifgreater_6_value1_tmp = 6;
+    float ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    int ifgreater_5_value1_tmp = 5;
+    float ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    int ifgreater_4_value1_tmp = 4;
+    float ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    int ifgreater_3_value1_tmp = 3;
+    float ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    int ifgreater_2_value1_tmp = 2;
+    float ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    int ifgreater_1_value1_tmp = 1;
+    float ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void mx_normalmap_vector2(vector value, vector2 normal_scale, vector N, vector T, vector B, output vector result)
+{
+    if (value == vector(0.0))
+    {
+        result = N;
+    }
+    else
+    {
+        // The OSL backend uses dPdu and dPdv for tangents and bitangents, but these vectors are not
+        // guaranteed to be orthonormal.
+        //
+        // Orthogonalize the tangent frame using Gram-Schmidt, unlike in the other backends.
+        //
+        vector v = value * 2.0 - 1.0;
+        vector Tn = normalize(T - dot(T, N) * N);
+        vector Bn = normalize(B - dot(B, N) * N - dot(B, Tn) * Tn);
+        result = normalize(Tn * v[0] * normal_scale.x + Bn * v[1] * normal_scale.y + N * v[2]);
+    }
+}
+
+void mx_normalmap_float(vector value, float normal_scale, vector N, vector T, vector B, output vector result)
+{
+    mx_normalmap_vector2(value, vector2(normal_scale, normal_scale), N, T, B, result);
+}
+
+void mx_fractal3d_vector3(vector amplitude, int octaves, float lacunarity, float diminish, vector position, output vector result)
+{
+    vector f = mx_fbm(position, octaves, lacunarity, diminish, "snoise");
+    result = f * amplitude;
+}
+
+void mx_cellnoise3d_float(vector position, output float result)
+{
+    // Use the explicit point overload for deterministic 3D cell lookup.
+    // Avoid relying on implicit vector conversion in the OSL builtin.
+    result = cellnoise(point(position));
+}
+
+void mx_cellnoise2d_float(vector2 texcoord, output float result)
+{
+    result = cellnoise(texcoord.x, texcoord.y);
+}
+
+void NG_range_float(float in, float inlow, float inhigh, float gamma, float outlow, float outhigh, int doclamp, output float out)
+{
+    float N_remap1_float_outlow_tmp = 0.000000;
+    float N_remap1_float_outhigh_tmp = 1.000000;
+    float N_remap1_float_out = mx_remap(in, inlow, inhigh, N_remap1_float_outlow_tmp, N_remap1_float_outhigh_tmp, 0);
+    float N_recip_float_in1_tmp = 1.000000;
+    float N_recip_float_out = N_recip_float_in1_tmp / gamma;
+    float N_abs_float_out = abs(N_remap1_float_out);
+    float N_sign_float_out = sign(N_remap1_float_out);
+    float N_pow_float_out = pow(N_abs_float_out, N_recip_float_out);
+    float N_gamma_float_out = N_pow_float_out * N_sign_float_out;
+    float N_remap2_float_inlow_tmp = 0.000000;
+    float N_remap2_float_inhigh_tmp = 1.000000;
+    float N_remap2_float_out = mx_remap(N_gamma_float_out, N_remap2_float_inlow_tmp, N_remap2_float_inhigh_tmp, outlow, outhigh, 0);
+    float N_clamp_float_out = clamp(N_remap2_float_out, outlow, outhigh);
+    int N_switch_float_value2_tmp = 1;
+    float N_switch_float_out = mx_ternary(doclamp == N_switch_float_value2_tmp, N_clamp_float_out, N_remap2_float_out);
+    out = N_switch_float_out;
+}
+
+void NG_randomfloat_float(float in, float min1, float max1, int seed, output float out)
+{
+    float N_scaleInput_in2_tmp = 4096.000000;
+    float N_scaleInput_out = in * N_scaleInput_in2_tmp;
+    float N_convertSeed1_out = float(seed);
+    vector2 N_combine2_out = { N_scaleInput_out,N_convertSeed1_out };
+    float N_cellnoise1_out = 0.0;
+    mx_cellnoise2d_float(N_combine2_out, N_cellnoise1_out);
+    float N_remapRange_out = 0.0;
+    NG_range_float(N_cellnoise1_out, 0.000000, 1.000000, 1.000000, min1, max1, 1, N_remapRange_out);
+    out = N_remapRange_out;
+}
+
+void mx_rotate_vector3(vector _in, float amount, vector axis, output vector result)
+{
+    // Based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula, where the
+    // Wikipedia formula follows v' = M * v and MaterialX follows v' = v * M, thus the
+    // order of parameters to cross are reversed.
+
+    vector nAxis = normalize(axis);
+    float rotationRadians = radians(amount);
+    float s = sin(rotationRadians);
+    float c = cos(rotationRadians);
+    float oc = 1.0 - c;
+    result = _in * c + cross(_in, nAxis) * s + nAxis * dot(nAxis, _in) * oc;
+}
+
+void NG_separate3_vector3(vector in, output float outx, output float outy, output float outz)
+{
+    int N_extract_0_index_tmp = 0;
+    float N_extract_0_out = mx_extract(in, N_extract_0_index_tmp);
+    int N_extract_1_index_tmp = 1;
+    float N_extract_1_out = mx_extract(in, N_extract_1_index_tmp);
+    int N_extract_2_index_tmp = 2;
+    float N_extract_2_out = mx_extract(in, N_extract_2_index_tmp);
+    outx = N_extract_0_out;
+    outy = N_extract_1_out;
+    outz = N_extract_2_out;
+}
+
+void NG_convert_vector3_color3(vector in, output color out)
+{
+    float separate_outx = 0.0;
+    float separate_outy = 0.0;
+    float separate_outz = 0.0;
+    NG_separate3_vector3(in, separate_outx, separate_outy, separate_outz);
+    color combine_out = color( separate_outx,separate_outy,separate_outz );
+    out = combine_out;
+}
+
+void NG_legacy_flakes(vector position, color base_color, color specular_color, float size, float divergence, float strenght, float cutoff, output color base_color_out, output color specular_color_out, output color out_rgb, output vector out_vec3, output float out_blend)
+{
+    color dot_base_color_out = base_color;
+    float default_density_in2_tmp = 20.000000;
+    vector default_density_out = position * default_density_in2_tmp;
+    string geomprop_Nworld_space_tmp = "world";
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
+    string geomprop_Tworld_space_tmp = "world";
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    string geomprop_Bworld_space_tmp = "world";
+    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector adjust_size_out = default_density_out / size;
+    vector position_noise_out = vector(0.0);
+    mx_fractal3d_vector3(vector(0.500000, 0.500000, 0.500000), 2, 2.000000, 0.500000, adjust_size_out, position_noise_out);
+    vector position_shift_out = position_noise_out + adjust_size_out;
+    float flake_noise_out = 0.0;
+    mx_cellnoise3d_float(position_shift_out, flake_noise_out);
+    float flake_depth_out = 0.0;
+    NG_randomfloat_float(flake_noise_out, 0.000000, 1.000000, 2, flake_depth_out);
+    float flake_divergence_out = 0.0;
+    NG_randomfloat_float(flake_noise_out, 0.000000, 1.000000, 0, flake_divergence_out);
+    float flake_orientation_out = 0.0;
+    NG_randomfloat_float(flake_noise_out, 0.000000, 1.000000, 1, flake_orientation_out);
+    float depth_cutoff_adjustement_out = 0.0;
+    NG_range_float(flake_depth_out, cutoff, 1.000000, 1.250000, 0.000000, 1.000000, 1, depth_cutoff_adjustement_out);
+    float divergence_scale_out = flake_divergence_out * divergence;
+    float orientation_degrees_in2_tmp = 360.000000;
+    float orientation_degrees_out = flake_orientation_out * orientation_degrees_in2_tmp;
+    float strenght_adjustment_inlow_tmp = 0.000000;
+    float strenght_adjustment_inhigh_tmp = 1.000000;
+    float strenght_adjustment_outlow_tmp = 0.000000;
+    float strenght_adjustment_out = mx_remap(depth_cutoff_adjustement_out, strenght_adjustment_inlow_tmp, strenght_adjustment_inhigh_tmp, strenght_adjustment_outlow_tmp, strenght, 0);
+    float divergence_cutoff_adj_out = divergence_scale_out * depth_cutoff_adjustement_out;
+    color mix_specular_out = mix(base_color, specular_color, strenght_adjustment_out);
+    vector rotate_divergence_out = vector(0.0);
+    mx_rotate_vector3(vector(0.000000, 0.000000, 1.000000), divergence_cutoff_adj_out, vector(0.000000, 1.000000, 0.000000), rotate_divergence_out);
+    vector rotate_orientation_out = vector(0.0);
+    mx_rotate_vector3(rotate_divergence_out, orientation_degrees_out, vector(0.000000, 0.000000, 1.000000), rotate_orientation_out);
+    float divide_half_in2_tmp = 2.000000;
+    vector divide_half_out = rotate_orientation_out / divide_half_in2_tmp;
+    float offset_half_in2_tmp = 0.500000;
+    vector offset_half_out = divide_half_out + offset_half_in2_tmp;
+    color convert_vec_col_out = color(0.0);
+    NG_convert_vector3_color3(offset_half_out, convert_vec_col_out);
+    vector normalmap1_out = vector(0.0);
+    mx_normalmap_float(offset_half_out, 1.000000, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, normalmap1_out);
+    base_color_out = dot_base_color_out;
+    specular_color_out = mix_specular_out;
+    out_rgb = convert_vec_col_out;
+    out_vec3 = normalmap1_out;
+    out_blend = strenght_adjustment_out;
+}
+
+void NG_switch_vector3I(vector in1, vector in2, vector in3, vector in4, vector in5, vector in6, vector in7, vector in8, vector in9, vector in10, int which, output vector out)
+{
+    int ifgreater_10_value1_tmp = 10;
+    vector ifgreater_10_in2_tmp = vector(0.000000, 0.000000, 0.000000);
+    vector ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    int ifgreater_9_value1_tmp = 9;
+    vector ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    int ifgreater_8_value1_tmp = 8;
+    vector ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    int ifgreater_7_value1_tmp = 7;
+    vector ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    int ifgreater_6_value1_tmp = 6;
+    vector ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    int ifgreater_5_value1_tmp = 5;
+    vector ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    int ifgreater_4_value1_tmp = 4;
+    vector ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    int ifgreater_3_value1_tmp = 3;
+    vector ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    int ifgreater_2_value1_tmp = 2;
+    vector ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    int ifgreater_1_value1_tmp = 1;
+    vector ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void mx_roughness_anisotropy(float roughness, float anisotropy, output vector2 result)
+{
+    float roughness_sqr = clamp(roughness*roughness, M_FLOAT_EPS, 1.0);
+    if (anisotropy > 0.0)
+    {
+        float aspect = sqrt(1.0 - clamp(anisotropy, 0.0, 0.98));
+        result.x = min(roughness_sqr / aspect, 1.0);
+        result.y = roughness_sqr * aspect;
+    }
+    else
+    {
+        result.x = roughness_sqr;
+        result.y = roughness_sqr;
+    }
+}
+
+void mx_luminance_color3(color in, color lumacoeffs, output color result)
+{
+    result = dot(in, lumacoeffs);
+}
+
+void mx_artistic_ior(color reflectivity, color edge_color, output vector ior, output vector extinction)
+{
+    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
+    // http://jcgt.org/published/0003/04/03/paper.pdf
+
+    color r = clamp(reflectivity, 0.0, 0.99);
+    color r_sqrt = sqrt(r);
+    color n_min = (1.0 - r) / (1.0 + r);
+    color n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
+    ior = mix(n_max, n_min, edge_color);
+
+    color np1 = ior + 1.0;
+    color nm1 = ior - 1.0;
+    color k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
+    k2 = max(k2, 0.0);
+    extinction = sqrt(k2);
+}
+
+void mx_dielectric_bsdf(float weight, color tint, float ior, vector2 roughness, int retroreflective, float thinfilm_thickness, float thinfilm_ior, normal N, vector U, string distribution, string scatter_mode, output BSDF bsdf)
+{
+    color reflection_tint = (scatter_mode == "T") ? color(0.0) : tint;
+    color transmission_tint = (scatter_mode == "R") ? color(0.0) : tint;
+    bsdf = weight * dielectric_bsdf(N, U, reflection_tint, transmission_tint, roughness.x, roughness.y, ior, distribution, "thinfilm_thickness", thinfilm_thickness, "thinfilm_ior", thinfilm_ior);
+}
+
+void mx_subsurface_bsdf(float weight, color albedo, color radius, float anisotropy, normal N, output BSDF bsdf)
+{
+#if (OSL_VERSION_MAJOR == 1 && OSL_VERSION_MINOR >= 14) || (OSL_VERSION_MAJOR > 1)
+    bsdf = weight * subsurface_bssrdf(N, albedo, radius, anisotropy);
+#else
+    bsdf = weight * subsurface_bssrdf(N, albedo, 1.0, radius, anisotropy);
+#endif
+}
+
+void NG_convert_float_color3(float in, output color out)
+{
+    color combine_out = color( in,in,in );
+    out = combine_out;
+}
+
+float mx_square(float x)
+{
+    return x*x;
+}
+
+vector2 mx_square(vector2 x)
+{
+    return x*x;
+}
+
+vector mx_square(vector x)
+{
+    return x*x;
+}
+
+vector4 mx_square(vector4 x)
+{
+    return x*x;
+}
+
+float mx_pow5(float x)
+{
+    return mx_square(mx_square(x)) * x;
+}
+
+color mx_fresnel_conductor(float cosTheta, vector n, vector k)
+{
+   float c2 = cosTheta*cosTheta;
+   vector n2_k2 = n*n + k*k;
+   vector nc2 = 2.0 * n * cosTheta;
+
+   vector rs_a = n2_k2 + c2;
+   vector rp_a = n2_k2 * c2 + 1.0;
+   vector rs = (rs_a - nc2) / (rs_a + nc2);
+   vector rp = (rp_a - nc2) / (rp_a + nc2);
+
+   return 0.5 * (rs + rp);
+}
+
+// Standard Schlick Fresnel
+float mx_fresnel_schlick(float cosTheta, float F0)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return F0 + (1.0 - F0) * x5;
+}
+color mx_fresnel_schlick(float cosTheta, color F0)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return F0 + (1.0 - F0) * x5;
+}
+
+// Generalized Schlick Fresnel
+float mx_fresnel_schlick(float cosTheta, float F0, float F90)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return mix(F0, F90, x5);
+}
+color mx_fresnel_schlick(float cosTheta, color F0, color F90)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return mix(F0, F90, x5);
+}
+
+// Generalized Schlick Fresnel with a variable exponent
+color mx_fresnel_schlick(float cosTheta, float f0, float f90, float exponent)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    return mix(f0, f90, pow(x, exponent));
+}
+color mx_fresnel_schlick(float cosTheta, color f0, color f90, float exponent)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    return mix(f0, f90, pow(x, exponent));
+}
+
+void mx_generalized_schlick_edf(color color0, color color90, float exponent, EDF base, output EDF result)
+{
+    float NdotV = fabs(dot(N,-I));
+    color f = mx_fresnel_schlick(NdotV, color0, color90, exponent);
+    result = base * f;
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void NG_standard_surface_surfaceshader_100(float base, color base_color, float diffuse_roughness, float metalness, float specular, color specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, color transmission_color, float transmission_depth, color transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface1, color subsurface_color, color subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen1, color sheen_color, float sheen_roughness, float coat, color coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vector coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission1, color emission_color, color opacity, int thin_walled, vector normal1, vector tangent, output surfaceshader out)
+{
+    vector2 coat_roughness_vector_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_roughness, coat_anisotropy, coat_roughness_vector_out);
+    float coat_tangent_rotate_degree_in2_tmp = 360.000000;
+    float coat_tangent_rotate_degree_out = coat_rotation * coat_tangent_rotate_degree_in2_tmp;
+    color metal_reflectivity_out = base_color * base;
+    color metal_edgecolor_out = specular_color * specular;
+    float coat_affect_roughness_multiply1_out = coat_affect_roughness * coat;
+    float tangent_rotate_degree_in2_tmp = 360.000000;
+    float tangent_rotate_degree_out = specular_rotation * tangent_rotate_degree_in2_tmp;
+    float transmission_roughness_add_out = specular_roughness + transmission_extra_roughness;
+    float subsurface_color_nonnegative_in2_tmp = 0.000000;
+    color subsurface_color_nonnegative_out = max(subsurface_color, subsurface_color_nonnegative_in2_tmp);
+    float coat_clamped_low_tmp = 0.000000;
+    float coat_clamped_high_tmp = 1.000000;
+    float coat_clamped_out = clamp(coat, coat_clamped_low_tmp, coat_clamped_high_tmp);
+    color subsurface_radius_scaled_out = subsurface_radius * subsurface_scale;
+    float subsurface_selector_out = float(thin_walled);
+    float base_color_nonnegative_in2_tmp = 0.000000;
+    color base_color_nonnegative_out = max(base_color, base_color_nonnegative_in2_tmp);
+    color coat_attenuation_bg_tmp = color(1.000000, 1.000000, 1.000000);
+    color coat_attenuation_out = mix(coat_attenuation_bg_tmp, coat_color, coat);
+    float one_minus_coat_ior_in1_tmp = 1.000000;
+    float one_minus_coat_ior_out = one_minus_coat_ior_in1_tmp - coat_IOR;
+    float one_plus_coat_ior_in1_tmp = 1.000000;
+    float one_plus_coat_ior_out = one_plus_coat_ior_in1_tmp + coat_IOR;
+    color emission_weight_out = emission_color * emission1;
+    color opacity_luminance_out = color(0.0);
+    mx_luminance_color3(opacity, color(0.272229, 0.674082, 0.053689), opacity_luminance_out);
+    vector coat_tangent_rotate_out = vector(0.0);
+    mx_rotate_vector3(tangent, coat_tangent_rotate_degree_out, coat_normal, coat_tangent_rotate_out);
+    color artistic_ior_ior = color(0.0);
+    color artistic_ior_extinction = color(0.0);
+    mx_artistic_ior(metal_reflectivity_out, metal_edgecolor_out, artistic_ior_ior, artistic_ior_extinction);
+    float coat_affect_roughness_multiply2_out = coat_affect_roughness_multiply1_out * coat_roughness;
+    vector tangent_rotate_out = vector(0.0);
+    mx_rotate_vector3(tangent, tangent_rotate_degree_out, normal1, tangent_rotate_out);
+    float transmission_roughness_clamped_low_tmp = 0.000000;
+    float transmission_roughness_clamped_high_tmp = 1.000000;
+    float transmission_roughness_clamped_out = clamp(transmission_roughness_add_out, transmission_roughness_clamped_low_tmp, transmission_roughness_clamped_high_tmp);
+    float coat_gamma_multiply_out = coat_clamped_out * coat_affect_color;
+    float coat_ior_to_F0_sqrt_out = one_minus_coat_ior_out / one_plus_coat_ior_out;
+    int opacity_luminance_float_index_tmp = 0;
+    float opacity_luminance_float_out = mx_extract(opacity_luminance_out, opacity_luminance_float_index_tmp);
+    vector coat_tangent_rotate_normalize_out = normalize(coat_tangent_rotate_out);
+    float coat_affected_roughness_fg_tmp = 1.000000;
+    float coat_affected_roughness_out = mix(specular_roughness, coat_affected_roughness_fg_tmp, coat_affect_roughness_multiply2_out);
+    vector tangent_rotate_normalize_out = normalize(tangent_rotate_out);
+    float coat_affected_transmission_roughness_fg_tmp = 1.000000;
+    float coat_affected_transmission_roughness_out = mix(transmission_roughness_clamped_out, coat_affected_transmission_roughness_fg_tmp, coat_affect_roughness_multiply2_out);
+    float coat_gamma_in2_tmp = 1.000000;
+    float coat_gamma_out = coat_gamma_multiply_out + coat_gamma_in2_tmp;
+    float coat_ior_to_F0_out = coat_ior_to_F0_sqrt_out * coat_ior_to_F0_sqrt_out;
+    float coat_tangent_value2_tmp = 0.000000;
+    vector coat_tangent_out = mx_ternary(coat_anisotropy > coat_tangent_value2_tmp, coat_tangent_rotate_normalize_out, tangent);
+    vector2 main_roughness_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_affected_roughness_out, specular_anisotropy, main_roughness_out);
+    float main_tangent_value2_tmp = 0.000000;
+    vector main_tangent_out = mx_ternary(specular_anisotropy > main_tangent_value2_tmp, tangent_rotate_normalize_out, tangent);
+    vector2 transmission_roughness_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_affected_transmission_roughness_out, specular_anisotropy, transmission_roughness_out);
+    color coat_affected_subsurface_color_out = pow(subsurface_color_nonnegative_out, coat_gamma_out);
+    color coat_affected_diffuse_color_out = pow(base_color_nonnegative_out, coat_gamma_out);
+    float one_minus_coat_ior_to_F0_in1_tmp = 1.000000;
+    float one_minus_coat_ior_to_F0_out = one_minus_coat_ior_to_F0_in1_tmp - coat_ior_to_F0_out;
+    color emission_color0_out = color(0.0);
+    NG_convert_float_color3(one_minus_coat_ior_to_F0_out, emission_color0_out);
+    BSDF coat_bsdf_out = null_closure();
+    mx_dielectric_bsdf(coat, color(1.000000, 1.000000, 1.000000), coat_IOR, coat_roughness_vector_out, 0, 0.000000, 1.500000, coat_normal, coat_tangent_out, "ggx", "R", coat_bsdf_out);
+    float metal_bsdf_weight_tmp = 1.000000;
+    string metal_bsdf_distribution_tmp = "ggx";
+    BSDF metal_bsdf_out = metal_bsdf_weight_tmp * conductor_bsdf(normal1, main_tangent_out, main_roughness_out.x, main_roughness_out.y, artistic_ior_ior, artistic_ior_extinction, metal_bsdf_distribution_tmp, "thinfilm_thickness", thin_film_thickness, "thinfilm_ior", thin_film_IOR);
+    BSDF specular_bsdf_out = null_closure();
+    mx_dielectric_bsdf(specular, specular_color, specular_IOR, main_roughness_out, 0, thin_film_thickness, thin_film_IOR, normal1, main_tangent_out, "ggx", "R", specular_bsdf_out);
+    BSDF transmission_bsdf_out = null_closure();
+    mx_dielectric_bsdf(1.000000, transmission_color, specular_IOR, transmission_roughness_out, 0, 0.000000, 1.500000, normal1, main_tangent_out, "ggx", "T", transmission_bsdf_out);
+    BSDF sheen_bsdf_out = sheen1 * sheen_bsdf(normal1, sheen_color, sheen_roughness);
+    float translucent_bsdf_weight_tmp = 1.000000;
+    BSDF translucent_bsdf_out = translucent_bsdf_weight_tmp * translucent_bsdf(normal1, coat_affected_subsurface_color_out);
+    BSDF subsurface_bsdf_out = null_closure();
+    mx_subsurface_bsdf(1.000000, coat_affected_subsurface_color_out, subsurface_radius_scaled_out, subsurface_anisotropy, normal1, subsurface_bsdf_out);
+    BSDF selected_subsurface_bsdf_out = mix(subsurface_bsdf_out, translucent_bsdf_out, subsurface_selector_out);
+    BSDF diffuse_bsdf_out = base * oren_nayar_diffuse_bsdf(normal1, coat_affected_diffuse_color_out, diffuse_roughness);
+    BSDF subsurface_mix_out = mix(diffuse_bsdf_out, selected_subsurface_bsdf_out, subsurface1);
+    BSDF sheen_layer_out = layer(sheen_bsdf_out, subsurface_mix_out);
+    BSDF transmission_mix_out = mix(sheen_layer_out, transmission_bsdf_out, transmission);
+    BSDF specular_layer_out = layer(specular_bsdf_out, transmission_mix_out);
+    BSDF metalness_mix_out = mix(specular_layer_out, metal_bsdf_out, metalness);
+    BSDF thin_film_layer_attenuated_out = (coat_attenuation_out * metalness_mix_out);
+    BSDF coat_layer_out = layer(coat_bsdf_out, thin_film_layer_attenuated_out);
+    EDF emission_edf_out = uniform_edf(emission_weight_out);
+    EDF coat_tinted_emission_edf_out = (coat_color * emission_edf_out);
+    EDF coat_emission_edf_out = null_closure();
+    mx_generalized_schlick_edf(emission_color0_out, color(0.000000, 0.000000, 0.000000), 5.000000, coat_tinted_emission_edf_out, coat_emission_edf_out);
+    EDF blended_coat_emission_edf_out = mix(emission_edf_out, coat_emission_edf_out, coat);
+    surfaceshader shader_constructor_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(coat_layer_out, blended_coat_emission_edf_out, opacity_luminance_float_out, 0, shader_constructor_out);
+    out = shader_constructor_out;
+}
+
+void NG_legacy_metallicpaint(vector position, color color1, color specular_color, float highlight_spread, int coat_type, float coat_custom_glossiness, float coat_custom_ior, int coat_finish, vector normal_orangepeel, int flakes_enable, float flakes_size, int tint_enable, color tint_color, output surfaceshader out)
+{
+    color tint_mult_out = color1 * tint_color;
+    float invert_coat_gloss_amount_tmp = 1.000000;
+    float invert_coat_gloss_out = invert_coat_gloss_amount_tmp - coat_custom_glossiness;
+    float switch_coat_ior_out = 0.0;
+    NG_switch_floatI(1.500000, 1.800000, 1.500000, coat_custom_ior, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, coat_type, switch_coat_ior_out);
+    string geomprop_Nworld_space_tmp = "world";
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
+    string geomprop_Tworld_space_tmp = "world";
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    string geomprop_Bworld_space_tmp = "world";
+    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    int tint_selection_value2_tmp = 1;
+    color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
+    float switch_coat_rough_out = 0.0;
+    NG_switch_floatI(0.000000, 0.000000, 0.500000, invert_coat_gloss_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, coat_type, switch_coat_rough_out);
+    vector smooth_norm_out = vector(0.0);
+    mx_normalmap_float(vector(0.500000, 0.500000, 1.000000), 1.000000, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, smooth_norm_out);
+    color legacy_flakes1_base_color_out = color(0.0);
+    color legacy_flakes1_specular_color_out = color(0.0);
+    color legacy_flakes1_out_rgb = color(0.0);
+    vector legacy_flakes1_out_vec3 = vector(0.0);
+    float legacy_flakes1_out_blend = 0.0;
+    NG_legacy_flakes(position, tint_selection_out, specular_color, flakes_size, 40.000000, 1.000000, 0.000000, legacy_flakes1_base_color_out, legacy_flakes1_specular_color_out, legacy_flakes1_out_rgb, legacy_flakes1_out_vec3, legacy_flakes1_out_blend);
+    vector switch_finish_out = vector(0.0);
+    NG_switch_vector3I(smooth_norm_out, normal_orangepeel, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), coat_finish, switch_finish_out);
+    int flakes_enable_base_color_value2_tmp = 1;
+    color flakes_enable_base_color_out = mx_ternary(flakes_enable == flakes_enable_base_color_value2_tmp, legacy_flakes1_base_color_out, tint_selection_out);
+    int flakes_enable_specular_color_value2_tmp = 1;
+    color flakes_enable_specular_color_out = mx_ternary(flakes_enable == flakes_enable_specular_color_value2_tmp, legacy_flakes1_specular_color_out, specular_color);
+    int flakes_enable_normal_value2_tmp = 1;
+    vector flakes_enable_normal_out = mx_ternary(flakes_enable == flakes_enable_normal_value2_tmp, legacy_flakes1_out_vec3, smooth_norm_out);
+    int flakes_enable_metallic_value2_tmp = 1;
+    float flakes_enable_metallic_in2_tmp = 0.750000;
+    float flakes_enable_metallic_out = mx_ternary(flakes_enable == flakes_enable_metallic_value2_tmp, legacy_flakes1_out_blend, flakes_enable_metallic_in2_tmp);
+    surfaceshader standard_surface_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    NG_standard_surface_surfaceshader_100(1.000000, flakes_enable_base_color_out, 0.000000, flakes_enable_metallic_out, 1.000000, flakes_enable_specular_color_out, highlight_spread, 1.500000, 0.000000, 0.000000, 0.000000, color(1.000000, 1.000000, 1.000000), 0.000000, color(0.000000, 0.000000, 0.000000), 0.000000, 0.000000, 0.000000, 0.000000, color(1.000000, 1.000000, 1.000000), color(1.000000, 1.000000, 1.000000), 1.000000, 0.000000, 0.000000, color(1.000000, 1.000000, 1.000000), 0.300000, 1.000000, color(1.000000, 1.000000, 1.000000), switch_coat_rough_out, 0.000000, 0.000000, switch_coat_ior_out, switch_finish_out, 0.000000, 0.000000, 0.000000, 1.500000, 0.000000, color(1.000000, 1.000000, 1.000000), color(1.000000, 1.000000, 1.000000), 0, flakes_enable_normal_out, geomprop_Tworld_out1, standard_surface_out);
+    out = standard_surface_out;
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader M_legacy_metallicpaint
+[[
+    string mtlx_category = "surfacematerial",
+    string mtlx_name = "M_legacy_metallicpaint"
+]]
+(
+    surfaceshader backsurfaceshader = { 0, 0, 1.0 },
+    displacementshader displacementshader1 = vector(0.0),
+    string geomprop_Pobject_space = "object",
+    string geomprop_Nworld_space = "world",
+    color SR_legacy_metallicpaint_color = color(0.950000, 0.100000, 0.500000),
+    color SR_legacy_metallicpaint_specular_color = color(1.000000, 1.000000, 1.000000),
+    float SR_legacy_metallicpaint_highlight_spread = 0.550000
+    [[
+        string widget = "number"
+    ]],
+    int SR_legacy_metallicpaint_coat_type = 0
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metallicpaint_coat_custom_glossiness = 0.800000
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metallicpaint_coat_custom_ior = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    int SR_legacy_metallicpaint_coat_finish = 1
+    [[
+        string widget = "number"
+    ]],
+    int SR_legacy_metallicpaint_flakes_enable = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    float SR_legacy_metallicpaint_flakes_size = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int SR_legacy_metallicpaint_tint_enable = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    color SR_legacy_metallicpaint_tint_color = color(0.200000, 0.200000, 0.800000),
+    output MATERIAL out = 0
+)
+{
+    vector geomprop_Pobject_out1 = transform(geomprop_Pobject_space, P);
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    surfaceshader SR_legacy_metallicpaint_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    NG_legacy_metallicpaint(geomprop_Pobject_out1, SR_legacy_metallicpaint_color, SR_legacy_metallicpaint_specular_color, SR_legacy_metallicpaint_highlight_spread, SR_legacy_metallicpaint_coat_type, SR_legacy_metallicpaint_coat_custom_glossiness, SR_legacy_metallicpaint_coat_custom_ior, SR_legacy_metallicpaint_coat_finish, geomprop_Nworld_out1, SR_legacy_metallicpaint_flakes_enable, SR_legacy_metallicpaint_flakes_size, SR_legacy_metallicpaint_tint_enable, SR_legacy_metallicpaint_tint_color, SR_legacy_metallicpaint_out);
+    MATERIAL M_legacy_metallicpaint_out = null_closure();
+    mx_surfacematerial(SR_legacy_metallicpaint_out, backsurfaceshader, displacementshader1, M_legacy_metallicpaint_out);
+    out = M_legacy_metallicpaint_out;
+}
+

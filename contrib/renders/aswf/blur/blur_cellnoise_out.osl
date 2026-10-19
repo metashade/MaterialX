@@ -1,0 +1,58 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_cellnoise2d_float(vector2 texcoord, output float result)
+{
+    result = cellnoise(texcoord.x, texcoord.y);
+}
+
+void NG_blur_float(float in, float size, string filtertype, output float out)
+{
+    out = in;
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    int texcoord1_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float multiply1_in2 = 100.000000
+    [[
+        string widget = "number"
+    ]],
+    float blur_cellnoise_size = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    string blur_cellnoise_filtertype = "gaussian",
+    output float out1 = 0.0
+)
+{
+    vector2 texcoord1_out = vector2(u,v);
+    vector2 multiply1_out = texcoord1_out * multiply1_in2;
+    float cellnoise2d1_out = 0.0;
+    mx_cellnoise2d_float(multiply1_out, cellnoise2d1_out);
+    float blur_cellnoise_out = 0.0;
+    NG_blur_float(cellnoise2d1_out, blur_cellnoise_size, blur_cellnoise_filtertype, blur_cellnoise_out);
+    out1 = blur_cellnoise_out;
+}
+

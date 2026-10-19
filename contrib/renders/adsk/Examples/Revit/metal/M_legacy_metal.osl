@@ -1,0 +1,1440 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_rotate_vector2(vector2 _in, float amount, output vector2 result)
+{
+    float rotationRadians = radians(amount);
+    float sa = sin(rotationRadians);
+    float ca = cos(rotationRadians);
+    result = vector2(ca*_in.x + sa*_in.y, -sa*_in.x + ca*_in.y);
+}
+
+void NG_switch_vector2I(vector2 in1, vector2 in2, vector2 in3, vector2 in4, vector2 in5, vector2 in6, vector2 in7, vector2 in8, vector2 in9, vector2 in10, int which, output vector2 out)
+{
+    int ifgreater_10_value1_tmp = 10;
+    vector2 ifgreater_10_in2_tmp = vector2(0.000000, 0.000000);
+    vector2 ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    int ifgreater_9_value1_tmp = 9;
+    vector2 ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    int ifgreater_8_value1_tmp = 8;
+    vector2 ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    int ifgreater_7_value1_tmp = 7;
+    vector2 ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    int ifgreater_6_value1_tmp = 6;
+    vector2 ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    int ifgreater_5_value1_tmp = 5;
+    vector2 ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    int ifgreater_4_value1_tmp = 4;
+    vector2 ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    int ifgreater_3_value1_tmp = 3;
+    vector2 ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    int ifgreater_2_value1_tmp = 2;
+    vector2 ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    int ifgreater_1_value1_tmp = 1;
+    vector2 ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void NG_place2d_vector2(vector2 texcoord, vector2 pivot, vector2 scale, float rotate1, vector2 offset, int operationorder, output vector2 out)
+{
+    vector2 N_subpivot_out = texcoord - pivot;
+    vector2 N_applyscale_out = N_subpivot_out / scale;
+    vector2 N_applyoffset2_out = N_subpivot_out - offset;
+    vector2 N_applyrot_out = vector2(0.0, 0.0);
+    mx_rotate_vector2(N_applyscale_out, rotate1, N_applyrot_out);
+    vector2 N_applyrot2_out = vector2(0.0, 0.0);
+    mx_rotate_vector2(N_applyoffset2_out, rotate1, N_applyrot2_out);
+    vector2 N_applyoffset_out = N_applyrot_out - offset;
+    vector2 N_applyscale2_out = N_applyrot2_out / scale;
+    vector2 N_addpivot_out = N_applyoffset_out + pivot;
+    vector2 N_addpivot2_out = N_applyscale2_out + pivot;
+    vector2 N_switch_operationorder_out = vector2(0.0, 0.0);
+    NG_switch_vector2I(N_addpivot_out, N_addpivot2_out, vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), vector2(0.000000, 0.000000), operationorder, N_switch_operationorder_out);
+    out = N_switch_operationorder_out;
+}
+
+vector2 mx_transform_uv(vector2 texcoord)
+{
+    return vector2(texcoord.x, 1.0 - texcoord.y);
+}
+
+void mx_image_vector3(textureresource file, string layer, vector default_value, vector2 texcoord, string uaddressmode, string vaddressmode, string filtertype, string framerange, int frameoffset, string frameendaction, output vector out)
+{
+    if (file.filename == "" ||
+        (uaddressmode == "constant" && (texcoord.x<0.0 || texcoord.x>1.0)) ||
+        (vaddressmode == "constant" && (texcoord.y<0.0 || texcoord.y>1.0)))
+    {
+        out = default_value;
+        return;
+    }
+
+    color missingColor = default_value;
+    vector2 st = mx_transform_uv(texcoord);
+    out = texture(file.filename, st.x, st.y,
+                  "subimage", layer, "interp", filtertype,
+                  "missingcolor", missingColor,
+                  "swrap", uaddressmode, "twrap", vaddressmode);
+}
+
+void mx_normalmap_vector2(vector value, vector2 normal_scale, vector N, vector T, vector B, output vector result)
+{
+    if (value == vector(0.0))
+    {
+        result = N;
+    }
+    else
+    {
+        // The OSL backend uses dPdu and dPdv for tangents and bitangents, but these vectors are not
+        // guaranteed to be orthonormal.
+        //
+        // Orthogonalize the tangent frame using Gram-Schmidt, unlike in the other backends.
+        //
+        vector v = value * 2.0 - 1.0;
+        vector Tn = normalize(T - dot(T, N) * N);
+        vector Bn = normalize(B - dot(B, N) * N - dot(B, Tn) * Tn);
+        result = normalize(Tn * v[0] * normal_scale.x + Bn * v[1] * normal_scale.y + N * v[2]);
+    }
+}
+
+void mx_normalmap_float(vector value, float normal_scale, vector N, vector T, vector B, output vector result)
+{
+    mx_normalmap_vector2(value, vector2(normal_scale, normal_scale), N, T, B, result);
+}
+
+void adsk_NG_adsk_normal_map(textureresource  file, vector2 realworld_offset, vector2 realworld_scale, vector2 uv_offset, vector2 uv_scale, float rotation_angle, float normal_scale, string uaddressmode, string vaddressmode, vector2 texcoord, vector normal1, vector tangent, output vector out)
+{
+    vector2 total_offset_out = realworld_offset + uv_offset;
+    vector2 total_scale_out = realworld_scale / uv_scale;
+    float rotation_angle_param_in2_tmp = -1.000000;
+    float rotation_angle_param_out = rotation_angle * rotation_angle_param_in2_tmp;
+    vector normalmap_cross_out = cross(normal1, tangent);
+    vector2 a_place2d_out = vector2(0.0, 0.0);
+    NG_place2d_vector2(texcoord, vector2(0.000000, 0.000000), total_scale_out, rotation_angle_param_out, total_offset_out, 1, a_place2d_out);
+    vector normalmap_cross_norm_out = normalize(normalmap_cross_out);
+    vector b_image_out = vector(0.0);
+    mx_image_vector3(file, "", vector(0.000000, 0.000000, 0.000000), a_place2d_out, uaddressmode, vaddressmode, "linear", "", 0, "constant", b_image_out);
+    vector b_image_negate_y_in2_tmp = vector(1.000000, -1.000000, 1.000000);
+    vector b_image_negate_y_out = b_image_out * b_image_negate_y_in2_tmp;
+    vector b_image_invert_y_in1_tmp = vector(0.000000, 1.000000, 0.000000);
+    vector b_image_invert_y_out = b_image_invert_y_in1_tmp + b_image_negate_y_out;
+    vector impl_normalmap_out = vector(0.0);
+    mx_normalmap_float(b_image_invert_y_out, normal_scale, normal1, tangent, normalmap_cross_norm_out, impl_normalmap_out);
+    out = impl_normalmap_out;
+}
+
+void NG_switch_floatI(float in1, float in2, float in3, float in4, float in5, float in6, float in7, float in8, float in9, float in10, int which, output float out)
+{
+    int ifgreater_10_value1_tmp = 10;
+    float ifgreater_10_in2_tmp = 0.000000;
+    float ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    int ifgreater_9_value1_tmp = 9;
+    float ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    int ifgreater_8_value1_tmp = 8;
+    float ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    int ifgreater_7_value1_tmp = 7;
+    float ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    int ifgreater_6_value1_tmp = 6;
+    float ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    int ifgreater_5_value1_tmp = 5;
+    float ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    int ifgreater_4_value1_tmp = 4;
+    float ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    int ifgreater_3_value1_tmp = 3;
+    float ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    int ifgreater_2_value1_tmp = 2;
+    float ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    int ifgreater_1_value1_tmp = 1;
+    float ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void NG_switch_vector3I(vector in1, vector in2, vector in3, vector in4, vector in5, vector in6, vector in7, vector in8, vector in9, vector in10, int which, output vector out)
+{
+    int ifgreater_10_value1_tmp = 10;
+    vector ifgreater_10_in2_tmp = vector(0.000000, 0.000000, 0.000000);
+    vector ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    int ifgreater_9_value1_tmp = 9;
+    vector ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    int ifgreater_8_value1_tmp = 8;
+    vector ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    int ifgreater_7_value1_tmp = 7;
+    vector ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    int ifgreater_6_value1_tmp = 6;
+    vector ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    int ifgreater_5_value1_tmp = 5;
+    vector ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    int ifgreater_4_value1_tmp = 4;
+    vector ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    int ifgreater_3_value1_tmp = 3;
+    vector ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    int ifgreater_2_value1_tmp = 2;
+    vector ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    int ifgreater_1_value1_tmp = 1;
+    vector ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void NG_range_float(float in, float inlow, float inhigh, float gamma, float outlow, float outhigh, int doclamp, output float out)
+{
+    float N_remap1_float_outlow_tmp = 0.000000;
+    float N_remap1_float_outhigh_tmp = 1.000000;
+    float N_remap1_float_out = mx_remap(in, inlow, inhigh, N_remap1_float_outlow_tmp, N_remap1_float_outhigh_tmp, 0);
+    float N_recip_float_in1_tmp = 1.000000;
+    float N_recip_float_out = N_recip_float_in1_tmp / gamma;
+    float N_abs_float_out = abs(N_remap1_float_out);
+    float N_sign_float_out = sign(N_remap1_float_out);
+    float N_pow_float_out = pow(N_abs_float_out, N_recip_float_out);
+    float N_gamma_float_out = N_pow_float_out * N_sign_float_out;
+    float N_remap2_float_inlow_tmp = 0.000000;
+    float N_remap2_float_inhigh_tmp = 1.000000;
+    float N_remap2_float_out = mx_remap(N_gamma_float_out, N_remap2_float_inlow_tmp, N_remap2_float_inhigh_tmp, outlow, outhigh, 0);
+    float N_clamp_float_out = clamp(N_remap2_float_out, outlow, outhigh);
+    int N_switch_float_value2_tmp = 1;
+    float N_switch_float_out = mx_ternary(doclamp == N_switch_float_value2_tmp, N_clamp_float_out, N_remap2_float_out);
+    out = N_switch_float_out;
+}
+
+void NG_separate2_vector2(vector2 in, output float outx, output float outy)
+{
+    int N_extract_0_index_tmp = 0;
+    float N_extract_0_out = mx_extract(in, N_extract_0_index_tmp);
+    int N_extract_1_index_tmp = 1;
+    float N_extract_1_out = mx_extract(in, N_extract_1_index_tmp);
+    outx = N_extract_0_out;
+    outy = N_extract_1_out;
+}
+
+void NG_circle_float(vector2 texcoord, vector2 center, float radius, output float out)
+{
+    vector2 delta_out = texcoord - center;
+    float rad_square_out = radius * radius;
+    float dist_square_out = dot(delta_out, delta_out);
+    float dist_comp_in1_tmp = 0.000000;
+    float dist_comp_in2_tmp = 1.000000;
+    float dist_comp_out = mx_ternary(dist_square_out > rad_square_out, dist_comp_in1_tmp, dist_comp_in2_tmp);
+    out = dist_comp_out;
+}
+
+void NG_convert_float_color3(float in, output color out)
+{
+    color combine_out = color( in,in,in );
+    out = combine_out;
+}
+
+void NG_tiledcircles_color3(vector2 texcoord, vector2 uvtiling, vector2 uvoffset, float size, int staggered, output color out)
+{
+    vector2 texcoord_scale_out = texcoord * uvtiling;
+    float scale_half_in2_tmp = 2.000000;
+    float scale_half_out = size / scale_half_in2_tmp;
+    vector2 texcoord_bias_out = texcoord_scale_out - uvoffset;
+    float texcoord_bias_separate_outx = 0.0;
+    float texcoord_bias_separate_outy = 0.0;
+    NG_separate2_vector2(texcoord_bias_out, texcoord_bias_separate_outx, texcoord_bias_separate_outy);
+    vector2 mod_texcoord_in2_tmp = vector2(1.000000, 1.000000);
+    vector2 mod_texcoord_out = mod(texcoord_bias_out, mod_texcoord_in2_tmp);
+    float stagg_Y_in2_tmp = 1.732050;
+    float stagg_Y_out = mod(texcoord_bias_separate_outy, stagg_Y_in2_tmp);
+    float mod_Y_1_in2_tmp = 0.866025;
+    float mod_Y_1_out = mod(texcoord_bias_separate_outy, mod_Y_1_in2_tmp);
+    float mod_texcoord_2_in2_tmp = 2.000000;
+    vector2 mod_texcoord_2_out = mod_texcoord_out * mod_texcoord_2_in2_tmp;
+    float delta_X_value2_tmp = 0.866025;
+    float delta_X_in1_tmp = 0.500000;
+    float delta_X_in2_tmp = 0.000000;
+    float delta_X_out = mx_ternary(stagg_Y_out > delta_X_value2_tmp, delta_X_in1_tmp, delta_X_in2_tmp);
+    float coord_adj_3_in1_tmp = 0.866025;
+    float coord_adj_3_out = coord_adj_3_in1_tmp - mod_Y_1_out;
+    float recenter_in2_tmp = 1.000000;
+    vector2 recenter_out = mod_texcoord_2_out - recenter_in2_tmp;
+    float shift_X_out = texcoord_bias_separate_outx + delta_X_out;
+    float circle_regular_out = 0.0;
+    NG_circle_float(recenter_out, vector2(0.000000, 0.000000), size, circle_regular_out);
+    float mod_X_1_in2_tmp = 1.000000;
+    float mod_X_1_out = mod(shift_X_out, mod_X_1_in2_tmp);
+    vector2 coord_circ1_out = { mod_X_1_out,mod_Y_1_out };
+    float coord_adj_1_in1_tmp = 1.000000;
+    float coord_adj_1_out = coord_adj_1_in1_tmp - mod_X_1_out;
+    float coord_adj_2_in2_tmp = 0.500000;
+    float coord_adj_2_out = mod_X_1_out - coord_adj_2_in2_tmp;
+    float circle_stagg1_out = 0.0;
+    NG_circle_float(coord_circ1_out, vector2(0.000000, 0.000000), scale_half_out, circle_stagg1_out);
+    vector2 coord_circ2_out = { coord_adj_1_out,mod_Y_1_out };
+    vector2 coord_circ3_out = { coord_adj_2_out,coord_adj_3_out };
+    float circle_stagg2_out = 0.0;
+    NG_circle_float(coord_circ2_out, vector2(0.000000, 0.000000), scale_half_out, circle_stagg2_out);
+    float circle_stagg3_out = 0.0;
+    NG_circle_float(coord_circ3_out, vector2(0.000000, 0.000000), scale_half_out, circle_stagg3_out);
+    float max1_out = max(circle_stagg1_out, circle_stagg2_out);
+    float max_out = max(max1_out, circle_stagg3_out);
+    int pattern_selection_value2_tmp = 1;
+    float pattern_selection_out = mx_ternary(staggered == pattern_selection_value2_tmp, max_out, circle_regular_out);
+    color to_rgb_out = color(0.0);
+    NG_convert_float_color3(pattern_selection_out, to_rgb_out);
+    out = to_rgb_out;
+}
+
+void NG_separate3_vector3(vector in, output float outx, output float outy, output float outz)
+{
+    int N_extract_0_index_tmp = 0;
+    float N_extract_0_out = mx_extract(in, N_extract_0_index_tmp);
+    int N_extract_1_index_tmp = 1;
+    float N_extract_1_out = mx_extract(in, N_extract_1_index_tmp);
+    int N_extract_2_index_tmp = 2;
+    float N_extract_2_out = mx_extract(in, N_extract_2_index_tmp);
+    outx = N_extract_0_out;
+    outy = N_extract_1_out;
+    outz = N_extract_2_out;
+}
+
+void NG_hexagon_float(vector2 texcoord, vector2 center, float radius, output float out)
+{
+    vector2 delta_out = texcoord - center;
+    float k_separate_outx = 0.0;
+    float k_separate_outy = 0.0;
+    float k_separate_outz = 0.0;
+    NG_separate3_vector3(vector(-0.866025, 0.500000, 0.577350), k_separate_outx, k_separate_outy, k_separate_outz);
+    vector minus_k_in1_tmp = vector(-0.866025, 0.500000, 0.577350);
+    float minus_k_in2_tmp = -1.000000;
+    vector minus_k_out = minus_k_in1_tmp * minus_k_in2_tmp;
+    vector2 delta_abs_out = abs(delta_out);
+    vector2 kxy_out = { k_separate_outx,k_separate_outy };
+    float kz_r1_out = k_separate_outz * radius;
+    float minus_k_separate_outx = 0.0;
+    float minus_k_separate_outy = 0.0;
+    float minus_k_separate_outz = 0.0;
+    NG_separate3_vector3(minus_k_out, minus_k_separate_outx, minus_k_separate_outy, minus_k_separate_outz);
+    float delta_abs_separate_outx = 0.0;
+    float delta_abs_separate_outy = 0.0;
+    NG_separate2_vector2(delta_abs_out, delta_abs_separate_outx, delta_abs_separate_outy);
+    vector2 combine_mkx_ky_out = { minus_k_separate_outx,k_separate_outy };
+    float minus_kz_r_out = minus_k_separate_outz * radius;
+    vector2 p_out = { delta_abs_separate_outy,delta_abs_separate_outx };
+    float dot_kxy_p_out = dot(kxy_out, p_out);
+    float min_dotkxyp_p_in2_tmp = 0.000000;
+    float min_dotkxyp_p_out = min(dot_kxy_p_out, min_dotkxyp_p_in2_tmp);
+    vector2 multiply_kxy_min_out = kxy_out * min_dotkxyp_p_out;
+    float multiply2_1_in2_tmp = 2.000000;
+    vector2 multiply2_1_out = multiply_kxy_min_out * multiply2_1_in2_tmp;
+    vector2 new_p1_out = p_out - multiply2_1_out;
+    float dot_kxy_p1_out = dot(combine_mkx_ky_out, new_p1_out);
+    float min_0_in2_tmp = 0.000000;
+    float min_0_out = min(dot_kxy_p1_out, min_0_in2_tmp);
+    vector2 multiply_min_comb_out = combine_mkx_ky_out * min_0_out;
+    float multiply2_2_in2_tmp = 2.000000;
+    vector2 multiply2_2_out = multiply_min_comb_out * multiply2_2_in2_tmp;
+    vector2 new_p2_out = new_p1_out - multiply2_2_out;
+    int new_p2_x_index_tmp = 0;
+    float new_p2_x_out = mx_extract(new_p2_out, new_p2_x_index_tmp);
+    float clamp_out = clamp(new_p2_x_out, minus_kz_r_out, kz_r1_out);
+    vector2 combine_clamp_rad_out = { clamp_out,radius };
+    vector2 new_p3_out = new_p2_out - combine_clamp_rad_out;
+    vector2 p3_sum_in2_tmp = vector2(1.000000, 1.000000);
+    float p3_sum_out = dot(new_p3_out, p3_sum_in2_tmp);
+    float p3_sqrt_out = sqrt(p3_sum_out);
+    float ifgreater_p3_value2_tmp = 0.000000;
+    float ifgreater_p3_in1_tmp = 0.000000;
+    float ifgreater_p3_in2_tmp = 1.000000;
+    float ifgreater_p3_out = mx_ternary(p3_sqrt_out > ifgreater_p3_value2_tmp, ifgreater_p3_in1_tmp, ifgreater_p3_in2_tmp);
+    out = ifgreater_p3_out;
+}
+
+void NG_tiledhexagons_color3(vector2 texcoord, vector2 uvtiling, vector2 uvoffset, float size, int staggered, output color out)
+{
+    vector2 texcoord_scale_out = texcoord * uvtiling;
+    float scale_half_in2_tmp = 2.000000;
+    float scale_half_out = size / scale_half_in2_tmp;
+    vector2 texcoord_bias_out = texcoord_scale_out - uvoffset;
+    float texcoord_bias_separate_outx = 0.0;
+    float texcoord_bias_separate_outy = 0.0;
+    NG_separate2_vector2(texcoord_bias_out, texcoord_bias_separate_outx, texcoord_bias_separate_outy);
+    vector2 mod_texcoord_in2_tmp = vector2(1.000000, 1.000000);
+    vector2 mod_texcoord_out = mod(texcoord_bias_out, mod_texcoord_in2_tmp);
+    float stagg_Y_in2_tmp = 1.732050;
+    float stagg_Y_out = mod(texcoord_bias_separate_outy, stagg_Y_in2_tmp);
+    float mod_Y_1_in2_tmp = 0.866025;
+    float mod_Y_1_out = mod(texcoord_bias_separate_outy, mod_Y_1_in2_tmp);
+    float mod_texcoord_2_in2_tmp = 2.000000;
+    vector2 mod_texcoord_2_out = mod_texcoord_out * mod_texcoord_2_in2_tmp;
+    float delta_X_value2_tmp = 0.866025;
+    float delta_X_in1_tmp = 0.500000;
+    float delta_X_in2_tmp = 0.000000;
+    float delta_X_out = mx_ternary(stagg_Y_out > delta_X_value2_tmp, delta_X_in1_tmp, delta_X_in2_tmp);
+    float coord_adj_3_in1_tmp = 0.866025;
+    float coord_adj_3_out = coord_adj_3_in1_tmp - mod_Y_1_out;
+    float recenter_in2_tmp = 1.000000;
+    vector2 recenter_out = mod_texcoord_2_out - recenter_in2_tmp;
+    float shift_X_out = texcoord_bias_separate_outx + delta_X_out;
+    float hexagon_regular_out = 0.0;
+    NG_hexagon_float(recenter_out, vector2(0.000000, 0.000000), size, hexagon_regular_out);
+    float mod_X_1_in2_tmp = 1.000000;
+    float mod_X_1_out = mod(shift_X_out, mod_X_1_in2_tmp);
+    vector2 coord_circ1_out = { mod_X_1_out,mod_Y_1_out };
+    float coord_adj_1_in1_tmp = 1.000000;
+    float coord_adj_1_out = coord_adj_1_in1_tmp - mod_X_1_out;
+    float coord_adj_2_in2_tmp = 0.500000;
+    float coord_adj_2_out = mod_X_1_out - coord_adj_2_in2_tmp;
+    float hexagon_stagg1_out = 0.0;
+    NG_hexagon_float(coord_circ1_out, vector2(0.000000, 0.000000), scale_half_out, hexagon_stagg1_out);
+    vector2 coord_circ2_out = { coord_adj_1_out,mod_Y_1_out };
+    vector2 coord_circ3_out = { coord_adj_2_out,coord_adj_3_out };
+    float hexagon_stagg2_out = 0.0;
+    NG_hexagon_float(coord_circ2_out, vector2(0.000000, 0.000000), scale_half_out, hexagon_stagg2_out);
+    float hexagon_stagg3_out = 0.0;
+    NG_hexagon_float(coord_circ3_out, vector2(0.000000, 0.000000), scale_half_out, hexagon_stagg3_out);
+    float max1_out = max(hexagon_stagg1_out, hexagon_stagg2_out);
+    float max_out = max(max1_out, hexagon_stagg3_out);
+    int pattern_selection_value2_tmp = 1;
+    float pattern_selection_out = mx_ternary(staggered == pattern_selection_value2_tmp, max_out, hexagon_regular_out);
+    color to_rgb_out = color(0.0);
+    NG_convert_float_color3(pattern_selection_out, to_rgb_out);
+    out = to_rgb_out;
+}
+
+void NG_grid_color3(vector2 texcoord, vector2 uvtiling, vector2 uvoffset, float thickness, int staggered, output color out)
+{
+    vector2 texcoord_scale_out = texcoord * uvtiling;
+    float thick_to_size_in1_tmp = 1.000000;
+    float thick_to_size_out = thick_to_size_in1_tmp - thickness;
+    vector2 texcoord_bias_out = texcoord_scale_out - uvoffset;
+    float texcoord_bias_separate_outx = 0.0;
+    float texcoord_bias_separate_outy = 0.0;
+    NG_separate2_vector2(texcoord_bias_out, texcoord_bias_separate_outx, texcoord_bias_separate_outy);
+    float mod_Y_row_in2_tmp = 2.000000;
+    float mod_Y_row_out = mod(texcoord_bias_separate_outy, mod_Y_row_in2_tmp);
+    float mod_Y_in2_tmp = 1.000000;
+    float mod_Y_out = mod(texcoord_bias_separate_outy, mod_Y_in2_tmp);
+    float alt_rows_shift_value2_tmp = 1.000000;
+    float alt_rows_shift_in1_tmp = 0.500000;
+    float alt_rows_shift_in2_tmp = 0.000000;
+    float alt_rows_shift_out = mx_ternary(mod_Y_row_out > alt_rows_shift_value2_tmp, alt_rows_shift_in1_tmp, alt_rows_shift_in2_tmp);
+    float mody_2_in2_tmp = 2.000000;
+    float mody_2_out = mod_Y_out * mody_2_in2_tmp;
+    float shift_X_out = texcoord_bias_separate_outx + alt_rows_shift_out;
+    float subY_1_in2_tmp = 1.000000;
+    float subY_1_out = mody_2_out - subY_1_in2_tmp;
+    int stagger_selection_value2_tmp = 1;
+    float stagger_selection_out = mx_ternary(staggered == stagger_selection_value2_tmp, shift_X_out, texcoord_bias_separate_outx);
+    float abs_Y_out = abs(subY_1_out);
+    float mod_X_in2_tmp = 1.000000;
+    float mod_X_out = mod(stagger_selection_out, mod_X_in2_tmp);
+    float Y_detect_in1_tmp = 0.000000;
+    float Y_detect_in2_tmp = 1.000000;
+    float Y_detect_out = mx_ternary(abs_Y_out > thick_to_size_out, Y_detect_in1_tmp, Y_detect_in2_tmp);
+    float modx_2_in2_tmp = 2.000000;
+    float modx_2_out = mod_X_out * modx_2_in2_tmp;
+    float subX_1_in2_tmp = 1.000000;
+    float subX_1_out = modx_2_out - subX_1_in2_tmp;
+    float abs_X_out = abs(subX_1_out);
+    float X_detect_in1_tmp = 0.000000;
+    float X_detect_in2_tmp = 1.000000;
+    float X_detect_out = mx_ternary(abs_X_out > thick_to_size_out, X_detect_in1_tmp, X_detect_in2_tmp);
+    float min_out = min(X_detect_out, Y_detect_out);
+    float inv_result_in1_tmp = 1.000000;
+    float inv_result_out = inv_result_in1_tmp - min_out;
+    color to_rgb_out = color(0.0);
+    NG_convert_float_color3(inv_result_out, to_rgb_out);
+    out = to_rgb_out;
+}
+
+void NG_distance_vector2(vector2 in1, vector2 in2, output float out)
+{
+    vector2 N_mtlxsubtract_out = in1 - in2;
+    float N_mtlxmagnitude_out = length(N_mtlxsubtract_out);
+    out = N_mtlxmagnitude_out;
+}
+
+void NG_line_float(vector2 texcoord, vector2 center, float radius, vector2 point1, vector2 point2, output float out)
+{
+    vector2 delta_out = texcoord - center;
+    vector2 b_a_out = point2 - point1;
+    vector2 p_a_out = delta_out - point1;
+    float dot_ba_ba_out = dot(b_a_out, b_a_out);
+    float dot_pa_ba_out = dot(p_a_out, b_a_out);
+    float divide_dots_out = dot_pa_ba_out / dot_ba_ba_out;
+    float clamp_low_tmp = 0.000000;
+    float clamp_high_tmp = 1.000000;
+    float clamp_out = clamp(divide_dots_out, clamp_low_tmp, clamp_high_tmp);
+    vector2 multiply_clamp_ba_out = b_a_out * clamp_out;
+    float distance_out = 0.0;
+    NG_distance_vector2(p_a_out, multiply_clamp_ba_out, distance_out);
+    float dist_comp_in1_tmp = 0.000000;
+    float dist_comp_in2_tmp = 1.000000;
+    float dist_comp_out = mx_ternary(distance_out > radius, dist_comp_in1_tmp, dist_comp_in2_tmp);
+    out = dist_comp_out;
+}
+
+void NG_crosshatch_color3(vector2 texcoord, vector2 uvtiling, vector2 uvoffset, float thickness, int staggered, output color out)
+{
+    vector2 texcoord_scale_out = texcoord * uvtiling;
+    vector2 texcoord_bias_out = texcoord_scale_out - uvoffset;
+    float texcoord_bias_separate_outx = 0.0;
+    float texcoord_bias_separate_outy = 0.0;
+    NG_separate2_vector2(texcoord_bias_out, texcoord_bias_separate_outx, texcoord_bias_separate_outy);
+    float mod_Y_row_in2_tmp = 2.000000;
+    float mod_Y_row_out = mod(texcoord_bias_separate_outy, mod_Y_row_in2_tmp);
+    float mod_Y_in2_tmp = 1.000000;
+    float mod_Y_out = mod(texcoord_bias_separate_outy, mod_Y_in2_tmp);
+    float alt_rows_shift_value2_tmp = 1.000000;
+    float alt_rows_shift_in1_tmp = 0.500000;
+    float alt_rows_shift_in2_tmp = 0.000000;
+    float alt_rows_shift_out = mx_ternary(mod_Y_row_out > alt_rows_shift_value2_tmp, alt_rows_shift_in1_tmp, alt_rows_shift_in2_tmp);
+    float mody_2_in2_tmp = 2.000000;
+    float mody_2_out = mod_Y_out * mody_2_in2_tmp;
+    float shift_X_out = texcoord_bias_separate_outx + alt_rows_shift_out;
+    float subY_1_in2_tmp = 1.000000;
+    float subY_1_out = mody_2_out - subY_1_in2_tmp;
+    int stagger_selection_value2_tmp = 1;
+    float stagger_selection_out = mx_ternary(staggered == stagger_selection_value2_tmp, shift_X_out, texcoord_bias_separate_outx);
+    float mod_X_in2_tmp = 1.000000;
+    float mod_X_out = mod(stagger_selection_out, mod_X_in2_tmp);
+    float modx_2_in2_tmp = 2.000000;
+    float modx_2_out = mod_X_out * modx_2_in2_tmp;
+    float subX_1_in2_tmp = 1.000000;
+    float subX_1_out = modx_2_out - subX_1_in2_tmp;
+    vector2 sample_vec_out = { subX_1_out,subY_1_out };
+    float line_diag1_out = 0.0;
+    NG_line_float(sample_vec_out, vector2(0.000000, 0.000000), thickness, vector2(1.000000, 1.000000), vector2(-1.000000, -1.000000), line_diag1_out);
+    float line_diag2_out = 0.0;
+    NG_line_float(sample_vec_out, vector2(0.000000, 0.000000), thickness, vector2(-1.000000, 1.000000), vector2(1.000000, -1.000000), line_diag2_out);
+    float composite_diags_out = max(line_diag1_out, line_diag2_out);
+    float max_out = max(composite_diags_out, composite_diags_out);
+    color to_rgb_out = color(0.0);
+    NG_convert_float_color3(max_out, to_rgb_out);
+    out = to_rgb_out;
+}
+
+void NG_cloverleaf_float(vector2 texcoord, vector2 center, float radius, output float out)
+{
+    vector2 sample_double_out = texcoord + texcoord;
+    vector2 center_double_out = center + center;
+    vector2 sample_add_out = sample_double_out + radius;
+    float sample_double_separate_outx = 0.0;
+    float sample_double_separate_outy = 0.0;
+    NG_separate2_vector2(sample_double_out, sample_double_separate_outx, sample_double_separate_outy);
+    vector2 sample_subtract_out = sample_double_out - radius;
+    float sample_add_separate_outx = 0.0;
+    float sample_add_separate_outy = 0.0;
+    NG_separate2_vector2(sample_add_out, sample_add_separate_outx, sample_add_separate_outy);
+    float sample_subtract_separate_outx = 0.0;
+    float sample_subtract_separate_outy = 0.0;
+    NG_separate2_vector2(sample_subtract_out, sample_subtract_separate_outx, sample_subtract_separate_outy);
+    vector2 coord1_out = { sample_add_separate_outx,sample_double_separate_outy };
+    vector2 coord4_out = { sample_double_separate_outx,sample_add_separate_outy };
+    vector2 coord2_out = { sample_subtract_separate_outx,sample_double_separate_outy };
+    vector2 coord3_out = { sample_double_separate_outx,sample_subtract_separate_outy };
+    float circle1_out = 0.0;
+    NG_circle_float(coord1_out, center_double_out, radius, circle1_out);
+    float circle4_out = 0.0;
+    NG_circle_float(coord4_out, center_double_out, radius, circle4_out);
+    float circle2_out = 0.0;
+    NG_circle_float(coord2_out, center_double_out, radius, circle2_out);
+    float circle3_out = 0.0;
+    NG_circle_float(coord3_out, center_double_out, radius, circle3_out);
+    float max1_out = max(circle1_out, circle2_out);
+    float max2_out = max(circle3_out, circle4_out);
+    float max_out = max(max1_out, max2_out);
+    out = max_out;
+}
+
+void NG_tiledcloverleafs_color3(vector2 texcoord, vector2 uvtiling, vector2 uvoffset, float size, int staggered, output color out)
+{
+    vector2 texcoord_scale_out = texcoord * uvtiling;
+    float scale_half_in2_tmp = 2.000000;
+    float scale_half_out = size / scale_half_in2_tmp;
+    vector2 texcoord_bias_out = texcoord_scale_out - uvoffset;
+    float texcoord_bias_separate_outx = 0.0;
+    float texcoord_bias_separate_outy = 0.0;
+    NG_separate2_vector2(texcoord_bias_out, texcoord_bias_separate_outx, texcoord_bias_separate_outy);
+    vector2 mod_texcoord_in2_tmp = vector2(1.000000, 1.000000);
+    vector2 mod_texcoord_out = mod(texcoord_bias_out, mod_texcoord_in2_tmp);
+    float stagg_Y_in2_tmp = 1.000000;
+    float stagg_Y_out = mod(texcoord_bias_separate_outy, stagg_Y_in2_tmp);
+    float mod_Y_1_in2_tmp = 0.500000;
+    float mod_Y_1_out = mod(texcoord_bias_separate_outy, mod_Y_1_in2_tmp);
+    float mod_texcoord_2_in2_tmp = 2.000000;
+    vector2 mod_texcoord_2_out = mod_texcoord_out * mod_texcoord_2_in2_tmp;
+    float delta_X_value2_tmp = 0.500000;
+    float delta_X_in1_tmp = 0.500000;
+    float delta_X_in2_tmp = 0.000000;
+    float delta_X_out = mx_ternary(stagg_Y_out > delta_X_value2_tmp, delta_X_in1_tmp, delta_X_in2_tmp);
+    float coord_adj_3_in1_tmp = 0.500000;
+    float coord_adj_3_out = coord_adj_3_in1_tmp - mod_Y_1_out;
+    float recenter_in2_tmp = 1.000000;
+    vector2 recenter_out = mod_texcoord_2_out - recenter_in2_tmp;
+    float shift_X_out = texcoord_bias_separate_outx + delta_X_out;
+    float cloverleaf_regular_out = 0.0;
+    NG_cloverleaf_float(recenter_out, vector2(0.000000, 0.000000), size, cloverleaf_regular_out);
+    float mod_X_1_in2_tmp = 1.000000;
+    float mod_X_1_out = mod(shift_X_out, mod_X_1_in2_tmp);
+    vector2 coord_circ1_out = { mod_X_1_out,mod_Y_1_out };
+    float coord_adj_1_in1_tmp = 1.000000;
+    float coord_adj_1_out = coord_adj_1_in1_tmp - mod_X_1_out;
+    float coord_adj_2_in2_tmp = 0.500000;
+    float coord_adj_2_out = mod_X_1_out - coord_adj_2_in2_tmp;
+    float cloverleaf_stagg1_out = 0.0;
+    NG_cloverleaf_float(coord_circ1_out, vector2(0.000000, 0.000000), scale_half_out, cloverleaf_stagg1_out);
+    vector2 coord_circ2_out = { coord_adj_1_out,mod_Y_1_out };
+    vector2 coord_circ3_out = { coord_adj_2_out,coord_adj_3_out };
+    float cloverleaf_stagg2_out = 0.0;
+    NG_cloverleaf_float(coord_circ2_out, vector2(0.000000, 0.000000), scale_half_out, cloverleaf_stagg2_out);
+    float cloverleaf_stagg3_out = 0.0;
+    NG_cloverleaf_float(coord_circ3_out, vector2(0.000000, 0.000000), scale_half_out, cloverleaf_stagg3_out);
+    float max1_out = max(cloverleaf_stagg1_out, cloverleaf_stagg2_out);
+    float max_out = max(max1_out, cloverleaf_stagg3_out);
+    int pattern_selection_value2_tmp = 1;
+    float pattern_selection_out = mx_ternary(staggered == pattern_selection_value2_tmp, max_out, cloverleaf_regular_out);
+    color to_rgb_out = color(0.0);
+    NG_convert_float_color3(pattern_selection_out, to_rgb_out);
+    out = to_rgb_out;
+}
+
+void mx_rotate_vector3(vector _in, float amount, vector axis, output vector result)
+{
+    // Based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula, where the
+    // Wikipedia formula follows v' = M * v and MaterialX follows v' = v * M, thus the
+    // order of parameters to cross are reversed.
+
+    vector nAxis = normalize(axis);
+    float rotationRadians = radians(amount);
+    float s = sin(rotationRadians);
+    float c = cos(rotationRadians);
+    float oc = 1.0 - c;
+    result = _in * c + cross(_in, nAxis) * s + nAxis * dot(nAxis, _in) * oc;
+}
+
+void mx_noise3d_float(float amplitude, float pivot, vector position, output float result)
+{
+    float value = noise("snoise", position);
+    result = value * amplitude + pivot;
+}
+
+void NG_switch_float(float in1, float in2, float in3, float in4, float in5, float in6, float in7, float in8, float in9, float in10, float which, output float out)
+{
+    float ifgreater_10_value1_tmp = 10.000000;
+    float ifgreater_10_in2_tmp = 0.000000;
+    float ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    float ifgreater_9_value1_tmp = 9.000000;
+    float ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    float ifgreater_8_value1_tmp = 8.000000;
+    float ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    float ifgreater_7_value1_tmp = 7.000000;
+    float ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    float ifgreater_6_value1_tmp = 6.000000;
+    float ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    float ifgreater_5_value1_tmp = 5.000000;
+    float ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    float ifgreater_4_value1_tmp = 4.000000;
+    float ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    float ifgreater_3_value1_tmp = 3.000000;
+    float ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    float ifgreater_2_value1_tmp = 2.000000;
+    float ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    float ifgreater_1_value1_tmp = 1.000000;
+    float ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void NG_fractal3d_max8_float(vector position, float octaves, float amplitude, output float out)
+{
+    float noise3d1_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, position, noise3d1_out);
+    float multiply2_in2_tmp = 2.000000;
+    vector multiply2_out = position * multiply2_in2_tmp;
+    float multiply3_in2_tmp = 4.000000;
+    vector multiply3_out = position * multiply3_in2_tmp;
+    float multiply4_in2_tmp = 8.000000;
+    vector multiply4_out = position * multiply4_in2_tmp;
+    float multiply5_in2_tmp = 16.000000;
+    vector multiply5_out = position * multiply5_in2_tmp;
+    float multiply6_in2_tmp = 32.000000;
+    vector multiply6_out = position * multiply6_in2_tmp;
+    float multiply7_in2_tmp = 64.000000;
+    vector multiply7_out = position * multiply7_in2_tmp;
+    float multiply8_in2_tmp = 128.000000;
+    vector multiply8_out = position * multiply8_in2_tmp;
+    float modulo_octave_in2_tmp = 5.000000;
+    float modulo_octave_out = mod(octaves, modulo_octave_in2_tmp);
+    float divide_octave_in2_tmp = 5.000000;
+    float divide_octave_out = octaves / divide_octave_in2_tmp;
+    float modulo_fractional_in2_tmp = 1.000000;
+    float modulo_fractional_out = mod(octaves, modulo_fractional_in2_tmp);
+    float noise3d2_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply2_out, noise3d2_out);
+    float noise3d3_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply3_out, noise3d3_out);
+    float noise3d4_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply4_out, noise3d4_out);
+    float noise3d5_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply5_out, noise3d5_out);
+    float noise3d6_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply6_out, noise3d6_out);
+    float noise3d7_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply7_out, noise3d7_out);
+    float noise3d8_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply8_out, noise3d8_out);
+    float multiply9_out = noise3d1_out * modulo_fractional_out;
+    float divide2_in2_tmp = 2.000000;
+    float divide2_out = noise3d2_out / divide2_in2_tmp;
+    float divide3_in2_tmp = 4.000000;
+    float divide3_out = noise3d3_out / divide3_in2_tmp;
+    float divide4_in2_tmp = 8.000000;
+    float divide4_out = noise3d4_out / divide4_in2_tmp;
+    float divide5_in2_tmp = 16.000000;
+    float divide5_out = noise3d5_out / divide5_in2_tmp;
+    float divide6_in2_tmp = 32.000000;
+    float divide6_out = noise3d6_out / divide6_in2_tmp;
+    float divide7_in2_tmp = 64.000000;
+    float divide7_out = noise3d7_out / divide7_in2_tmp;
+    float divide8_in2_tmp = 128.000000;
+    float divide8_out = noise3d8_out / divide8_in2_tmp;
+    float add2_out = noise3d1_out + divide2_out;
+    float multiply10_out = divide2_out * modulo_fractional_out;
+    float multiply11_out = divide3_out * modulo_fractional_out;
+    float multiply12_out = divide4_out * modulo_fractional_out;
+    float multiply13_out = divide5_out * modulo_fractional_out;
+    float multiply14_out = divide6_out * modulo_fractional_out;
+    float multiply15_out = divide7_out * modulo_fractional_out;
+    float multiply16_out = divide8_out * modulo_fractional_out;
+    float add3_out = add2_out + divide3_out;
+    float switch3_out = 0.0;
+    NG_switch_float(multiply9_out, multiply10_out, multiply11_out, multiply12_out, multiply13_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch3_out);
+    float switch4_out = 0.0;
+    NG_switch_float(multiply14_out, multiply15_out, multiply16_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch4_out);
+    float add4_out = add3_out + divide4_out;
+    float switch_fractional_out = 0.0;
+    NG_switch_float(switch3_out, switch4_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, divide_octave_out, switch_fractional_out);
+    float add5_out = add4_out + divide5_out;
+    float switch1_out = 0.0;
+    NG_switch_float(0.000000, noise3d1_out, add2_out, add3_out, add4_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch1_out);
+    float add6_out = add5_out + divide6_out;
+    float add7_out = add6_out + divide7_out;
+    float add8_out = add7_out + divide8_out;
+    float switch2_out = 0.0;
+    NG_switch_float(add5_out, add6_out, add7_out, add8_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch2_out);
+    float switch_octave_out = 0.0;
+    NG_switch_float(switch1_out, switch2_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, divide_octave_out, switch_octave_out);
+    float add_fractional_out = switch_octave_out + switch_fractional_out;
+    float ifgreatereq_octave_value2_tmp = 8.000000;
+    float ifgreatereq_octave_out = mx_ternary(octaves >= ifgreatereq_octave_value2_tmp, add8_out, add_fractional_out);
+    float multiply_amplitude_out = ifgreatereq_octave_out * amplitude;
+    out = multiply_amplitude_out;
+}
+
+void NG_turbulence3d_max8_float(vector position, float octaves, float amplitude, output float out)
+{
+    float multiply8_in2_tmp = 128.000000;
+    vector multiply8_out = position * multiply8_in2_tmp;
+    float multiply7_in2_tmp = 64.000000;
+    vector multiply7_out = position * multiply7_in2_tmp;
+    float multiply6_in2_tmp = 32.000000;
+    vector multiply6_out = position * multiply6_in2_tmp;
+    float multiply5_in2_tmp = 16.000000;
+    vector multiply5_out = position * multiply5_in2_tmp;
+    float multiply4_in2_tmp = 8.000000;
+    vector multiply4_out = position * multiply4_in2_tmp;
+    float multiply3_in2_tmp = 4.000000;
+    vector multiply3_out = position * multiply3_in2_tmp;
+    float multiply2_in2_tmp = 2.000000;
+    vector multiply2_out = position * multiply2_in2_tmp;
+    float noise3d1_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, position, noise3d1_out);
+    float modulo_octave_in2_tmp = 5.000000;
+    float modulo_octave_out = mod(octaves, modulo_octave_in2_tmp);
+    float divide_octave_in2_tmp = 5.000000;
+    float divide_octave_out = octaves / divide_octave_in2_tmp;
+    float modulo_fractional_in2_tmp = 1.000000;
+    float modulo_fractional_out = mod(octaves, modulo_fractional_in2_tmp);
+    float noise3d8_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply8_out, noise3d8_out);
+    float noise3d7_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply7_out, noise3d7_out);
+    float noise3d6_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply6_out, noise3d6_out);
+    float noise3d5_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply5_out, noise3d5_out);
+    float noise3d4_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply4_out, noise3d4_out);
+    float noise3d3_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply3_out, noise3d3_out);
+    float noise3d2_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, multiply2_out, noise3d2_out);
+    float absval1_out = abs(noise3d1_out);
+    float divide8_in2_tmp = 128.000000;
+    float divide8_out = noise3d8_out / divide8_in2_tmp;
+    float divide7_in2_tmp = 64.000000;
+    float divide7_out = noise3d7_out / divide7_in2_tmp;
+    float divide6_in2_tmp = 32.000000;
+    float divide6_out = noise3d6_out / divide6_in2_tmp;
+    float divide5_in2_tmp = 16.000000;
+    float divide5_out = noise3d5_out / divide5_in2_tmp;
+    float divide4_in2_tmp = 8.000000;
+    float divide4_out = noise3d4_out / divide4_in2_tmp;
+    float divide3_in2_tmp = 4.000000;
+    float divide3_out = noise3d3_out / divide3_in2_tmp;
+    float divide2_in2_tmp = 2.000000;
+    float divide2_out = noise3d2_out / divide2_in2_tmp;
+    float multiply9_out = absval1_out * modulo_fractional_out;
+    float absval8_out = abs(divide8_out);
+    float absval7_out = abs(divide7_out);
+    float absval6_out = abs(divide6_out);
+    float absval5_out = abs(divide5_out);
+    float absval4_out = abs(divide4_out);
+    float absval3_out = abs(divide3_out);
+    float absval2_out = abs(divide2_out);
+    float multiply16_out = absval8_out * modulo_fractional_out;
+    float multiply15_out = absval7_out * modulo_fractional_out;
+    float multiply14_out = absval6_out * modulo_fractional_out;
+    float multiply13_out = absval5_out * modulo_fractional_out;
+    float multiply12_out = absval4_out * modulo_fractional_out;
+    float multiply11_out = absval3_out * modulo_fractional_out;
+    float add2_out = absval1_out + absval2_out;
+    float multiply10_out = absval2_out * modulo_fractional_out;
+    float switch4_out = 0.0;
+    NG_switch_float(multiply14_out, multiply15_out, multiply16_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch4_out);
+    float add3_out = add2_out + absval3_out;
+    float switch3_out = 0.0;
+    NG_switch_float(multiply9_out, multiply10_out, multiply11_out, multiply12_out, multiply13_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch3_out);
+    float add4_out = add3_out + absval4_out;
+    float switch_fractional_out = 0.0;
+    NG_switch_float(switch3_out, switch4_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, divide_octave_out, switch_fractional_out);
+    float add5_out = add4_out + absval5_out;
+    float switch1_out = 0.0;
+    NG_switch_float(0.000000, absval1_out, add2_out, add3_out, add4_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch1_out);
+    float add6_out = add5_out + absval6_out;
+    float add7_out = add6_out + absval7_out;
+    float add8_out = add7_out + absval8_out;
+    float switch2_out = 0.0;
+    NG_switch_float(add5_out, add6_out, add7_out, add8_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch2_out);
+    float switch_octave_out = 0.0;
+    NG_switch_float(switch1_out, switch2_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, divide_octave_out, switch_octave_out);
+    float add_fractional_out = switch_octave_out + switch_fractional_out;
+    float ifgreatereq_octave_value2_tmp = 8.000000;
+    float ifgreatereq_octave_out = mx_ternary(octaves >= ifgreatereq_octave_value2_tmp, add8_out, add_fractional_out);
+    float multiply_amplitude_out = ifgreatereq_octave_out * amplitude;
+    out = multiply_amplitude_out;
+}
+
+void NG_legacy_noise_color3(vector position, color color1, color color2, int noise_type, float size, float threshold_low, float threshold_high, int threshold_smooth, float phase, float levels, vector realworld_offset, vector rotation_angle, output color output_color3)
+{
+    float modulo_phase_in2_tmp = 1.000000;
+    float modulo_phase_out = mod(phase, modulo_phase_in2_tmp);
+    float inv_size_in1_tmp = 1.000000;
+    float inv_size_out = inv_size_in1_tmp / size;
+    float rotation_xyz_outx = 0.0;
+    float rotation_xyz_outy = 0.0;
+    float rotation_xyz_outz = 0.0;
+    NG_separate3_vector3(rotation_angle, rotation_xyz_outx, rotation_xyz_outy, rotation_xyz_outz);
+    float mult_phase_in2_tmp = 2.000000;
+    float mult_phase_out = modulo_phase_out * mult_phase_in2_tmp;
+    vector adj_coord_out = position * inv_size_out;
+    vector add_offset_out = adj_coord_out - realworld_offset;
+    vector rotate3d_x_out = vector(0.0);
+    mx_rotate_vector3(add_offset_out, rotation_xyz_outx, vector(1.000000, 0.000000, 0.000000), rotate3d_x_out);
+    vector rotate3d_y_out = vector(0.0);
+    mx_rotate_vector3(rotate3d_x_out, rotation_xyz_outy, vector(0.000000, 1.000000, 0.000000), rotate3d_y_out);
+    vector rotate3d_z_out = vector(0.0);
+    mx_rotate_vector3(rotate3d_y_out, rotation_xyz_outz, vector(0.000000, 0.000000, 1.000000), rotate3d_z_out);
+    float noise3d_float_out = 0.0;
+    mx_noise3d_float(1.000000, 0.000000, rotate3d_z_out, noise3d_float_out);
+    float fractal3d_max8_out = 0.0;
+    NG_fractal3d_max8_float(rotate3d_z_out, levels, 1.000000, fractal3d_max8_out);
+    float turbulence3d_max8_out = 0.0;
+    NG_turbulence3d_max8_float(rotate3d_z_out, levels, 1.000000, turbulence3d_max8_out);
+    float range_noise3d_out = 0.0;
+    NG_range_float(noise3d_float_out, -1.000000, 1.000000, 1.000000, 0.000000, 1.000000, 1, range_noise3d_out);
+    float range_fractal3d_out = 0.0;
+    NG_range_float(fractal3d_max8_out, -1.000000, 1.000000, 1.000000, 0.000000, 1.000000, 1, range_fractal3d_out);
+    float range_turbulence3d_out = 0.0;
+    NG_range_float(turbulence3d_max8_out, 0.000000, 1.000000, 1.000000, 0.000000, 1.000000, 1, range_turbulence3d_out);
+    float switch_type_out = 0.0;
+    NG_switch_floatI(range_noise3d_out, range_fractal3d_out, range_turbulence3d_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, noise_type, switch_type_out);
+    float add_noise1_out = switch_type_out + mult_phase_out;
+    float modulo_ramp_in2_tmp = 1.000000;
+    float modulo_ramp_out = mod(add_noise1_out, modulo_ramp_in2_tmp);
+    float modulo_odd_even_in2_tmp = 2.000000;
+    float modulo_odd_even_out = mod(add_noise1_out, modulo_odd_even_in2_tmp);
+    float invert_ramp_amount_tmp = 1.000000;
+    float invert_ramp_out = invert_ramp_amount_tmp - modulo_ramp_out;
+    float if_odd_even_value2_tmp = 1.000000;
+    float if_odd_even_out = mx_ternary(modulo_odd_even_out >= if_odd_even_value2_tmp, invert_ramp_out, modulo_ramp_out);
+    float lowhi_range_smooth_out = smoothstep(threshold_low, threshold_high, if_odd_even_out);
+    float lowhi_range_out = 0.0;
+    NG_range_float(if_odd_even_out, threshold_low, threshold_high, 1.000000, 0.000000, 1.000000, 1, lowhi_range_out);
+    int smooth_select_value2_tmp = 1;
+    float smooth_select_out = mx_ternary(threshold_smooth == smooth_select_value2_tmp, lowhi_range_smooth_out, lowhi_range_out);
+    color mix_colors_out = mix(color2, color1, smooth_select_out);
+    output_color3 = mix_colors_out;
+}
+
+void NG_switch_color3(color in1, color in2, color in3, color in4, color in5, color in6, color in7, color in8, color in9, color in10, float which, output color out)
+{
+    float ifgreater_10_value1_tmp = 10.000000;
+    color ifgreater_10_in2_tmp = color(0.000000, 0.000000, 0.000000);
+    color ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    float ifgreater_9_value1_tmp = 9.000000;
+    color ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    float ifgreater_8_value1_tmp = 8.000000;
+    color ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    float ifgreater_7_value1_tmp = 7.000000;
+    color ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    float ifgreater_6_value1_tmp = 6.000000;
+    color ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    float ifgreater_5_value1_tmp = 5.000000;
+    color ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    float ifgreater_4_value1_tmp = 4.000000;
+    color ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    float ifgreater_3_value1_tmp = 3.000000;
+    color ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    float ifgreater_2_value1_tmp = 2.000000;
+    color ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    float ifgreater_1_value1_tmp = 1.000000;
+    color ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void mx_roughness_anisotropy(float roughness, float anisotropy, output vector2 result)
+{
+    float roughness_sqr = clamp(roughness*roughness, M_FLOAT_EPS, 1.0);
+    if (anisotropy > 0.0)
+    {
+        float aspect = sqrt(1.0 - clamp(anisotropy, 0.0, 0.98));
+        result.x = min(roughness_sqr / aspect, 1.0);
+        result.y = roughness_sqr * aspect;
+    }
+    else
+    {
+        result.x = roughness_sqr;
+        result.y = roughness_sqr;
+    }
+}
+
+void mx_luminance_color3(color in, color lumacoeffs, output color result)
+{
+    result = dot(in, lumacoeffs);
+}
+
+void mx_artistic_ior(color reflectivity, color edge_color, output vector ior, output vector extinction)
+{
+    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
+    // http://jcgt.org/published/0003/04/03/paper.pdf
+
+    color r = clamp(reflectivity, 0.0, 0.99);
+    color r_sqrt = sqrt(r);
+    color n_min = (1.0 - r) / (1.0 + r);
+    color n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
+    ior = mix(n_max, n_min, edge_color);
+
+    color np1 = ior + 1.0;
+    color nm1 = ior - 1.0;
+    color k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
+    k2 = max(k2, 0.0);
+    extinction = sqrt(k2);
+}
+
+void mx_dielectric_bsdf(float weight, color tint, float ior, vector2 roughness, int retroreflective, float thinfilm_thickness, float thinfilm_ior, normal N, vector U, string distribution, string scatter_mode, output BSDF bsdf)
+{
+    color reflection_tint = (scatter_mode == "T") ? color(0.0) : tint;
+    color transmission_tint = (scatter_mode == "R") ? color(0.0) : tint;
+    bsdf = weight * dielectric_bsdf(N, U, reflection_tint, transmission_tint, roughness.x, roughness.y, ior, distribution, "thinfilm_thickness", thinfilm_thickness, "thinfilm_ior", thinfilm_ior);
+}
+
+void mx_subsurface_bsdf(float weight, color albedo, color radius, float anisotropy, normal N, output BSDF bsdf)
+{
+#if (OSL_VERSION_MAJOR == 1 && OSL_VERSION_MINOR >= 14) || (OSL_VERSION_MAJOR > 1)
+    bsdf = weight * subsurface_bssrdf(N, albedo, radius, anisotropy);
+#else
+    bsdf = weight * subsurface_bssrdf(N, albedo, 1.0, radius, anisotropy);
+#endif
+}
+
+float mx_square(float x)
+{
+    return x*x;
+}
+
+vector2 mx_square(vector2 x)
+{
+    return x*x;
+}
+
+vector mx_square(vector x)
+{
+    return x*x;
+}
+
+vector4 mx_square(vector4 x)
+{
+    return x*x;
+}
+
+float mx_pow5(float x)
+{
+    return mx_square(mx_square(x)) * x;
+}
+
+color mx_fresnel_conductor(float cosTheta, vector n, vector k)
+{
+   float c2 = cosTheta*cosTheta;
+   vector n2_k2 = n*n + k*k;
+   vector nc2 = 2.0 * n * cosTheta;
+
+   vector rs_a = n2_k2 + c2;
+   vector rp_a = n2_k2 * c2 + 1.0;
+   vector rs = (rs_a - nc2) / (rs_a + nc2);
+   vector rp = (rp_a - nc2) / (rp_a + nc2);
+
+   return 0.5 * (rs + rp);
+}
+
+// Standard Schlick Fresnel
+float mx_fresnel_schlick(float cosTheta, float F0)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return F0 + (1.0 - F0) * x5;
+}
+color mx_fresnel_schlick(float cosTheta, color F0)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return F0 + (1.0 - F0) * x5;
+}
+
+// Generalized Schlick Fresnel
+float mx_fresnel_schlick(float cosTheta, float F0, float F90)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return mix(F0, F90, x5);
+}
+color mx_fresnel_schlick(float cosTheta, color F0, color F90)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return mix(F0, F90, x5);
+}
+
+// Generalized Schlick Fresnel with a variable exponent
+color mx_fresnel_schlick(float cosTheta, float f0, float f90, float exponent)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    return mix(f0, f90, pow(x, exponent));
+}
+color mx_fresnel_schlick(float cosTheta, color f0, color f90, float exponent)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    return mix(f0, f90, pow(x, exponent));
+}
+
+void mx_generalized_schlick_edf(color color0, color color90, float exponent, EDF base, output EDF result)
+{
+    float NdotV = fabs(dot(N,-I));
+    color f = mx_fresnel_schlick(NdotV, color0, color90, exponent);
+    result = base * f;
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void NG_standard_surface_surfaceshader_100(float base, color base_color, float diffuse_roughness, float metalness, float specular, color specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, color transmission_color, float transmission_depth, color transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface1, color subsurface_color, color subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen1, color sheen_color, float sheen_roughness, float coat, color coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vector coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission1, color emission_color, color opacity, int thin_walled, vector normal1, vector tangent, output surfaceshader out)
+{
+    vector2 coat_roughness_vector_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_roughness, coat_anisotropy, coat_roughness_vector_out);
+    float coat_tangent_rotate_degree_in2_tmp = 360.000000;
+    float coat_tangent_rotate_degree_out = coat_rotation * coat_tangent_rotate_degree_in2_tmp;
+    color metal_reflectivity_out = base_color * base;
+    color metal_edgecolor_out = specular_color * specular;
+    float coat_affect_roughness_multiply1_out = coat_affect_roughness * coat;
+    float tangent_rotate_degree_in2_tmp = 360.000000;
+    float tangent_rotate_degree_out = specular_rotation * tangent_rotate_degree_in2_tmp;
+    float transmission_roughness_add_out = specular_roughness + transmission_extra_roughness;
+    float subsurface_color_nonnegative_in2_tmp = 0.000000;
+    color subsurface_color_nonnegative_out = max(subsurface_color, subsurface_color_nonnegative_in2_tmp);
+    float coat_clamped_low_tmp = 0.000000;
+    float coat_clamped_high_tmp = 1.000000;
+    float coat_clamped_out = clamp(coat, coat_clamped_low_tmp, coat_clamped_high_tmp);
+    color subsurface_radius_scaled_out = subsurface_radius * subsurface_scale;
+    float subsurface_selector_out = float(thin_walled);
+    float base_color_nonnegative_in2_tmp = 0.000000;
+    color base_color_nonnegative_out = max(base_color, base_color_nonnegative_in2_tmp);
+    color coat_attenuation_bg_tmp = color(1.000000, 1.000000, 1.000000);
+    color coat_attenuation_out = mix(coat_attenuation_bg_tmp, coat_color, coat);
+    float one_minus_coat_ior_in1_tmp = 1.000000;
+    float one_minus_coat_ior_out = one_minus_coat_ior_in1_tmp - coat_IOR;
+    float one_plus_coat_ior_in1_tmp = 1.000000;
+    float one_plus_coat_ior_out = one_plus_coat_ior_in1_tmp + coat_IOR;
+    color emission_weight_out = emission_color * emission1;
+    color opacity_luminance_out = color(0.0);
+    mx_luminance_color3(opacity, color(0.272229, 0.674082, 0.053689), opacity_luminance_out);
+    vector coat_tangent_rotate_out = vector(0.0);
+    mx_rotate_vector3(tangent, coat_tangent_rotate_degree_out, coat_normal, coat_tangent_rotate_out);
+    color artistic_ior_ior = color(0.0);
+    color artistic_ior_extinction = color(0.0);
+    mx_artistic_ior(metal_reflectivity_out, metal_edgecolor_out, artistic_ior_ior, artistic_ior_extinction);
+    float coat_affect_roughness_multiply2_out = coat_affect_roughness_multiply1_out * coat_roughness;
+    vector tangent_rotate_out = vector(0.0);
+    mx_rotate_vector3(tangent, tangent_rotate_degree_out, normal1, tangent_rotate_out);
+    float transmission_roughness_clamped_low_tmp = 0.000000;
+    float transmission_roughness_clamped_high_tmp = 1.000000;
+    float transmission_roughness_clamped_out = clamp(transmission_roughness_add_out, transmission_roughness_clamped_low_tmp, transmission_roughness_clamped_high_tmp);
+    float coat_gamma_multiply_out = coat_clamped_out * coat_affect_color;
+    float coat_ior_to_F0_sqrt_out = one_minus_coat_ior_out / one_plus_coat_ior_out;
+    int opacity_luminance_float_index_tmp = 0;
+    float opacity_luminance_float_out = mx_extract(opacity_luminance_out, opacity_luminance_float_index_tmp);
+    vector coat_tangent_rotate_normalize_out = normalize(coat_tangent_rotate_out);
+    float coat_affected_roughness_fg_tmp = 1.000000;
+    float coat_affected_roughness_out = mix(specular_roughness, coat_affected_roughness_fg_tmp, coat_affect_roughness_multiply2_out);
+    vector tangent_rotate_normalize_out = normalize(tangent_rotate_out);
+    float coat_affected_transmission_roughness_fg_tmp = 1.000000;
+    float coat_affected_transmission_roughness_out = mix(transmission_roughness_clamped_out, coat_affected_transmission_roughness_fg_tmp, coat_affect_roughness_multiply2_out);
+    float coat_gamma_in2_tmp = 1.000000;
+    float coat_gamma_out = coat_gamma_multiply_out + coat_gamma_in2_tmp;
+    float coat_ior_to_F0_out = coat_ior_to_F0_sqrt_out * coat_ior_to_F0_sqrt_out;
+    float coat_tangent_value2_tmp = 0.000000;
+    vector coat_tangent_out = mx_ternary(coat_anisotropy > coat_tangent_value2_tmp, coat_tangent_rotate_normalize_out, tangent);
+    vector2 main_roughness_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_affected_roughness_out, specular_anisotropy, main_roughness_out);
+    float main_tangent_value2_tmp = 0.000000;
+    vector main_tangent_out = mx_ternary(specular_anisotropy > main_tangent_value2_tmp, tangent_rotate_normalize_out, tangent);
+    vector2 transmission_roughness_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_affected_transmission_roughness_out, specular_anisotropy, transmission_roughness_out);
+    color coat_affected_subsurface_color_out = pow(subsurface_color_nonnegative_out, coat_gamma_out);
+    color coat_affected_diffuse_color_out = pow(base_color_nonnegative_out, coat_gamma_out);
+    float one_minus_coat_ior_to_F0_in1_tmp = 1.000000;
+    float one_minus_coat_ior_to_F0_out = one_minus_coat_ior_to_F0_in1_tmp - coat_ior_to_F0_out;
+    color emission_color0_out = color(0.0);
+    NG_convert_float_color3(one_minus_coat_ior_to_F0_out, emission_color0_out);
+    BSDF coat_bsdf_out = null_closure();
+    mx_dielectric_bsdf(coat, color(1.000000, 1.000000, 1.000000), coat_IOR, coat_roughness_vector_out, 0, 0.000000, 1.500000, coat_normal, coat_tangent_out, "ggx", "R", coat_bsdf_out);
+    float metal_bsdf_weight_tmp = 1.000000;
+    string metal_bsdf_distribution_tmp = "ggx";
+    BSDF metal_bsdf_out = metal_bsdf_weight_tmp * conductor_bsdf(normal1, main_tangent_out, main_roughness_out.x, main_roughness_out.y, artistic_ior_ior, artistic_ior_extinction, metal_bsdf_distribution_tmp, "thinfilm_thickness", thin_film_thickness, "thinfilm_ior", thin_film_IOR);
+    BSDF specular_bsdf_out = null_closure();
+    mx_dielectric_bsdf(specular, specular_color, specular_IOR, main_roughness_out, 0, thin_film_thickness, thin_film_IOR, normal1, main_tangent_out, "ggx", "R", specular_bsdf_out);
+    BSDF transmission_bsdf_out = null_closure();
+    mx_dielectric_bsdf(1.000000, transmission_color, specular_IOR, transmission_roughness_out, 0, 0.000000, 1.500000, normal1, main_tangent_out, "ggx", "T", transmission_bsdf_out);
+    BSDF sheen_bsdf_out = sheen1 * sheen_bsdf(normal1, sheen_color, sheen_roughness);
+    float translucent_bsdf_weight_tmp = 1.000000;
+    BSDF translucent_bsdf_out = translucent_bsdf_weight_tmp * translucent_bsdf(normal1, coat_affected_subsurface_color_out);
+    BSDF subsurface_bsdf_out = null_closure();
+    mx_subsurface_bsdf(1.000000, coat_affected_subsurface_color_out, subsurface_radius_scaled_out, subsurface_anisotropy, normal1, subsurface_bsdf_out);
+    BSDF selected_subsurface_bsdf_out = mix(subsurface_bsdf_out, translucent_bsdf_out, subsurface_selector_out);
+    BSDF diffuse_bsdf_out = base * oren_nayar_diffuse_bsdf(normal1, coat_affected_diffuse_color_out, diffuse_roughness);
+    BSDF subsurface_mix_out = mix(diffuse_bsdf_out, selected_subsurface_bsdf_out, subsurface1);
+    BSDF sheen_layer_out = layer(sheen_bsdf_out, subsurface_mix_out);
+    BSDF transmission_mix_out = mix(sheen_layer_out, transmission_bsdf_out, transmission);
+    BSDF specular_layer_out = layer(specular_bsdf_out, transmission_mix_out);
+    BSDF metalness_mix_out = mix(specular_layer_out, metal_bsdf_out, metalness);
+    BSDF thin_film_layer_attenuated_out = (coat_attenuation_out * metalness_mix_out);
+    BSDF coat_layer_out = layer(coat_bsdf_out, thin_film_layer_attenuated_out);
+    EDF emission_edf_out = uniform_edf(emission_weight_out);
+    EDF coat_tinted_emission_edf_out = (coat_color * emission_edf_out);
+    EDF coat_emission_edf_out = null_closure();
+    mx_generalized_schlick_edf(emission_color0_out, color(0.000000, 0.000000, 0.000000), 5.000000, coat_tinted_emission_edf_out, coat_emission_edf_out);
+    EDF blended_coat_emission_edf_out = mix(emission_edf_out, coat_emission_edf_out, coat);
+    surfaceshader shader_constructor_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(coat_layer_out, blended_coat_emission_edf_out, opacity_luminance_float_out, 0, shader_constructor_out);
+    out = shader_constructor_out;
+}
+
+void NG_legacy_metal(vector2 texcoord, int type, color custom_color, int finish, float custom_finish, float patina, int relief_enable, int relief, vector normal_custom_relief, int cutout_enable, int cutout, float cutout_size, float cutout_spacing, color custom_cutout, int tint_enable, color tint_color, vector normal_knurl, vector normal_diamondplate, vector normal_checkerplate, output surfaceshader out)
+{
+    string geomprop_Pobject_space_tmp = "object";
+    vector geomprop_Pobject_out1 = transform(geomprop_Pobject_space_tmp, P);
+    float patina_min_in1_tmp = 1.000000;
+    float patina_min_in2_tmp = 0.050000;
+    float patina_min_out = patina_min_in1_tmp - patina_min_in2_tmp;
+    float convert_type_float_out = float(type);
+    int ifcopper1_value2_tmp = 3;
+    float ifcopper1_in1_tmp = 1.000000;
+    float ifcopper1_in2_tmp = 0.000000;
+    float ifcopper1_out = mx_ternary(type == ifcopper1_value2_tmp, ifcopper1_in1_tmp, ifcopper1_in2_tmp);
+    int ifbronze1_value2_tmp = 5;
+    float ifbronze1_in1_tmp = 1.000000;
+    float ifbronze1_in2_tmp = 0.000000;
+    float ifbronze1_out = mx_ternary(type == ifbronze1_value2_tmp, ifbronze1_in1_tmp, ifbronze1_in2_tmp);
+    float switch_finish_out = 0.0;
+    NG_switch_floatI(0.000000, 0.100000, 0.300000, custom_finish, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, finish, switch_finish_out);
+    string geomprop_Nworld_space_tmp = "world";
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
+    vector2 patterns_texcoord1_out = texcoord;
+    float reciprocal_spacing_in1_tmp = 1.000000;
+    float reciprocal_spacing_out = reciprocal_spacing_in1_tmp / cutout_spacing;
+    float convert_cutout_float_out = float(cutout);
+    vector switch_relief_out = vector(0.0);
+    NG_switch_vector3I(normal_knurl, normal_diamondplate, normal_checkerplate, normal_custom_relief, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), relief, switch_relief_out);
+    string geomprop_Tworld_space_tmp = "world";
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    string geomprop_Bworld_space_tmp = "world";
+    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    float patina_range_out = 0.0;
+    NG_range_float(patina, 0.000000, 1.000000, 1.000000, 0.000000, patina_min_out, 0, patina_range_out);
+    float modulo_type_in2_tmp = 5.000000;
+    float modulo_type_out = mod(convert_type_float_out, modulo_type_in2_tmp);
+    float divide_type_in2_tmp = 5.000000;
+    float divide_type_out = convert_type_float_out / divide_type_in2_tmp;
+    float copper_or_bronze_out = ifcopper1_out + ifbronze1_out;
+    vector2 combine_spacing_out = { reciprocal_spacing_out,reciprocal_spacing_out };
+    float adjust_size_out = cutout_size * reciprocal_spacing_out;
+    float modulo_cutout_in2_tmp = 5.000000;
+    float modulo_cutout_out = mod(convert_cutout_float_out, modulo_cutout_in2_tmp);
+    float divide_cutout_in2_tmp = 5.000000;
+    float divide_cutout_out = convert_cutout_float_out / divide_cutout_in2_tmp;
+    vector relief_normalmap_out = vector(0.0);
+    mx_normalmap_float(vector(0.500000, 0.500000, 1.000000), 1.000000, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, relief_normalmap_out);
+    float patina_max_in2_tmp = 0.050000;
+    float patina_max_out = patina_range_out + patina_max_in2_tmp;
+    color circles_pattern_regular1_out = color(0.0);
+    NG_tiledcircles_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adjust_size_out, 0, circles_pattern_regular1_out);
+    color circles_pattern_staggered1_out = color(0.0);
+    NG_tiledcircles_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adjust_size_out, 1, circles_pattern_staggered1_out);
+    float adj_thickness_amount_tmp = 1.000000;
+    float adj_thickness_out = adj_thickness_amount_tmp - adjust_size_out;
+    color tiledhexagons_out = color(0.0);
+    NG_tiledhexagons_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adjust_size_out, 1, tiledhexagons_out);
+    color squares_pattern_regular2_out = color(0.0);
+    NG_grid_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adjust_size_out, 0, squares_pattern_regular2_out);
+    color crosshatch_out = color(0.0);
+    NG_crosshatch_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adjust_size_out, 0, crosshatch_out);
+    color tiledcloverleafs_out = color(0.0);
+    NG_tiledcloverleafs_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adjust_size_out, 1, tiledcloverleafs_out);
+    int relief_selection_value2_tmp = 1;
+    vector relief_selection_out = mx_ternary(relief_enable == relief_selection_value2_tmp, switch_relief_out, relief_normalmap_out);
+    color patina_noise_output_color3 = color(0.0);
+    NG_legacy_noise_color3(geomprop_Pobject_out1, color(0.000000, 0.000000, 0.000000), color(1.000000, 1.000000, 1.000000), 1, 1.000000, patina_range_out, patina_max_out, 0, 0.000000, 4.000000, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), patina_noise_output_color3);
+    color invert_col_circ1_amount_tmp = color(1.000000, 1.000000, 1.000000);
+    color invert_col_circ1_out = invert_col_circ1_amount_tmp - circles_pattern_regular1_out;
+    color invert_col_circ2_amount_tmp = color(1.000000, 1.000000, 1.000000);
+    color invert_col_circ2_out = invert_col_circ2_amount_tmp - circles_pattern_staggered1_out;
+    color squares_pattern_regular1_out = color(0.0);
+    NG_grid_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adj_thickness_out, 0, squares_pattern_regular1_out);
+    color squares_pattern_staggered1_out = color(0.0);
+    NG_grid_color3(patterns_texcoord1_out, combine_spacing_out, vector2(0.000000, 0.000000), adj_thickness_out, 1, squares_pattern_staggered1_out);
+    color invert_col_hexag_amount_tmp = color(1.000000, 1.000000, 1.000000);
+    color invert_col_hexag_out = invert_col_hexag_amount_tmp - tiledhexagons_out;
+    color combine_grecian_out = max(squares_pattern_regular2_out, crosshatch_out);
+    color invert_col_clover_amount_tmp = color(1.000000, 1.000000, 1.000000);
+    color invert_col_clover_out = invert_col_clover_amount_tmp - tiledcloverleafs_out;
+    int patina_mask_from_r_index_tmp = 0;
+    float patina_mask_from_r_out = mx_extract(patina_noise_output_color3, patina_mask_from_r_index_tmp);
+    color switch_cutout1_out = color(0.0);
+    NG_switch_color3(invert_col_circ1_out, invert_col_circ2_out, squares_pattern_regular1_out, squares_pattern_staggered1_out, invert_col_hexag_out, color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), modulo_cutout_out, switch_cutout1_out);
+    color switch_cutout2_out = color(0.0);
+    NG_switch_color3(combine_grecian_out, invert_col_clover_out, custom_cutout, color(0.000000, 0.000000, 0.000000), color(1.000000, 1.000000, 1.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), modulo_cutout_out, switch_cutout2_out);
+    float fade_mask_out = patina * patina_mask_from_r_out;
+    color switch_cutout_out = color(0.0);
+    NG_switch_color3(switch_cutout1_out, switch_cutout2_out, color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(1.000000, 1.000000, 1.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), divide_cutout_out, switch_cutout_out);
+    color mix_copper_patina_bg_tmp = color(0.737000, 0.314000, 0.184000);
+    color mix_copper_patina_fg_tmp = color(0.136229, 0.231811, 0.083546);
+    color mix_copper_patina_out = mix(mix_copper_patina_bg_tmp, mix_copper_patina_fg_tmp, fade_mask_out);
+    color mix_bronze_patina_bg_tmp = color(0.412000, 0.302000, 0.231000);
+    color mix_bronze_patina_fg_tmp = color(0.053004, 0.099831, 0.024831);
+    color mix_bronze_patina_out = mix(mix_bronze_patina_bg_tmp, mix_bronze_patina_fg_tmp, fade_mask_out);
+    float range_patina_out = 0.0;
+    NG_range_float(fade_mask_out, 0.000000, 1.000000, 1.000000, switch_finish_out, 0.750000, 1, range_patina_out);
+    int cutout_selection_value2_tmp = 1;
+    color cutout_selection_in2_tmp = color(1.000000, 1.000000, 1.000000);
+    color cutout_selection_out = mx_ternary(cutout_enable == cutout_selection_value2_tmp, switch_cutout_out, cutout_selection_in2_tmp);
+    color switch_type1_out = color(0.0);
+    NG_switch_color3(color(0.957000, 0.957000, 0.957000), custom_color, color(0.957000, 0.957000, 0.957000), mix_copper_patina_out, color(0.796000, 0.604000, 0.231000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), modulo_type_out, switch_type1_out);
+    color switch_type2_out = color(0.0);
+    NG_switch_color3(mix_bronze_patina_out, color(0.745000, 0.737000, 0.729000), color(0.647000, 0.678000, 0.649000), custom_color, color(0.220900, 0.449300, 0.793800), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), modulo_type_out, switch_type2_out);
+    float patina_on_value2_tmp = 0.500000;
+    float patina_on_out = mx_ternary(copper_or_bronze_out > patina_on_value2_tmp, range_patina_out, switch_finish_out);
+    color switch_type_out = color(0.0);
+    NG_switch_color3(switch_type1_out, switch_type2_out, color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), color(0.000000, 0.000000, 0.000000), divide_type_out, switch_type_out);
+    color multiply_tint_out = switch_type_out * tint_color;
+    int tint_selection_value2_tmp = 1;
+    color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, multiply_tint_out, switch_type_out);
+    surfaceshader stdsurf_legacy_metal_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    NG_standard_surface_surfaceshader_100(1.000000, tint_selection_out, 0.000000, 1.000000, 1.000000, tint_selection_out, patina_on_out, 1.500000, 0.000000, 0.000000, 0.000000, color(1.000000, 1.000000, 1.000000), 0.000000, color(0.000000, 0.000000, 0.000000), 0.000000, 0.000000, 0.000000, 0.000000, color(1.000000, 1.000000, 1.000000), color(1.000000, 1.000000, 1.000000), 1.000000, 0.000000, 0.000000, color(1.000000, 1.000000, 1.000000), 0.300000, 0.000000, color(1.000000, 1.000000, 1.000000), 0.100000, 0.000000, 0.000000, 1.500000, geomprop_Nworld_out1, 0.000000, 0.000000, 0.000000, 1.500000, 0.000000, color(1.000000, 1.000000, 1.000000), cutout_selection_out, 0, relief_selection_out, geomprop_Tworld_out1, stdsurf_legacy_metal_out);
+    out = stdsurf_legacy_metal_out;
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader M_legacy_metal
+[[
+    string mtlx_category = "surfacematerial",
+    string mtlx_name = "M_legacy_metal"
+]]
+(
+    surfaceshader backsurfaceshader = { 0, 0, 1.0 },
+    displacementshader displacementshader1 = vector(0.0),
+    int geomprop_UV0_index = 0
+    [[
+        string widget = "number"
+    ]],
+    string geomprop_Nworld_space = "world",
+    string geomprop_Tworld_space = "world",
+    int geomprop_Tworld_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metal_cutout_size_unit_in1 = 0.010000
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metal_cutout_size_unit_in2 = 2.540000
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metal_cutout_spacing_unit_in1 = 0.015000
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metal_cutout_spacing_unit_in2 = 2.540000
+    [[
+        string widget = "number"
+    ]],
+    string normal_map_knurl_file = "../../../Images/textures/texture_knurl_norm.png"
+    [[
+        string widget = "filename"
+    ]],
+    string normal_map_knurl_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    vector2 normal_map_knurl_realworld_offset = {0.000000, 0.000000},
+    vector2 normal_map_knurl_realworld_scale = {1.000000, 1.000000},
+    vector2 normal_map_knurl_uv_offset = {0.000000, 0.000000},
+    vector2 normal_map_knurl_uv_scale = {1.000000, 1.000000},
+    float normal_map_knurl_rotation_angle = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float normal_map_knurl_normal_scale = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    string normal_map_knurl_uaddressmode = "periodic",
+    string normal_map_knurl_vaddressmode = "periodic",
+    string normal_map_diamondplate_file = "../../../Images/textures/texture_diamond_plate_1_norm.png"
+    [[
+        string widget = "filename"
+    ]],
+    string normal_map_diamondplate_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    vector2 normal_map_diamondplate_realworld_offset = {0.000000, 0.000000},
+    vector2 normal_map_diamondplate_realworld_scale = {1.000000, 1.000000},
+    vector2 normal_map_diamondplate_uv_offset = {0.000000, 0.000000},
+    vector2 normal_map_diamondplate_uv_scale = {1.000000, 1.000000},
+    float normal_map_diamondplate_rotation_angle = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float normal_map_diamondplate_normal_scale = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    string normal_map_diamondplate_uaddressmode = "periodic",
+    string normal_map_diamondplate_vaddressmode = "periodic",
+    string normal_map_checkerplate_file = "../../../Images/textures/texture_diamond_plate_3_norm.png"
+    [[
+        string widget = "filename"
+    ]],
+    string normal_map_checkerplate_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    vector2 normal_map_checkerplate_realworld_offset = {0.000000, 0.000000},
+    vector2 normal_map_checkerplate_realworld_scale = {1.000000, 1.000000},
+    vector2 normal_map_checkerplate_uv_offset = {0.000000, 0.000000},
+    vector2 normal_map_checkerplate_uv_scale = {1.000000, 1.000000},
+    float normal_map_checkerplate_rotation_angle = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float normal_map_checkerplate_normal_scale = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    string normal_map_checkerplate_uaddressmode = "periodic",
+    string normal_map_checkerplate_vaddressmode = "periodic",
+    int SR_legacy_metal_type = 3
+    [[
+        string widget = "number"
+    ]],
+    color SR_legacy_metal_custom_color = color(0.500000, 0.500000, 0.950000),
+    int SR_legacy_metal_finish = 1
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metal_custom_finish = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float SR_legacy_metal_patina = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    int SR_legacy_metal_relief_enable = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    int SR_legacy_metal_relief = 0
+    [[
+        string widget = "number"
+    ]],
+    int SR_legacy_metal_cutout_enable = 1
+    [[
+        string widget = "checkBox"
+    ]],
+    int SR_legacy_metal_cutout = 4
+    [[
+        string widget = "number"
+    ]],
+    color SR_legacy_metal_custom_cutout = color(1.000000, 1.000000, 1.000000),
+    int SR_legacy_metal_tint_enable = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    color SR_legacy_metal_tint_color = color(0.950000, 0.500000, 0.500000),
+    output MATERIAL out = 0
+)
+{
+    textureresource normal_map_knurl_file_ = {normal_map_knurl_file, normal_map_knurl_file_colorspace};
+    textureresource normal_map_diamondplate_file_ = {normal_map_diamondplate_file, normal_map_diamondplate_file_colorspace};
+    textureresource normal_map_checkerplate_file_ = {normal_map_checkerplate_file, normal_map_checkerplate_file_colorspace};
+    vector2 geomprop_UV0_out1 = vector2(u,v);
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    float SR_legacy_metal_cutout_size_unit_out = SR_legacy_metal_cutout_size_unit_in1 * SR_legacy_metal_cutout_size_unit_in2;
+    float SR_legacy_metal_cutout_spacing_unit_out = SR_legacy_metal_cutout_spacing_unit_in1 * SR_legacy_metal_cutout_spacing_unit_in2;
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector normal_map_knurl_out = vector(0.0);
+    adsk_NG_adsk_normal_map(normal_map_knurl_file_, normal_map_knurl_realworld_offset, normal_map_knurl_realworld_scale, normal_map_knurl_uv_offset, normal_map_knurl_uv_scale, normal_map_knurl_rotation_angle, normal_map_knurl_normal_scale, normal_map_knurl_uaddressmode, normal_map_knurl_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_map_knurl_out);
+    vector normal_map_diamondplate_out = vector(0.0);
+    adsk_NG_adsk_normal_map(normal_map_diamondplate_file_, normal_map_diamondplate_realworld_offset, normal_map_diamondplate_realworld_scale, normal_map_diamondplate_uv_offset, normal_map_diamondplate_uv_scale, normal_map_diamondplate_rotation_angle, normal_map_diamondplate_normal_scale, normal_map_diamondplate_uaddressmode, normal_map_diamondplate_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_map_diamondplate_out);
+    vector normal_map_checkerplate_out = vector(0.0);
+    adsk_NG_adsk_normal_map(normal_map_checkerplate_file_, normal_map_checkerplate_realworld_offset, normal_map_checkerplate_realworld_scale, normal_map_checkerplate_uv_offset, normal_map_checkerplate_uv_scale, normal_map_checkerplate_rotation_angle, normal_map_checkerplate_normal_scale, normal_map_checkerplate_uaddressmode, normal_map_checkerplate_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_map_checkerplate_out);
+    surfaceshader SR_legacy_metal_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    NG_legacy_metal(geomprop_UV0_out1, SR_legacy_metal_type, SR_legacy_metal_custom_color, SR_legacy_metal_finish, SR_legacy_metal_custom_finish, SR_legacy_metal_patina, SR_legacy_metal_relief_enable, SR_legacy_metal_relief, geomprop_Nworld_out1, SR_legacy_metal_cutout_enable, SR_legacy_metal_cutout, SR_legacy_metal_cutout_size_unit_out, SR_legacy_metal_cutout_spacing_unit_out, SR_legacy_metal_custom_cutout, SR_legacy_metal_tint_enable, SR_legacy_metal_tint_color, normal_map_knurl_out, normal_map_diamondplate_out, normal_map_checkerplate_out, SR_legacy_metal_out);
+    MATERIAL M_legacy_metal_out = null_closure();
+    mx_surfacematerial(SR_legacy_metal_out, backsurfaceshader, displacementshader1, M_legacy_metal_out);
+    out = M_legacy_metal_out;
+}
+

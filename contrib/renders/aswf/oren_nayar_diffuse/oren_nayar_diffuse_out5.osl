@@ -1,0 +1,70 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader out5
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out5"
+]]
+(
+    string geomprop_Nworld_space = "world",
+    float diffuse5_weight = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    color diffuse5_color = color(0.600000, 0.600000, 0.600000),
+    float diffuse5_roughness = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int diffuse5_energy_compensation = 1
+    [[
+        string widget = "checkBox"
+    ]],
+    float surface5_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int surface5_thin_walled = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    output MATERIAL out51 = 0
+)
+{
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    BSDF diffuse5_out = diffuse5_weight * oren_nayar_diffuse_bsdf(geomprop_Nworld_out1, diffuse5_color, diffuse5_roughness);
+    surfaceshader surface5_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(diffuse5_out, null_closure(), surface5_opacity, surface5_thin_walled, surface5_out);
+    MATERIAL _surfacematerial__out = null_closure();
+    mx_surfacematerial(surface5_out, surfaceshader(null_closure(), null_closure(), 1.0), vector(0.0), _surfacematerial__out);
+    out51 = _surfacematerial__out;
+}
+

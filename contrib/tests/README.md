@@ -33,7 +33,7 @@ From the `contrib/tests` directory:
 pytest test_render.py -v                # all ASWF materials
 pytest test_render.py -k "brass" -v     # single material by keyword
 pytest test_render.py --no-render -v    # shader generation only (no GPU)
-pytest test_render.py -m osl --no-render -v  # OSL backend (off by default)
+pytest test_render.py -m osl -v  # OSL backend only
 
 pytest test_render_metashade.py -v      # Metashade override tests
 ```
@@ -187,9 +187,9 @@ means running `test_render.py` (stdlib) before
 | `--flip-threshold` | `0.05` | Mean FLIP error threshold |
 
 Tests that use the `backend` fixture run once per backend (`glsl`, `osl`).
-Each backend id is also a marker; `pyproject.toml` deselects `osl` by
-default because it has no committed baselines yet.  Select backends with
-`-m`, e.g. `-m osl` or `-m "glsl or osl"`.
+Each backend id is also a marker, so select backends with `-m`, e.g.
+`-m glsl` or `-m osl`.  The OSL backend generates and compares shaders
+only; it doesn't render yet.
 
 ## CI Workflow
 

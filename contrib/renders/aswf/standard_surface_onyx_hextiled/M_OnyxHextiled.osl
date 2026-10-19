@@ -1,0 +1,817 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void NG_convert_float_vector2(float in, output vector2 out)
+{
+    vector2 combine_out = { in,in };
+    out = combine_out;
+}
+
+vector2 mx_transform_uv(vector2 texcoord)
+{
+    return vector2(texcoord.x, 1.0 - texcoord.y);
+}
+// https://www.shadertoy.com/view/4djSRW
+vector2 mx_hextile_hash(vector2 p)
+{
+    vector pp3 = vector(p.x, p.y, p.x) * vector(0.1031, 0.1030, 0.0973);
+    pp3 -= floor(pp3);
+    pp3 += dot(pp3, vector(pp3[1], pp3[2], pp3[0]) + 33.33);
+    vector2 result = vector2(pp3[0] + pp3[1], pp3[0] + pp3[2]) * vector2(pp3[2], pp3[1]);
+    return result - floor(result);
+}
+
+// Christophe Schlick. "Fast Alternatives to Perlin's Bias and Gain Functions".
+// In Graphics Gems IV, Morgan Kaufmann, 1994, pages 401-403.
+// https://dept-info.labri.fr/~schlick/DOC/gem2.html
+float mx_schlick_gain(float x, float r)
+{
+    float rr = clamp(r, 0.001, 0.999);  // to avoid glitch
+    float a = (1.0 / rr - 2.0) * (1.0 - 2.0 * x);
+    return (x < 0.5) ? x / (a + 1.0) : (a - x) / (a - 1.0);
+}
+
+struct HextileData
+{
+    vector2 coords[3];
+    vector weights;
+    vector rotations;
+};
+
+// Helper function to compute blend weights with optional falloff
+vector mx_hextile_compute_blend_weights(vector luminance_weights, vector tile_weights, float falloff)
+{
+    vector w = luminance_weights * pow(tile_weights, 7.0);
+    w /= (w[0] + w[1] + w[2]);
+
+    if (falloff != 0.5)
+    {
+        w[0] = mx_schlick_gain(w[0], falloff);
+        w[1] = mx_schlick_gain(w[1], falloff);
+        w[2] = mx_schlick_gain(w[2], falloff);
+        w /= (w[0] + w[1] + w[2]);
+    }
+    return w;
+}
+
+// Morten S. Mikkelsen, Practical Real-Time Hex-Tiling, Journal of Computer Graphics
+// Techniques (JCGT), vol. 11, no. 2, 77-94, 2022
+// http://jcgt.org/published/0011/03/05/
+HextileData mx_hextile_coord(
+    vector2 coord,
+    float rotation,
+    vector2 rotation_range,
+    float scale,
+    vector2 scale_range,
+    float offset,
+    vector2 offset_range)
+{
+    float sqrt3_2 = sqrt(3.0) * 2.0;
+
+    // Scale coord to maintain the original fit
+    vector2 st = coord * sqrt3_2;
+
+    // Skew input space into simplex triangle grid
+    // (1, 0, -tan(30), 2*tan(30))
+    vector2 st_skewed = vector2(st.x + st.y * -0.57735027, st.y * 1.15470054);
+
+    // Barycentric weights
+    vector2 st_frac = fmod(st_skewed, 1.0);
+    // Handle negative coordinates properly
+    if (st_frac.x < 0.0) st_frac.x += 1.0;
+    if (st_frac.y < 0.0) st_frac.y += 1.0;
+
+    vector temp = vector(st_frac.x, st_frac.y, 0.0);
+    temp[2] = 1.0 - temp[0] - temp[1];
+
+    float s = step(0.0, -temp[2]);
+    float s2 = 2.0 * s - 1.0;
+
+    float w1 = -temp[2] * s2;
+    float w2 = s - temp[1] * s2;
+    float w3 = s - temp[0] * s2;
+
+    // Vertex IDs
+    int base_id_x = int(floor(st_skewed.x));
+    int base_id_y = int(floor(st_skewed.y));
+    int si = int(s);
+    int id1_x = base_id_x + si;
+    int id1_y = base_id_y + si;
+    int id2_x = base_id_x + si;
+    int id2_y = base_id_y + 1 - si;
+    int id3_x = base_id_x + 1 - si;
+    int id3_y = base_id_y + si;
+
+    // Vertex IDs as array for looping
+    int id_x[3] = { id1_x, id2_x, id3_x };
+    int id_y[3] = { id1_y, id2_y, id3_y };
+
+    // Tile centers, random values, and offsets
+    vector2 ctr[3], rand[3], offsets[3];
+    vector2 seed_offset = vector2(0.12345, 0.12345);  // To avoid some zeros
+    vector2 rr = vector2(radians(rotation_range.x), radians(rotation_range.y));
+    vector rotations, scales;
+
+    for (int i = 0; i < 3; i++)
+    {
+        ctr[i] = vector2(float(id_x[i]) + float(id_y[i]) * 0.5, float(id_y[i]) / 1.15470054) / sqrt3_2;
+        rand[i] = mx_hextile_hash(vector2(float(id_x[i]), float(id_y[i])) + seed_offset);
+        rotations[i] = mix(rr.x, rr.y, rand[i].x * rotation);
+        scales[i] = mix(1.0, mix(scale_range.x, scale_range.y, rand[i].y), scale);
+        offsets[i] = vector2(
+            mix(offset_range.x, offset_range.y, rand[i].x * offset),
+            mix(offset_range.x, offset_range.y, rand[i].y * offset));
+    }
+
+    vector sin_r = sin(rotations);
+    vector cos_r = cos(rotations);
+
+    HextileData tile_data;
+    tile_data.weights = vector(w1, w2, w3);
+    tile_data.rotations = rotations;
+
+    // Transform coordinates for each tile
+    for (int i = 0; i < 3; i++)
+    {
+        vector2 d = coord - ctr[i];
+        float c = cos_r[i];
+        float s = sin_r[i];
+        float sc = scales[i];
+
+        tile_data.coords[i] = vector2(
+            (d.x * c - d.y * s) / sc + ctr[i].x + offsets[i].x,
+            (d.x * s + d.y * c) / sc + ctr[i].y + offsets[i].y);
+    }
+
+    return tile_data;
+}
+
+// Blend 3 normals by blending the gradients
+// Morten S. Mikkelsen, Surface Gradient-Based Bump Mapping Framework, Journal of
+// Computer Graphics Techniques (JCGT), vol. 9, no. 3, 60-90, 2020
+// http://jcgt.org/published/0009/03/04/
+vector mx_normals_to_gradient(vector N, vector Np)
+{
+    float d = dot(N, Np);
+    vector g = (d * N - Np) / max(1e-8, abs(d));
+    return g;
+}
+
+vector mx_gradient_blend_3_normals(vector N, vector N1, float N1_weight, vector N2, float N2_weight, vector N3, float N3_weight)
+{
+    float w1 = clamp(N1_weight, 0.0, 1.0);
+    float w2 = clamp(N2_weight, 0.0, 1.0);
+    float w3 = clamp(N3_weight, 0.0, 1.0);
+
+    vector g1 = mx_normals_to_gradient(N, N1);
+    vector g2 = mx_normals_to_gradient(N, N2);
+    vector g3 = mx_normals_to_gradient(N, N3);
+
+    // Blend
+    vector gg = w1 * g1 + w2 * g2 + w3 * g3;
+
+    // Gradient to normal
+    return normalize(N - gg);
+}
+
+// Axis-angle rotation matrix
+matrix mx_axis_rotation_matrix(vector axis, float angle)
+{
+    float s = sin(angle);
+    float c = cos(angle);
+    float omc = 1.0 - c;
+    vector a = axis;
+
+    return matrix(
+        a[0]*a[0]*omc + c,       a[0]*a[1]*omc - a[2]*s,  a[0]*a[2]*omc + a[1]*s,  0.0,
+        a[1]*a[0]*omc + a[2]*s,  a[1]*a[1]*omc + c,       a[1]*a[2]*omc - a[0]*s,  0.0,
+        a[2]*a[0]*omc - a[1]*s,  a[2]*a[1]*omc + a[0]*s,  a[2]*a[2]*omc + c,       0.0,
+        0.0,                     0.0,                     0.0,                     1.0
+    );
+}
+
+// Morten S. Mikkelsen, Practical Real-Time Hex-Tiling, Journal of Computer Graphics
+// Techniques (JCGT), vol. 11, no. 2, 77-94, 2022
+// http://jcgt.org/published/0011/03/05/
+void mx_hextiledimage_color3(
+    textureresource file,
+    color default_value,
+    vector2 texcoord,
+    vector2 tiling,
+    float rotation,
+    vector2 rotationrange,
+    float scale,
+    vector2 scalerange,
+    float offset,
+    vector2 offsetrange,
+    float falloff,
+    float falloffcontrast,
+    color lumacoeffs,
+    output color result)
+{
+    if (file.filename == "")
+    {
+        result = default_value;
+        return;
+    }
+
+    vector2 coord = mx_transform_uv(texcoord * tiling);
+
+    HextileData tile_data = mx_hextile_coord(coord, rotation, rotationrange, scale, scalerange, offset, offsetrange);
+
+    // Sample textures for each tile
+    color c[3];
+    vector cw;
+
+    for (int i = 0; i < 3; i++)
+    {
+        c[i] = texture(file.filename, tile_data.coords[i].x, tile_data.coords[i].y,
+                       "missingcolor", default_value,
+                       "swrap", "periodic", "twrap", "periodic"
+#if (OSL_VERSION_MAJOR == 1 && OSL_VERSION_MINOR >= 14) || (OSL_VERSION_MAJOR > 1)
+                       , "colorspace", file.colorspace
+#endif
+                       );
+        cw[i] = dot(vector(c[i]), vector(lumacoeffs));
+    }
+
+    // Luminance-based blend weights
+    cw = mix(vector(1.0), cw, vector(falloffcontrast));
+    vector w = mx_hextile_compute_blend_weights(cw, tile_data.weights, falloff);
+
+    // Blend colors
+    result = w[0] * c[0] + w[1] * c[1] + w[2] * c[2];
+}
+
+void NG_separate3_color3(color in, output float outr, output float outg, output float outb)
+{
+    int N_extract_0_index_tmp = 0;
+    float N_extract_0_out = mx_extract(in, N_extract_0_index_tmp);
+    int N_extract_1_index_tmp = 1;
+    float N_extract_1_out = mx_extract(in, N_extract_1_index_tmp);
+    int N_extract_2_index_tmp = 2;
+    float N_extract_2_out = mx_extract(in, N_extract_2_index_tmp);
+    outr = N_extract_0_out;
+    outg = N_extract_1_out;
+    outb = N_extract_2_out;
+}
+
+void NG_srgb_texture_to_lin_rec709_color3(color in, output color out)
+{
+    float bias_in2_tmp = 0.055000;
+    color bias_out = in + bias_in2_tmp;
+    float linSeg_in2_tmp = 12.920000;
+    color linSeg_out = in / linSeg_in2_tmp;
+    float colorSeparate_outr = 0.0;
+    float colorSeparate_outg = 0.0;
+    float colorSeparate_outb = 0.0;
+    NG_separate3_color3(in, colorSeparate_outr, colorSeparate_outg, colorSeparate_outb);
+    float max_in2_tmp = 0.000000;
+    color max_out = max(bias_out, max_in2_tmp);
+    float isAboveR_value2_tmp = 0.040450;
+    float isAboveR_in1_tmp = 1.000000;
+    float isAboveR_in2_tmp = 0.000000;
+    float isAboveR_out = mx_ternary(colorSeparate_outr > isAboveR_value2_tmp, isAboveR_in1_tmp, isAboveR_in2_tmp);
+    float isAboveG_value2_tmp = 0.040450;
+    float isAboveG_in1_tmp = 1.000000;
+    float isAboveG_in2_tmp = 0.000000;
+    float isAboveG_out = mx_ternary(colorSeparate_outg > isAboveG_value2_tmp, isAboveG_in1_tmp, isAboveG_in2_tmp);
+    float isAboveB_value2_tmp = 0.040450;
+    float isAboveB_in1_tmp = 1.000000;
+    float isAboveB_in2_tmp = 0.000000;
+    float isAboveB_out = mx_ternary(colorSeparate_outb > isAboveB_value2_tmp, isAboveB_in1_tmp, isAboveB_in2_tmp);
+    float scale_in2_tmp = 1.055000;
+    color scale_out = max_out / scale_in2_tmp;
+    color isAbove_out = color( isAboveR_out,isAboveG_out,isAboveB_out );
+    float powSeg_in2_tmp = 2.400000;
+    color powSeg_out = pow(scale_out, powSeg_in2_tmp);
+    color mix_out = mix(linSeg_out, powSeg_out, isAbove_out);
+    out = mix_out;
+}
+
+void mx_roughness_anisotropy(float roughness, float anisotropy, output vector2 result)
+{
+    float roughness_sqr = clamp(roughness*roughness, M_FLOAT_EPS, 1.0);
+    if (anisotropy > 0.0)
+    {
+        float aspect = sqrt(1.0 - clamp(anisotropy, 0.0, 0.98));
+        result.x = min(roughness_sqr / aspect, 1.0);
+        result.y = roughness_sqr * aspect;
+    }
+    else
+    {
+        result.x = roughness_sqr;
+        result.y = roughness_sqr;
+    }
+}
+
+void mx_luminance_color3(color in, color lumacoeffs, output color result)
+{
+    result = dot(in, lumacoeffs);
+}
+
+void mx_rotate_vector3(vector _in, float amount, vector axis, output vector result)
+{
+    // Based on https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula, where the
+    // Wikipedia formula follows v' = M * v and MaterialX follows v' = v * M, thus the
+    // order of parameters to cross are reversed.
+
+    vector nAxis = normalize(axis);
+    float rotationRadians = radians(amount);
+    float s = sin(rotationRadians);
+    float c = cos(rotationRadians);
+    float oc = 1.0 - c;
+    result = _in * c + cross(_in, nAxis) * s + nAxis * dot(nAxis, _in) * oc;
+}
+
+void mx_artistic_ior(color reflectivity, color edge_color, output vector ior, output vector extinction)
+{
+    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
+    // http://jcgt.org/published/0003/04/03/paper.pdf
+
+    color r = clamp(reflectivity, 0.0, 0.99);
+    color r_sqrt = sqrt(r);
+    color n_min = (1.0 - r) / (1.0 + r);
+    color n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
+    ior = mix(n_max, n_min, edge_color);
+
+    color np1 = ior + 1.0;
+    color nm1 = ior - 1.0;
+    color k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
+    k2 = max(k2, 0.0);
+    extinction = sqrt(k2);
+}
+
+void mx_dielectric_bsdf(float weight, color tint, float ior, vector2 roughness, int retroreflective, float thinfilm_thickness, float thinfilm_ior, normal N, vector U, string distribution, string scatter_mode, output BSDF bsdf)
+{
+    color reflection_tint = (scatter_mode == "T") ? color(0.0) : tint;
+    color transmission_tint = (scatter_mode == "R") ? color(0.0) : tint;
+    bsdf = weight * dielectric_bsdf(N, U, reflection_tint, transmission_tint, roughness.x, roughness.y, ior, distribution, "thinfilm_thickness", thinfilm_thickness, "thinfilm_ior", thinfilm_ior);
+}
+
+void mx_subsurface_bsdf(float weight, color albedo, color radius, float anisotropy, normal N, output BSDF bsdf)
+{
+#if (OSL_VERSION_MAJOR == 1 && OSL_VERSION_MINOR >= 14) || (OSL_VERSION_MAJOR > 1)
+    bsdf = weight * subsurface_bssrdf(N, albedo, radius, anisotropy);
+#else
+    bsdf = weight * subsurface_bssrdf(N, albedo, 1.0, radius, anisotropy);
+#endif
+}
+
+void NG_convert_float_color3(float in, output color out)
+{
+    color combine_out = color( in,in,in );
+    out = combine_out;
+}
+
+float mx_square(float x)
+{
+    return x*x;
+}
+
+vector2 mx_square(vector2 x)
+{
+    return x*x;
+}
+
+vector mx_square(vector x)
+{
+    return x*x;
+}
+
+vector4 mx_square(vector4 x)
+{
+    return x*x;
+}
+
+float mx_pow5(float x)
+{
+    return mx_square(mx_square(x)) * x;
+}
+
+color mx_fresnel_conductor(float cosTheta, vector n, vector k)
+{
+   float c2 = cosTheta*cosTheta;
+   vector n2_k2 = n*n + k*k;
+   vector nc2 = 2.0 * n * cosTheta;
+
+   vector rs_a = n2_k2 + c2;
+   vector rp_a = n2_k2 * c2 + 1.0;
+   vector rs = (rs_a - nc2) / (rs_a + nc2);
+   vector rp = (rp_a - nc2) / (rp_a + nc2);
+
+   return 0.5 * (rs + rp);
+}
+
+// Standard Schlick Fresnel
+float mx_fresnel_schlick(float cosTheta, float F0)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return F0 + (1.0 - F0) * x5;
+}
+color mx_fresnel_schlick(float cosTheta, color F0)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return F0 + (1.0 - F0) * x5;
+}
+
+// Generalized Schlick Fresnel
+float mx_fresnel_schlick(float cosTheta, float F0, float F90)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return mix(F0, F90, x5);
+}
+color mx_fresnel_schlick(float cosTheta, color F0, color F90)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    float x5 = mx_pow5(x);
+    return mix(F0, F90, x5);
+}
+
+// Generalized Schlick Fresnel with a variable exponent
+color mx_fresnel_schlick(float cosTheta, float f0, float f90, float exponent)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    return mix(f0, f90, pow(x, exponent));
+}
+color mx_fresnel_schlick(float cosTheta, color f0, color f90, float exponent)
+{
+    float x = clamp(1.0 - cosTheta, 0.0, 1.0);
+    return mix(f0, f90, pow(x, exponent));
+}
+
+void mx_generalized_schlick_edf(color color0, color color90, float exponent, EDF base, output EDF result)
+{
+    float NdotV = fabs(dot(N,-I));
+    color f = mx_fresnel_schlick(NdotV, color0, color90, exponent);
+    result = base * f;
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void NG_standard_surface_surfaceshader_100(float base, color base_color, float diffuse_roughness, float metalness, float specular, color specular_color, float specular_roughness, float specular_IOR, float specular_anisotropy, float specular_rotation, float transmission, color transmission_color, float transmission_depth, color transmission_scatter, float transmission_scatter_anisotropy, float transmission_dispersion, float transmission_extra_roughness, float subsurface1, color subsurface_color, color subsurface_radius, float subsurface_scale, float subsurface_anisotropy, float sheen1, color sheen_color, float sheen_roughness, float coat, color coat_color, float coat_roughness, float coat_anisotropy, float coat_rotation, float coat_IOR, vector coat_normal, float coat_affect_color, float coat_affect_roughness, float thin_film_thickness, float thin_film_IOR, float emission1, color emission_color, color opacity, int thin_walled, vector normal1, vector tangent, output surfaceshader out)
+{
+    vector2 coat_roughness_vector_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_roughness, coat_anisotropy, coat_roughness_vector_out);
+    float coat_tangent_rotate_degree_in2_tmp = 360.000000;
+    float coat_tangent_rotate_degree_out = coat_rotation * coat_tangent_rotate_degree_in2_tmp;
+    color metal_reflectivity_out = base_color * base;
+    color metal_edgecolor_out = specular_color * specular;
+    float coat_affect_roughness_multiply1_out = coat_affect_roughness * coat;
+    float tangent_rotate_degree_in2_tmp = 360.000000;
+    float tangent_rotate_degree_out = specular_rotation * tangent_rotate_degree_in2_tmp;
+    float transmission_roughness_add_out = specular_roughness + transmission_extra_roughness;
+    float subsurface_color_nonnegative_in2_tmp = 0.000000;
+    color subsurface_color_nonnegative_out = max(subsurface_color, subsurface_color_nonnegative_in2_tmp);
+    float coat_clamped_low_tmp = 0.000000;
+    float coat_clamped_high_tmp = 1.000000;
+    float coat_clamped_out = clamp(coat, coat_clamped_low_tmp, coat_clamped_high_tmp);
+    color subsurface_radius_scaled_out = subsurface_radius * subsurface_scale;
+    float subsurface_selector_out = float(thin_walled);
+    float base_color_nonnegative_in2_tmp = 0.000000;
+    color base_color_nonnegative_out = max(base_color, base_color_nonnegative_in2_tmp);
+    color coat_attenuation_bg_tmp = color(1.000000, 1.000000, 1.000000);
+    color coat_attenuation_out = mix(coat_attenuation_bg_tmp, coat_color, coat);
+    float one_minus_coat_ior_in1_tmp = 1.000000;
+    float one_minus_coat_ior_out = one_minus_coat_ior_in1_tmp - coat_IOR;
+    float one_plus_coat_ior_in1_tmp = 1.000000;
+    float one_plus_coat_ior_out = one_plus_coat_ior_in1_tmp + coat_IOR;
+    color emission_weight_out = emission_color * emission1;
+    color opacity_luminance_out = color(0.0);
+    mx_luminance_color3(opacity, color(0.272229, 0.674082, 0.053689), opacity_luminance_out);
+    vector coat_tangent_rotate_out = vector(0.0);
+    mx_rotate_vector3(tangent, coat_tangent_rotate_degree_out, coat_normal, coat_tangent_rotate_out);
+    color artistic_ior_ior = color(0.0);
+    color artistic_ior_extinction = color(0.0);
+    mx_artistic_ior(metal_reflectivity_out, metal_edgecolor_out, artistic_ior_ior, artistic_ior_extinction);
+    float coat_affect_roughness_multiply2_out = coat_affect_roughness_multiply1_out * coat_roughness;
+    vector tangent_rotate_out = vector(0.0);
+    mx_rotate_vector3(tangent, tangent_rotate_degree_out, normal1, tangent_rotate_out);
+    float transmission_roughness_clamped_low_tmp = 0.000000;
+    float transmission_roughness_clamped_high_tmp = 1.000000;
+    float transmission_roughness_clamped_out = clamp(transmission_roughness_add_out, transmission_roughness_clamped_low_tmp, transmission_roughness_clamped_high_tmp);
+    float coat_gamma_multiply_out = coat_clamped_out * coat_affect_color;
+    float coat_ior_to_F0_sqrt_out = one_minus_coat_ior_out / one_plus_coat_ior_out;
+    int opacity_luminance_float_index_tmp = 0;
+    float opacity_luminance_float_out = mx_extract(opacity_luminance_out, opacity_luminance_float_index_tmp);
+    vector coat_tangent_rotate_normalize_out = normalize(coat_tangent_rotate_out);
+    float coat_affected_roughness_fg_tmp = 1.000000;
+    float coat_affected_roughness_out = mix(specular_roughness, coat_affected_roughness_fg_tmp, coat_affect_roughness_multiply2_out);
+    vector tangent_rotate_normalize_out = normalize(tangent_rotate_out);
+    float coat_affected_transmission_roughness_fg_tmp = 1.000000;
+    float coat_affected_transmission_roughness_out = mix(transmission_roughness_clamped_out, coat_affected_transmission_roughness_fg_tmp, coat_affect_roughness_multiply2_out);
+    float coat_gamma_in2_tmp = 1.000000;
+    float coat_gamma_out = coat_gamma_multiply_out + coat_gamma_in2_tmp;
+    float coat_ior_to_F0_out = coat_ior_to_F0_sqrt_out * coat_ior_to_F0_sqrt_out;
+    float coat_tangent_value2_tmp = 0.000000;
+    vector coat_tangent_out = mx_ternary(coat_anisotropy > coat_tangent_value2_tmp, coat_tangent_rotate_normalize_out, tangent);
+    vector2 main_roughness_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_affected_roughness_out, specular_anisotropy, main_roughness_out);
+    float main_tangent_value2_tmp = 0.000000;
+    vector main_tangent_out = mx_ternary(specular_anisotropy > main_tangent_value2_tmp, tangent_rotate_normalize_out, tangent);
+    vector2 transmission_roughness_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(coat_affected_transmission_roughness_out, specular_anisotropy, transmission_roughness_out);
+    color coat_affected_subsurface_color_out = pow(subsurface_color_nonnegative_out, coat_gamma_out);
+    color coat_affected_diffuse_color_out = pow(base_color_nonnegative_out, coat_gamma_out);
+    float one_minus_coat_ior_to_F0_in1_tmp = 1.000000;
+    float one_minus_coat_ior_to_F0_out = one_minus_coat_ior_to_F0_in1_tmp - coat_ior_to_F0_out;
+    color emission_color0_out = color(0.0);
+    NG_convert_float_color3(one_minus_coat_ior_to_F0_out, emission_color0_out);
+    BSDF coat_bsdf_out = null_closure();
+    mx_dielectric_bsdf(coat, color(1.000000, 1.000000, 1.000000), coat_IOR, coat_roughness_vector_out, 0, 0.000000, 1.500000, coat_normal, coat_tangent_out, "ggx", "R", coat_bsdf_out);
+    float metal_bsdf_weight_tmp = 1.000000;
+    string metal_bsdf_distribution_tmp = "ggx";
+    BSDF metal_bsdf_out = metal_bsdf_weight_tmp * conductor_bsdf(normal1, main_tangent_out, main_roughness_out.x, main_roughness_out.y, artistic_ior_ior, artistic_ior_extinction, metal_bsdf_distribution_tmp, "thinfilm_thickness", thin_film_thickness, "thinfilm_ior", thin_film_IOR);
+    BSDF specular_bsdf_out = null_closure();
+    mx_dielectric_bsdf(specular, specular_color, specular_IOR, main_roughness_out, 0, thin_film_thickness, thin_film_IOR, normal1, main_tangent_out, "ggx", "R", specular_bsdf_out);
+    BSDF transmission_bsdf_out = null_closure();
+    mx_dielectric_bsdf(1.000000, transmission_color, specular_IOR, transmission_roughness_out, 0, 0.000000, 1.500000, normal1, main_tangent_out, "ggx", "T", transmission_bsdf_out);
+    BSDF sheen_bsdf_out = sheen1 * sheen_bsdf(normal1, sheen_color, sheen_roughness);
+    float translucent_bsdf_weight_tmp = 1.000000;
+    BSDF translucent_bsdf_out = translucent_bsdf_weight_tmp * translucent_bsdf(normal1, coat_affected_subsurface_color_out);
+    BSDF subsurface_bsdf_out = null_closure();
+    mx_subsurface_bsdf(1.000000, coat_affected_subsurface_color_out, subsurface_radius_scaled_out, subsurface_anisotropy, normal1, subsurface_bsdf_out);
+    BSDF selected_subsurface_bsdf_out = mix(subsurface_bsdf_out, translucent_bsdf_out, subsurface_selector_out);
+    BSDF diffuse_bsdf_out = base * oren_nayar_diffuse_bsdf(normal1, coat_affected_diffuse_color_out, diffuse_roughness);
+    BSDF subsurface_mix_out = mix(diffuse_bsdf_out, selected_subsurface_bsdf_out, subsurface1);
+    BSDF sheen_layer_out = layer(sheen_bsdf_out, subsurface_mix_out);
+    BSDF transmission_mix_out = mix(sheen_layer_out, transmission_bsdf_out, transmission);
+    BSDF specular_layer_out = layer(specular_bsdf_out, transmission_mix_out);
+    BSDF metalness_mix_out = mix(specular_layer_out, metal_bsdf_out, metalness);
+    BSDF thin_film_layer_attenuated_out = (coat_attenuation_out * metalness_mix_out);
+    BSDF coat_layer_out = layer(coat_bsdf_out, thin_film_layer_attenuated_out);
+    EDF emission_edf_out = uniform_edf(emission_weight_out);
+    EDF coat_tinted_emission_edf_out = (coat_color * emission_edf_out);
+    EDF coat_emission_edf_out = null_closure();
+    mx_generalized_schlick_edf(emission_color0_out, color(0.000000, 0.000000, 0.000000), 5.000000, coat_tinted_emission_edf_out, coat_emission_edf_out);
+    EDF blended_coat_emission_edf_out = mix(emission_edf_out, coat_emission_edf_out, coat);
+    surfaceshader shader_constructor_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(coat_layer_out, blended_coat_emission_edf_out, opacity_luminance_float_out, 0, shader_constructor_out);
+    out = shader_constructor_out;
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader M_OnyxHextiled
+[[
+    string mtlx_category = "surfacematerial",
+    string mtlx_name = "M_OnyxHextiled"
+]]
+(
+    surfaceshader backsurfaceshader = { 0, 0, 1.0 },
+    displacementshader displacementshader1 = vector(0.0),
+    string geomprop_Nworld_space = "world",
+    string geomprop_Tworld_space = "world",
+    int geomprop_Tworld_index = 0
+    [[
+        string widget = "number"
+    ]],
+    int geomprop_UV0_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float tiling_vector2_in = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    string image_color_file = "../../../Images/onyx_color.jpg"
+    [[
+        string widget = "filename"
+    ]],
+    string image_color_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    color image_color_default = color(0.000000, 0.000000, 0.000000),
+    float image_color_rotation = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 image_color_rotationrange = {0.000000, 360.000000},
+    float image_color_scale = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 image_color_scalerange = {0.500000, 2.000000},
+    float image_color_offset = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 image_color_offsetrange = {0.000000, 1.000000},
+    float image_color_falloff = 0.750000
+    [[
+        string widget = "number"
+    ]],
+    float image_color_falloffcontrast = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    color image_color_lumacoeffs = color(0.272229, 0.674082, 0.053689),
+    string image_roughness_file = "../../../Images/onyx_roughness.jpg"
+    [[
+        string widget = "filename"
+    ]],
+    string image_roughness_file_colorspace = ""
+    [[
+        string widget = "colorspace"
+    ]],
+    color image_roughness_default = color(0.000000, 0.000000, 0.000000),
+    float image_roughness_rotation = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 image_roughness_rotationrange = {0.000000, 360.000000},
+    float image_roughness_scale = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 image_roughness_scalerange = {0.500000, 2.000000},
+    float image_roughness_offset = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    vector2 image_roughness_offsetrange = {0.000000, 1.000000},
+    float image_roughness_falloff = 0.750000
+    [[
+        string widget = "number"
+    ]],
+    float image_roughness_falloffcontrast = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    color image_roughness_lumacoeffs = color(0.272229, 0.674082, 0.053689),
+    int image_roughness_float_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_base = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_diffuse_roughness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_metalness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_specular = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_specular_color = color(1.000000, 1.000000, 1.000000),
+    float N_StandardSurface_specular_IOR = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_specular_anisotropy = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_specular_rotation = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_transmission = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_transmission_color = color(1.000000, 1.000000, 1.000000),
+    float N_StandardSurface_transmission_depth = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_transmission_scatter = color(0.000000, 0.000000, 0.000000),
+    float N_StandardSurface_transmission_scatter_anisotropy = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_transmission_dispersion = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_transmission_extra_roughness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_subsurface = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_subsurface_color = color(1.000000, 1.000000, 1.000000),
+    color N_StandardSurface_subsurface_radius = color(1.000000, 1.000000, 1.000000),
+    float N_StandardSurface_subsurface_scale = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_subsurface_anisotropy = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_sheen = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_sheen_color = color(1.000000, 1.000000, 1.000000),
+    float N_StandardSurface_sheen_roughness = 0.300000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_coat = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_coat_color = color(1.000000, 1.000000, 1.000000),
+    float N_StandardSurface_coat_roughness = 0.100000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_coat_anisotropy = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_coat_rotation = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_coat_IOR = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_coat_affect_color = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_coat_affect_roughness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_thin_film_thickness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_thin_film_IOR = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    float N_StandardSurface_emission = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color N_StandardSurface_emission_color = color(1.000000, 1.000000, 1.000000),
+    color N_StandardSurface_opacity = color(1.000000, 1.000000, 1.000000),
+    int N_StandardSurface_thin_walled = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    output MATERIAL out = 0
+)
+{
+    textureresource image_color_file_ = {image_color_file, image_color_file_colorspace};
+    textureresource image_roughness_file_ = {image_roughness_file, image_roughness_file_colorspace};
+    vector2 geomprop_UV0_out1 = vector2(u,v);
+    vector2 tiling_vector2_out = vector2(0.0, 0.0);
+    NG_convert_float_vector2(tiling_vector2_in, tiling_vector2_out);
+    color image_color_out = color(0.0);
+    mx_hextiledimage_color3(image_color_file_, image_color_default, geomprop_UV0_out1, tiling_vector2_out, image_color_rotation, image_color_rotationrange, image_color_scale, image_color_scalerange, image_color_offset, image_color_offsetrange, image_color_falloff, image_color_falloffcontrast, image_color_lumacoeffs, image_color_out);
+    color image_color_out_cm_out = color(0.0);
+    NG_srgb_texture_to_lin_rec709_color3(image_color_out, image_color_out_cm_out);
+    color image_roughness_out = color(0.0);
+    mx_hextiledimage_color3(image_roughness_file_, image_roughness_default, geomprop_UV0_out1, tiling_vector2_out, image_roughness_rotation, image_roughness_rotationrange, image_roughness_scale, image_roughness_scalerange, image_roughness_offset, image_roughness_offsetrange, image_roughness_falloff, image_roughness_falloffcontrast, image_roughness_lumacoeffs, image_roughness_out);
+    float image_roughness_float_out = mx_extract(image_roughness_out, image_roughness_float_index);
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    surfaceshader N_StandardSurface_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    NG_standard_surface_surfaceshader_100(N_StandardSurface_base, image_color_out_cm_out, N_StandardSurface_diffuse_roughness, N_StandardSurface_metalness, N_StandardSurface_specular, N_StandardSurface_specular_color, image_roughness_float_out, N_StandardSurface_specular_IOR, N_StandardSurface_specular_anisotropy, N_StandardSurface_specular_rotation, N_StandardSurface_transmission, N_StandardSurface_transmission_color, N_StandardSurface_transmission_depth, N_StandardSurface_transmission_scatter, N_StandardSurface_transmission_scatter_anisotropy, N_StandardSurface_transmission_dispersion, N_StandardSurface_transmission_extra_roughness, N_StandardSurface_subsurface, N_StandardSurface_subsurface_color, N_StandardSurface_subsurface_radius, N_StandardSurface_subsurface_scale, N_StandardSurface_subsurface_anisotropy, N_StandardSurface_sheen, N_StandardSurface_sheen_color, N_StandardSurface_sheen_roughness, N_StandardSurface_coat, N_StandardSurface_coat_color, N_StandardSurface_coat_roughness, N_StandardSurface_coat_anisotropy, N_StandardSurface_coat_rotation, N_StandardSurface_coat_IOR, geomprop_Nworld_out1, N_StandardSurface_coat_affect_color, N_StandardSurface_coat_affect_roughness, N_StandardSurface_thin_film_thickness, N_StandardSurface_thin_film_IOR, N_StandardSurface_emission, N_StandardSurface_emission_color, N_StandardSurface_opacity, N_StandardSurface_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, N_StandardSurface_out);
+    MATERIAL M_OnyxHextiled_out = null_closure();
+    mx_surfacematerial(N_StandardSurface_out, backsurfaceshader, displacementshader1, M_OnyxHextiled_out);
+    out = M_OnyxHextiled_out;
+}
+

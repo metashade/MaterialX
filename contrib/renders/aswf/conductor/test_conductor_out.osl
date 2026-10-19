@@ -1,0 +1,129 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_roughness_anisotropy(float roughness, float anisotropy, output vector2 result)
+{
+    float roughness_sqr = clamp(roughness*roughness, M_FLOAT_EPS, 1.0);
+    if (anisotropy > 0.0)
+    {
+        float aspect = sqrt(1.0 - clamp(anisotropy, 0.0, 0.98));
+        result.x = min(roughness_sqr / aspect, 1.0);
+        result.y = roughness_sqr * aspect;
+    }
+    else
+    {
+        result.x = roughness_sqr;
+        result.y = roughness_sqr;
+    }
+}
+
+void mx_artistic_ior(color reflectivity, color edge_color, output vector ior, output vector extinction)
+{
+    // "Artist Friendly Metallic Fresnel", Ole Gulbrandsen, 2014
+    // http://jcgt.org/published/0003/04/03/paper.pdf
+
+    color r = clamp(reflectivity, 0.0, 0.99);
+    color r_sqrt = sqrt(r);
+    color n_min = (1.0 - r) / (1.0 + r);
+    color n_max = (1.0 + r_sqrt) / (1.0 - r_sqrt);
+    ior = mix(n_max, n_min, edge_color);
+
+    color np1 = ior + 1.0;
+    color nm1 = ior - 1.0;
+    color k2 = (np1*np1 * r - nm1*nm1) / (1.0 - r);
+    k2 = max(k2, 0.0);
+    extinction = sqrt(k2);
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    string geomprop_Nworld_space = "world",
+    string geomprop_Tworld_space = "world",
+    int geomprop_Tworld_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float roughness1_roughness = 0.200000
+    [[
+        string widget = "number"
+    ]],
+    float roughness1_anisotropy = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color conductor_brdf1__artistic_ior_reflectivity = color(1.000000, 1.000000, 1.000000),
+    color conductor_brdf1__artistic_ior_edge_color = color(1.000000, 1.000000, 1.000000),
+    float conductor_brdf1_weight = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int conductor_brdf1_retroreflective = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    float conductor_brdf1_thinfilm_thickness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float conductor_brdf1_thinfilm_ior = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    string conductor_brdf1_distribution = "ggx",
+    float surface1_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int surface1_thin_walled = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    output MATERIAL out1 = 0
+)
+{
+    color conductor_brdf1__artistic_ior_ior = color(0.0);
+    color conductor_brdf1__artistic_ior_extinction = color(0.0);
+    mx_artistic_ior(conductor_brdf1__artistic_ior_reflectivity, conductor_brdf1__artistic_ior_edge_color, conductor_brdf1__artistic_ior_ior, conductor_brdf1__artistic_ior_extinction);
+    vector2 roughness1_out = vector2(0.0, 0.0);
+    mx_roughness_anisotropy(roughness1_roughness, roughness1_anisotropy, roughness1_out);
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    BSDF conductor_brdf1_out = conductor_brdf1_weight * conductor_bsdf(geomprop_Nworld_out1, geomprop_Tworld_out1, roughness1_out.x, roughness1_out.y, conductor_brdf1__artistic_ior_ior, conductor_brdf1__artistic_ior_extinction, conductor_brdf1_distribution, "thinfilm_thickness", conductor_brdf1_thinfilm_thickness, "thinfilm_ior", conductor_brdf1_thinfilm_ior);
+    surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(conductor_brdf1_out, null_closure(), surface1_opacity, surface1_thin_walled, surface1_out);
+    MATERIAL _surfacematerial__out = null_closure();
+    mx_surfacematerial(surface1_out, surfaceshader(null_closure(), null_closure(), 1.0), vector(0.0), _surfacematerial__out);
+    out1 = _surfacematerial__out;
+}
+
