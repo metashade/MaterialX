@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 import MaterialX as mx
+from rendertest.backends import GlslBackend
 from test_render import (
-    add_additional_test_streams,
     collect_adsk_test_files,
     collect_aswf_test_files,
     RenderEnvironment,
@@ -91,55 +91,17 @@ class MetashadeOverrideTestBase:
         return lib
         
     @pytest.fixture(scope="class")
-    def override_renderer(
-        self, override_stdlib, override_search_path, repo_root,
-        mtlx_test_options, cli_options,
+    def override_backend(
+        self, override_stdlib, override_search_path, scene_options,
     ):
-        """Create a custom renderer initialized with the overridden stdlib.
-
-        When ``--no-render`` is active, returns a lightweight
-        :class:`ShaderGenWrapper` instead of a full GL renderer.
-        """
-        if cli_options.no_render:
-            from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
-            return ShaderGenWrapper(override_stdlib, override_search_path)
-
-        # IBL paths
-        lights_path = repo_root / "resources" / "Lights"
-        radiance_path = lights_path / "san_giuseppe_bridge.hdr"
-        irradiance_path = (
-            lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
+        """GLSL backend generating against the overridden stdlib."""
+        return GlslBackend.create(
+            override_stdlib, override_search_path, scene_options,
         )
-        
-        # Geometry
-        geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
-        
-        # Render size
-        width = height = 512
-        
-        from rendertest.mtlxutils import mxrenderer
-        
-        renderer = mxrenderer.initializeRenderer(
-            override_stdlib,
-            override_search_path,
-            str(radiance_path),
-            str(irradiance_path),
-            width,
-            height,
-            str(geometry_path),
-            envSampleCount=mtlx_test_options.env_sample_count,
-        )
-        
-        # Add test geometry streams
-        geom_handler = renderer.renderer.getGeometryHandler()
-        for mesh in geom_handler.getMeshes():
-            add_additional_test_streams(mesh)
-            
-        return renderer
 
     @pytest.fixture(scope="class")
     def override_env(
-        self, request, override_renderer, override_stdlib,
+        self, request, override_backend, override_stdlib,
         override_search_path, cli_options,
     ):
         """Build a :class:`RenderEnvironment` with Metashade overrides.
@@ -155,7 +117,7 @@ class MetashadeOverrideTestBase:
         )
 
         return RenderEnvironment(
-            renderer=override_renderer,
+            backend=override_backend,
             data_library=override_stdlib,
             search_path=override_search_path,
             cli_options=cli_options,
@@ -352,12 +314,12 @@ class TestRenderMetashadeAdskMaterials(MetashadeOverrideTestBase):
 
     @pytest.fixture(scope="class")
     def override_env(
-        self, request, override_renderer, override_data_library,
+        self, request, override_backend, override_data_library,
         override_search_path, cli_options,
     ):
         """RenderEnvironment with Metashade override and adsklib loaded."""
         return RenderEnvironment(
-            renderer=override_renderer,
+            backend=override_backend,
             data_library=override_data_library,
             search_path=override_search_path,
             cli_options=cli_options,
@@ -450,52 +412,22 @@ class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
         return lib
 
     @pytest.fixture(scope="class")
-    def override_renderer(
-        self, override_data_library, override_search_path, repo_root,
-        mtlx_test_options, cli_options,
+    def override_backend(
+        self, override_data_library, override_search_path, scene_options,
     ):
-        """Renderer initialized with pruned adsklib + overridden stdlib."""
-        if cli_options.no_render:
-            from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
-            return ShaderGenWrapper(
-                override_data_library, override_search_path
-            )
-
-        lights_path = repo_root / "resources" / "Lights"
-        radiance_path = lights_path / "san_giuseppe_bridge.hdr"
-        irradiance_path = (
-            lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
+        """GLSL backend with pruned adsklib + overridden stdlib."""
+        return GlslBackend.create(
+            override_data_library, override_search_path, scene_options,
         )
-        geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
-        width = height = 512
-
-        from rendertest.mtlxutils import mxrenderer
-
-        renderer = mxrenderer.initializeRenderer(
-            override_data_library,
-            override_search_path,
-            str(radiance_path),
-            str(irradiance_path),
-            width,
-            height,
-            str(geometry_path),
-            envSampleCount=mtlx_test_options.env_sample_count,
-        )
-
-        geom_handler = renderer.renderer.getGeometryHandler()
-        for mesh in geom_handler.getMeshes():
-            add_additional_test_streams(mesh)
-
-        return renderer
 
     @pytest.fixture(scope="class")
     def override_env(
-        self, request, override_renderer, override_data_library,
+        self, request, override_backend, override_data_library,
         override_search_path, cli_options,
     ):
         """RenderEnvironment with pruned adsklib loaded."""
         return RenderEnvironment(
-            renderer=override_renderer,
+            backend=override_backend,
             data_library=override_data_library,
             search_path=override_search_path,
             cli_options=cli_options,

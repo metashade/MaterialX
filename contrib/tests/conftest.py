@@ -6,20 +6,13 @@ Each pytest-xdist worker process gets its own fixture instances.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-_rendertest_path = Path(__file__).parent.parent / "utilities" / "scripts"
-_mtlxutils_path = _rendertest_path / "rendertest"
-sys.path.insert(0, str(_rendertest_path))
-sys.path.insert(0, str(_mtlxutils_path))
-
 import MaterialX as mx
-import MaterialX.PyMaterialXGenShader as mx_gen_shader
-import MaterialX.PyMaterialXRender as mx_render
-from rendertest.mtlxutils import mxrenderer
+from rendertest.backends import BACKENDS
+from rendertest.scene_setup import SceneOptions
 
 
 def get_repo_root() -> Path:
@@ -158,57 +151,29 @@ def data_library(stdlib, adsklib):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def glsl_renderer(stdlib, search_path, repo_root, mtlx_test_options):
-    """
-    Initialize GLSL renderer once per worker process.
-    
-    This is the expensive setup that we want to share across tests.
-    """
-    # IBL paths
-    lights_path = repo_root / "resources" / "Lights"
-    radiance_path = lights_path / "san_giuseppe_bridge.hdr"
-    irradiance_path = lights_path / "irradiance" / "san_giuseppe_bridge.hdr"
-    
-    # Geometry
-    geometry_path = repo_root / "resources" / "Geometry" / "sphere.obj"
-    
-    # Render size
-    width = height = 512
-    
-    renderer = mxrenderer.initializeRenderer(
-        stdlib,
-        search_path,
-        str(radiance_path),
-        str(irradiance_path),
-        width,
-        height,
-        str(geometry_path),
-        envSampleCount=mtlx_test_options.env_sample_count,
-    )
-    
-    # Add test geometry streams for geompropvalue, streams, and struct_texcoord tests
-    from test_render import add_additional_test_streams
-    geom_handler = renderer.renderer.getGeometryHandler()
-    for mesh in geom_handler.getMeshes():
-        add_additional_test_streams(mesh)
-    
-    return renderer
-
-
-@pytest.fixture(scope="session")
-def renderer(request, cli_options, stdlib, search_path):
-    """
-    Session-scoped renderer fixture.
-    
-    When ``--no-render`` is active, returns a lightweight
-    :class:`ShaderGenWrapper` that only needs the CPU-based shader
-    generator (no OpenGL context).  Otherwise resolves the full
-    ``glsl_renderer`` fixture on demand.
-    """
+def scene_options(repo_root, mtlx_test_options, cli_options):
+    """Scene inputs for rendering, or ``None`` under ``--no-render``."""
     if cli_options.no_render:
-        from rendertest.mtlxutils.mxrenderer import ShaderGenWrapper
-        return ShaderGenWrapper(stdlib, search_path)
-    return request.getfixturevalue("glsl_renderer")
+        return None
+    return SceneOptions.from_repo(
+        repo_root, mtlx_test_options.env_sample_count,
+    )
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        pytest.param(backend_id, marks=getattr(pytest.mark, backend_id))
+        for backend_id in BACKENDS
+    ],
+)
+def backend(request, stdlib, search_path, scene_options):
+    """Session-scoped :class:`~rendertest.backends.Backend` per generator.
+
+    Every test using it runs once per backend.  Each backend id is also
+    a marker, so select backends with ``-m``, e.g. ``-m osl``.
+    """
+    return BACKENDS[request.param].create(stdlib, search_path, scene_options)
 
 
 # ---------------------------------------------------------------------------
@@ -216,11 +181,11 @@ def renderer(request, cli_options, stdlib, search_path):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
-def stdlib_env(renderer, stdlib, search_path, cli_options):
+def stdlib_env(backend, stdlib, search_path, cli_options):
     """RenderEnvironment for ASWF standard library materials tests."""
     from test_render import RenderEnvironment
     return RenderEnvironment(
-        renderer=renderer,
+        backend=backend,
         data_library=stdlib,
         search_path=search_path,
         cli_options=cli_options,
@@ -229,15 +194,15 @@ def stdlib_env(renderer, stdlib, search_path, cli_options):
 
 
 @pytest.fixture(scope="session")
-def adsk_env(renderer, data_library, search_path, cli_options):
+def adsk_env(backend, data_library, search_path, cli_options):
     """RenderEnvironment for Autodesk materials tests.
 
-    Shares the ``renders/`` env_subpath with stdlib -- the ``adsk/``
+    Shares the ``renders/`` env_subpath with stdlib — the ``adsk/``
     prefix lives in each :class:`RenderTestCase`'s ``output_subpath``.
     """
     from test_render import RenderEnvironment
     return RenderEnvironment(
-        renderer=renderer,
+        backend=backend,
         data_library=data_library,
         search_path=search_path,
         cli_options=cli_options,

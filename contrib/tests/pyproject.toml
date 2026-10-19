@@ -18,15 +18,20 @@ test = [
 [tool.pytest.ini_options]
 render_collapsed = ""
 testpaths = ["."]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "-v",
     "--tb=short",
+    # OSL has no committed baselines yet; opt in with `-m osl`.
+    "-m", "not osl",
 ]
 # Markers for categorizing tests
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "render: marks tests that perform GPU rendering",
+    "glsl: tests run through the GLSL backend",
+    "osl: tests run through the OSL backend",
 ]
