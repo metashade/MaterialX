@@ -58,6 +58,7 @@ class Backend:
         self.generator = generator
         self.context = context
         self.renderer = renderer
+        self._registered_search_paths: set[str] = set()
 
     @classmethod
     def create(
@@ -96,7 +97,12 @@ class Backend:
         name = node.getNamePath()
 
         if search_path is not None:
-            self.context.registerSourceCodeSearchPath(search_path)
+            # GenContext appends on every call, and lookups take the first
+            # match, so re-registering an identical path only grows the list.
+            key = search_path.asString()
+            if key not in self._registered_search_paths:
+                self._registered_search_paths.add(key)
+                self.context.registerSourceCodeSearchPath(search_path)
             if self.renderer is not None:
                 self.renderer.getImageHandler().setSearchPath(search_path)
 

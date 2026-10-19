@@ -149,8 +149,10 @@ def add_additional_test_streams(mesh):
     GEOMPROP = mx_render.MeshStream.GEOMETRY_PROPERTY_ATTRIBUTE
 
     # Second UV set - copy from texcoord0
-    _add_stream_if_missing(mesh, f"i_{TEXCOORD}_1", TEXCOORD, 1, 2,
-        lambda d: [d.__setitem__(i, uv[i]) for i in range(len(uv))])
+    def fill_texcoord1(d):
+        for i, value in enumerate(uv):
+            d[i] = value
+    _add_stream_if_missing(mesh, f"i_{TEXCOORD}_1", TEXCOORD, 1, 2, fill_texcoord1)
 
     # Vertex colors - RGBA from UV
     def fill_color0(d):

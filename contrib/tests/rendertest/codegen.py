@@ -103,7 +103,7 @@ def _supported_color_space(doc: mx.Document, color_space: str) -> str:
         if nodedef.getNodeGroup() != "colortransform":
             continue
         source_to_target = nodedef.getName().removeprefix("ND_").split("_to_")
-        if "color4" in source_to_target[1]:
+        if len(source_to_target) != 2 or "color4" in source_to_target[1]:
             continue
         targets.add(source_to_target[1].removesuffix("_color3"))
     if targets and color_space not in targets:
