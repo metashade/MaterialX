@@ -1,0 +1,172 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_noise2d_float(float amplitude, float pivot, vector2 texcoord, output float result)
+{
+    float value = noise("snoise", texcoord.x, texcoord.y);
+    result = value * amplitude + pivot;
+}
+
+void NG_switch_float(float in1, float in2, float in3, float in4, float in5, float in6, float in7, float in8, float in9, float in10, float which, output float out)
+{
+    float ifgreater_10_value1_tmp = 10.000000;
+    float ifgreater_10_in2_tmp = 0.000000;
+    float ifgreater_10_out = mx_ternary(ifgreater_10_value1_tmp > which, in10, ifgreater_10_in2_tmp);
+    float ifgreater_9_value1_tmp = 9.000000;
+    float ifgreater_9_out = mx_ternary(ifgreater_9_value1_tmp > which, in9, ifgreater_10_out);
+    float ifgreater_8_value1_tmp = 8.000000;
+    float ifgreater_8_out = mx_ternary(ifgreater_8_value1_tmp > which, in8, ifgreater_9_out);
+    float ifgreater_7_value1_tmp = 7.000000;
+    float ifgreater_7_out = mx_ternary(ifgreater_7_value1_tmp > which, in7, ifgreater_8_out);
+    float ifgreater_6_value1_tmp = 6.000000;
+    float ifgreater_6_out = mx_ternary(ifgreater_6_value1_tmp > which, in6, ifgreater_7_out);
+    float ifgreater_5_value1_tmp = 5.000000;
+    float ifgreater_5_out = mx_ternary(ifgreater_5_value1_tmp > which, in5, ifgreater_6_out);
+    float ifgreater_4_value1_tmp = 4.000000;
+    float ifgreater_4_out = mx_ternary(ifgreater_4_value1_tmp > which, in4, ifgreater_5_out);
+    float ifgreater_3_value1_tmp = 3.000000;
+    float ifgreater_3_out = mx_ternary(ifgreater_3_value1_tmp > which, in3, ifgreater_4_out);
+    float ifgreater_2_value1_tmp = 2.000000;
+    float ifgreater_2_out = mx_ternary(ifgreater_2_value1_tmp > which, in2, ifgreater_3_out);
+    float ifgreater_1_value1_tmp = 1.000000;
+    float ifgreater_1_out = mx_ternary(ifgreater_1_value1_tmp > which, in1, ifgreater_2_out);
+    out = ifgreater_1_out;
+}
+
+void NG_turbulence2d_max8_float(vector2 texcoord, float octaves, float amplitude, output float out)
+{
+    float multiply8_in2_tmp = 128.000000;
+    vector2 multiply8_out = texcoord * multiply8_in2_tmp;
+    float multiply7_in2_tmp = 64.000000;
+    vector2 multiply7_out = texcoord * multiply7_in2_tmp;
+    float multiply6_in2_tmp = 32.000000;
+    vector2 multiply6_out = texcoord * multiply6_in2_tmp;
+    float multiply5_in2_tmp = 16.000000;
+    vector2 multiply5_out = texcoord * multiply5_in2_tmp;
+    float multiply4_in2_tmp = 8.000000;
+    vector2 multiply4_out = texcoord * multiply4_in2_tmp;
+    float multiply3_in2_tmp = 4.000000;
+    vector2 multiply3_out = texcoord * multiply3_in2_tmp;
+    float multiply2_in2_tmp = 2.000000;
+    vector2 multiply2_out = texcoord * multiply2_in2_tmp;
+    float noise2d1_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, texcoord, noise2d1_out);
+    float modulo_octave_in2_tmp = 5.000000;
+    float modulo_octave_out = mod(octaves, modulo_octave_in2_tmp);
+    float divide_octave_in2_tmp = 5.000000;
+    float divide_octave_out = octaves / divide_octave_in2_tmp;
+    float modulo_fractional_in2_tmp = 1.000000;
+    float modulo_fractional_out = mod(octaves, modulo_fractional_in2_tmp);
+    float noise2d8_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply8_out, noise2d8_out);
+    float noise2d7_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply7_out, noise2d7_out);
+    float noise2d6_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply6_out, noise2d6_out);
+    float noise2d5_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply5_out, noise2d5_out);
+    float noise2d4_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply4_out, noise2d4_out);
+    float noise2d3_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply3_out, noise2d3_out);
+    float noise2d2_out = 0.0;
+    mx_noise2d_float(1.000000, 0.000000, multiply2_out, noise2d2_out);
+    float absval1_out = abs(noise2d1_out);
+    float divide8_in2_tmp = 128.000000;
+    float divide8_out = noise2d8_out / divide8_in2_tmp;
+    float divide7_in2_tmp = 64.000000;
+    float divide7_out = noise2d7_out / divide7_in2_tmp;
+    float divide6_in2_tmp = 32.000000;
+    float divide6_out = noise2d6_out / divide6_in2_tmp;
+    float divide5_in2_tmp = 16.000000;
+    float divide5_out = noise2d5_out / divide5_in2_tmp;
+    float divide4_in2_tmp = 8.000000;
+    float divide4_out = noise2d4_out / divide4_in2_tmp;
+    float divide3_in2_tmp = 4.000000;
+    float divide3_out = noise2d3_out / divide3_in2_tmp;
+    float divide2_in2_tmp = 2.000000;
+    float divide2_out = noise2d2_out / divide2_in2_tmp;
+    float multiply9_out = absval1_out * modulo_fractional_out;
+    float absval8_out = abs(divide8_out);
+    float absval7_out = abs(divide7_out);
+    float absval6_out = abs(divide6_out);
+    float absval5_out = abs(divide5_out);
+    float absval4_out = abs(divide4_out);
+    float absval3_out = abs(divide3_out);
+    float absval2_out = abs(divide2_out);
+    float multiply16_out = absval8_out * modulo_fractional_out;
+    float multiply15_out = absval7_out * modulo_fractional_out;
+    float multiply14_out = absval6_out * modulo_fractional_out;
+    float multiply13_out = absval5_out * modulo_fractional_out;
+    float multiply12_out = absval4_out * modulo_fractional_out;
+    float multiply11_out = absval3_out * modulo_fractional_out;
+    float add2_out = absval1_out + absval2_out;
+    float multiply10_out = absval2_out * modulo_fractional_out;
+    float switch4_out = 0.0;
+    NG_switch_float(multiply14_out, multiply15_out, multiply16_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch4_out);
+    float add3_out = add2_out + absval3_out;
+    float switch3_out = 0.0;
+    NG_switch_float(multiply9_out, multiply10_out, multiply11_out, multiply12_out, multiply13_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch3_out);
+    float add4_out = add3_out + absval4_out;
+    float switch_fractional_out = 0.0;
+    NG_switch_float(switch3_out, switch4_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, divide_octave_out, switch_fractional_out);
+    float add5_out = add4_out + absval5_out;
+    float switch1_out = 0.0;
+    NG_switch_float(0.000000, absval1_out, add2_out, add3_out, add4_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch1_out);
+    float add6_out = add5_out + absval6_out;
+    float add7_out = add6_out + absval7_out;
+    float add8_out = add7_out + absval8_out;
+    float switch2_out = 0.0;
+    NG_switch_float(add5_out, add6_out, add7_out, add8_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, modulo_octave_out, switch2_out);
+    float switch_octave_out = 0.0;
+    NG_switch_float(switch1_out, switch2_out, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, divide_octave_out, switch_octave_out);
+    float add_fractional_out = switch_octave_out + switch_fractional_out;
+    float ifgreatereq_octave_value2_tmp = 8.000000;
+    float ifgreatereq_octave_out = mx_ternary(octaves >= ifgreatereq_octave_value2_tmp, add8_out, add_fractional_out);
+    float multiply_amplitude_out = ifgreatereq_octave_out * amplitude;
+    out = multiply_amplitude_out;
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    int texcoord1_index = 0
+    [[
+        string widget = "number"
+    ]],
+    vector2 multiply1_in2 = {20.000000, 20.000000},
+    float turbulence2d1_octaves = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float turbulence2d1_amplitude = 10.000000
+    [[
+        string widget = "number"
+    ]],
+    output float out1 = 0.0
+)
+{
+    vector2 texcoord1_out = vector2(u,v);
+    vector2 multiply1_out = texcoord1_out * multiply1_in2;
+    float turbulence2d1_out = 0.0;
+    NG_turbulence2d_max8_float(multiply1_out, turbulence2d1_octaves, turbulence2d1_amplitude, turbulence2d1_out);
+    out1 = turbulence2d1_out;
+}
+

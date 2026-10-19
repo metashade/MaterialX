@@ -7,13 +7,15 @@ __pycache__/
 # Render outputs — ignore everything by default
 /renders/*
 
-# Track .glsl shader baselines for our test collections
+# Track shader baselines for our test collections
 !/renders/aswf/
 /renders/aswf/**
 !/renders/aswf/**/
 !/renders/aswf/**/*.glsl
+!/renders/aswf/**/*.osl
 
 !/renders/adsk/
 /renders/adsk/**
 !/renders/adsk/**/
 !/renders/adsk/**/*.glsl
+!/renders/adsk/**/*.osl

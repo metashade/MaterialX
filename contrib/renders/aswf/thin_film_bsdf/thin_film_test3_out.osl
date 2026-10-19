@@ -1,0 +1,110 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_dielectric_bsdf(float weight, color tint, float ior, vector2 roughness, int retroreflective, float thinfilm_thickness, float thinfilm_ior, normal N, vector U, string distribution, string scatter_mode, output BSDF bsdf)
+{
+    color reflection_tint = (scatter_mode == "T") ? color(0.0) : tint;
+    color transmission_tint = (scatter_mode == "R") ? color(0.0) : tint;
+    bsdf = weight * dielectric_bsdf(N, U, reflection_tint, transmission_tint, roughness.x, roughness.y, ior, distribution, "thinfilm_thickness", thinfilm_thickness, "thinfilm_ior", thinfilm_ior);
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    string geomprop_Nworld_space = "world",
+    string geomprop_Tworld_space = "world",
+    int geomprop_Tworld_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float diffuse_bsdf_weight = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    color diffuse_bsdf_color = color(1.000000, 1.000000, 1.000000),
+    float diffuse_bsdf_roughness = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    int diffuse_bsdf_energy_compensation = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    float dielectric_brdf_1_weight = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    color dielectric_brdf_1_tint = color(1.000000, 1.000000, 1.000000),
+    float dielectric_brdf_1_ior = 2.500000
+    [[
+        string widget = "number"
+    ]],
+    vector2 dielectric_brdf_1_roughness = {0.000000, 0.000000},
+    int dielectric_brdf_1_retroreflective = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    float dielectric_brdf_1_thinfilm_thickness = 550.000000
+    [[
+        string widget = "number"
+    ]],
+    float dielectric_brdf_1_thinfilm_ior = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    string dielectric_brdf_1_distribution = "ggx",
+    string dielectric_brdf_1_scatter_mode = "R",
+    float surface1_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int surface1_thin_walled = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    output MATERIAL out1 = 0
+)
+{
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    BSDF dielectric_brdf_1_out = null_closure();
+    mx_dielectric_bsdf(dielectric_brdf_1_weight, dielectric_brdf_1_tint, dielectric_brdf_1_ior, dielectric_brdf_1_roughness, dielectric_brdf_1_retroreflective, dielectric_brdf_1_thinfilm_thickness, dielectric_brdf_1_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, dielectric_brdf_1_distribution, dielectric_brdf_1_scatter_mode, dielectric_brdf_1_out);
+    BSDF diffuse_bsdf_out = diffuse_bsdf_weight * oren_nayar_diffuse_bsdf(geomprop_Nworld_out1, diffuse_bsdf_color, diffuse_bsdf_roughness);
+    BSDF layer_bsdf_2_out = layer(dielectric_brdf_1_out, diffuse_bsdf_out);
+    surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(layer_bsdf_2_out, null_closure(), surface1_opacity, surface1_thin_walled, surface1_out);
+    MATERIAL _surfacematerial__out = null_closure();
+    mx_surfacematerial(surface1_out, surfaceshader(null_closure(), null_closure(), 1.0), vector(0.0), _surfacematerial__out);
+    out1 = _surfacematerial__out;
+}
+

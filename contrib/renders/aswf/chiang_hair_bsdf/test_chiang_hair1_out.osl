@@ -1,0 +1,92 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_chiang_hair_bsdf(color tint_R, color tint_TT, color tint_TRT, float ior,
+                         vector2 roughness_R, vector2 roughness_TT, vector2 roughness_TRT,
+                         float cuticle_angle, vector absorption_coefficient, normal N, vector U, output BSDF bsdf)
+{
+#if (OSL_VERSION_MAJOR == 1 && OSL_VERSION_MINOR >= 14) || (OSL_VERSION_MAJOR > 1)
+    bsdf = chiang_hair_bsdf(N, U, tint_R, tint_TT, tint_TRT, ior,
+                            roughness_R.x, roughness_TT.x, roughness_TRT.x, roughness_R.y, roughness_TT.y, roughness_TRT.y,
+                            cuticle_angle, absorption_coefficient);
+#else
+    bsdf = dielectric_bsdf(N, U, color(1), color(0), 0.1, 0.1, ior, "ggx");
+#endif
+}
+
+void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfaceshader result)
+{
+    result.bsdf    = bsdf;
+    result.edf     = edf;
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+shader out
+[[
+    string mtlx_category = "output",
+    string mtlx_name = "out"
+]]
+(
+    string geomprop_Nworld_space = "world",
+    string geomprop_Tworld_space = "world",
+    int geomprop_Tworld_index = 0
+    [[
+        string widget = "number"
+    ]],
+    color chiang_hair_bsdf1_tint_R = color(0.900000, 0.800000, 0.700000),
+    color chiang_hair_bsdf1_tint_TT = color(1.000000, 0.900000, 0.700000),
+    color chiang_hair_bsdf1_tint_TRT = color(0.500000, 0.500000, 1.000000),
+    float chiang_hair_bsdf1_ior = 1.500000
+    [[
+        string widget = "number"
+    ]],
+    vector2 chiang_hair_bsdf1_roughness_R = {0.100000, 0.200000},
+    vector2 chiang_hair_bsdf1_roughness_TT = {0.050000, 0.070000},
+    vector2 chiang_hair_bsdf1_roughness_TRT = {0.200000, 0.400000},
+    float chiang_hair_bsdf1_cuticle_angle = 0.600000
+    [[
+        string widget = "number"
+    ]],
+    vector chiang_hair_bsdf1_absorption_coefficient = vector(0.200000, 0.500000, 0.800000),
+    float surface1_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    int surface1_thin_walled = 0
+    [[
+        string widget = "checkBox"
+    ]],
+    output MATERIAL out1 = 0
+)
+{
+    vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
+    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    BSDF chiang_hair_bsdf1_out = null_closure();
+    mx_chiang_hair_bsdf(chiang_hair_bsdf1_tint_R, chiang_hair_bsdf1_tint_TT, chiang_hair_bsdf1_tint_TRT, chiang_hair_bsdf1_ior, chiang_hair_bsdf1_roughness_R, chiang_hair_bsdf1_roughness_TT, chiang_hair_bsdf1_roughness_TRT, chiang_hair_bsdf1_cuticle_angle, chiang_hair_bsdf1_absorption_coefficient, geomprop_Nworld_out1, geomprop_Tworld_out1, chiang_hair_bsdf1_out);
+    surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface(chiang_hair_bsdf1_out, null_closure(), surface1_opacity, surface1_thin_walled, surface1_out);
+    MATERIAL _surfacematerial__out = null_closure();
+    mx_surfacematerial(surface1_out, surfaceshader(null_closure(), null_closure(), 1.0), vector(0.0), _surfacematerial__out);
+    out1 = _surfacematerial__out;
+}
+
