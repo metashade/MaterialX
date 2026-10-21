@@ -66,6 +66,9 @@ if (MATERIALX_BUILD_RENDER)
     if (APPLE AND MATERIALX_BUILD_GEN_MSL)
         add_subdirectory(PyMaterialXRenderMsl)
     endif()
+    if (MATERIALX_BUILD_RENDER_PLATFORMS AND MATERIALX_BUILD_GEN_SLANG AND (MATERIALX_BUILD_RENDER_SLANG OR MATERIALX_SLANG_RHI_SOURCE_DIR))
+        add_subdirectory(PyMaterialXRenderSlang)
+    endif()
 endif()
 
 if (MATERIALX_BUILD_DOCS)
@@ -88,7 +91,7 @@ if (MATERIALX_BUILD_DOCS)
     foreach(_py_mod IN ITEMS PyMaterialXCore PyMaterialXFormat PyMaterialXGenShader
                               PyMaterialXGenGlsl PyMaterialXGenMsl PyMaterialXGenMdl
                               PyMaterialXGenOsl PyMaterialXRender PyMaterialXRenderGlsl
-                              PyMaterialXRenderOsl PyMaterialXRenderMsl)
+                              PyMaterialXRenderOsl PyMaterialXRenderMsl PyMaterialXRenderSlang)
         if(TARGET ${_py_mod})
             add_dependencies(${_py_mod} PyBindDocs)
         endif()
