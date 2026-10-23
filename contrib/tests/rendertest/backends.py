@@ -10,6 +10,11 @@ since several generators share a target (``VkShaderGenerator`` and
 """
 from __future__ import annotations
 
+import atexit
+import os
+import shutil
+import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,9 +24,16 @@ import MaterialX.PyMaterialXGenOsl as mx_gen_osl
 import MaterialX.PyMaterialXGenShader as mx_gen_shader
 import MaterialX.PyMaterialXRender as mx_render
 import MaterialX.PyMaterialXRenderGlsl as mx_render_glsl
+import MaterialX.PyMaterialXRenderOsl as mx_render_osl
 
 from rendertest import codegen
 from rendertest.scene_setup import SceneOptions, setup_raster_scene
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+# Utility shaders and scene template that MaterialXTest uses with testrender.
+_OSL_UTILITIES = (
+    _REPO_ROOT / "source" / "MaterialXTest" / "MaterialXRenderOsl" / "Utilities"
+)
 
 
 @dataclass
@@ -131,6 +143,7 @@ class Backend:
             )
 
         try:
+            self._prepare_program(shader, name)
             self.renderer.createProgram(shader)
         except LookupError as err:
             return RenderResult(
@@ -159,6 +172,9 @@ class Backend:
             )
             result.output_path = image_path
         return result
+
+    def _prepare_program(self, shader: mx_gen_shader.Shader, name: str) -> None:
+        """Per-shader renderer setup before ``createProgram``."""
 
     def dump_stages(
         self, shader: mx_gen_shader.Shader, output_path: Path, name: str,
@@ -215,12 +231,95 @@ class GlslBackend(Backend):
 
 
 class OslBackend(Backend):
-    """OSL generation only; ``OslRenderer`` support is not wired up yet."""
+    """OSL generation, rendered with OSL's ``testrender`` via ``OslRenderer``.
+
+    Rendering requires the ``OSL_ROOT`` environment variable to point at
+    an OSL install containing ``bin/oslc`` and ``bin/testrender``; without
+    it, this backend only generates shaders.
+    """
 
     id = "osl"
     generator_class = mx_gen_osl.OslShaderGenerator
     file_extension = "osl"
     has_vertex_stage = False
+
+    # MaterialX type -> OSL type of the scene template's output shader input.
+    _OSL_TYPES = {
+        "float": "float", "color3": "color", "color4": "color4",
+        "vector2": "vector2", "vector3": "vector", "vector4": "vector4",
+        "surfaceshader": "closure color", "material": "closure color",
+    }
+
+    @classmethod
+    def _create_renderer(cls, search_path, scene_options):
+        osl_root = os.environ.get("OSL_ROOT")
+        if not osl_root:
+            return None
+        osl_bin = Path(osl_root) / "bin"
+        exe_suffix = ".exe" if sys.platform == "win32" else ""
+
+        renderer = mx_render_osl.OslRenderer.create(
+            scene_options.width, scene_options.height,
+            mx_render.BaseType.UINT8,
+        )
+        renderer.setOslCompilerExecutable(str(osl_bin / f"oslc{exe_suffix}"))
+        renderer.setOslTestRenderExecutable(
+            str(osl_bin / f"testrender{exe_suffix}"),
+        )
+        renderer.setOslIncludePath(mx.FileSearchPath(
+            str(_REPO_ROOT / "libraries" / "stdlib" / "genosl" / "include"),
+        ))
+        renderer.initialize()
+
+        image_handler = mx_render.ImageHandler.create(
+            mx_render.StbImageLoader.create(),
+        )
+        image_handler.setSearchPath(mx.FileSearchPath(search_path.asString()))
+        renderer.setImageHandler(image_handler)
+        renderer.setLightHandler(None)
+
+        # testrender's intermediate files go to a scratch directory rather
+        # than next to the committed baselines.
+        work_dir = Path(tempfile.mkdtemp(prefix="mx_osl_"))
+        atexit.register(shutil.rmtree, work_dir, ignore_errors=True)
+        utilities = work_dir / "Utilities"
+        shutil.copytree(_OSL_UTILITIES, utilities)
+
+        # TODO: OslRenderer.setEnvShaderParameterOverrides has no Python
+        # binding yet, so bake the radiance map into envmap.osl's default.
+        # testrender crashes on an empty environment map filename.
+        envmap = utilities / "envmap.osl"
+        envmap.write_text(envmap.read_text().replace(
+            'envmap_filename = ""',
+            f'envmap_filename = "{scene_options.radiance_path.as_posix()}"',
+        ))
+
+        renderer.setOslOutputFilePath(mx.FilePath(str(utilities)))
+        for osl_file in sorted(utilities.glob("*.osl")):
+            renderer.compileOSL(mx.FilePath(str(osl_file)))
+        renderer.setOslUtilityOSOPath(mx.FilePath(str(utilities)))
+        renderer.setOslTestRenderSceneTemplateFile(
+            str(utilities / "scene_template.xml"),
+        )
+        renderer.setOslOutputFilePath(mx.FilePath(str(work_dir)))
+        return renderer
+
+    def _prepare_program(self, shader, name):
+        # testrender writes <shader name>_osl.png into the output path, which
+        # captureImage() then reads back.
+        self.renderer.setOslShaderName(shader.getName())
+        outputs = shader.getStage(mx_gen_shader.PIXEL_STAGE).getOutputBlock(
+            mx_gen_osl.OSL_OUTPUTS,
+        )
+        port = outputs.find(lambda _: True)
+        if port is None:
+            raise LookupError(f"Shader has no output to render: {name}")
+        type_name = port.getType().getName()
+        if type_name not in self._OSL_TYPES:
+            raise LookupError(f"Unsupported OSL output type {type_name}: {name}")
+        self.renderer.setOslShaderOutput(
+            port.getVariable(), self._OSL_TYPES[type_name],
+        )
 
 
 BACKENDS: dict[str, type[Backend]] = {
