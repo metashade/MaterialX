@@ -114,6 +114,25 @@
             }
         },
         {
+            "label": "Run MaterialXTest [renderosl]",
+            "type": "shell",
+            "command": "\"${workspaceFolder}/build/bin/Debug/MaterialXTest.exe\"",
+            "args": [
+                "[renderosl]"
+            ],
+            "group": "test",
+            "problemMatcher": [],
+            "isBackground": false,
+            "dependsOn": "Build MaterialX Debug",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "Run MaterialXTest [renderslang]",
             "type": "shell",
             "command": "\"${workspaceFolder}/build/bin/Debug/MaterialXTest.exe\"",
