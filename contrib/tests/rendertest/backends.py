@@ -245,9 +245,14 @@ class OslBackend(Backend):
 
     # MaterialX type -> OSL type of the scene template's output shader input.
     _OSL_TYPES = {
-        "float": "float", "color3": "color", "color4": "color4",
-        "vector2": "vector2", "vector3": "vector", "vector4": "vector4",
-        "surfaceshader": "closure color", "material": "closure color",
+        "float": "float",
+        "color3": "color",
+        "color4": "color4",
+        "vector2": "vector2",
+        "vector3": "vector",
+        "vector4": "vector4",
+        "surfaceshader": "closure color",
+        "material": "closure color",
     }
 
     @classmethod
@@ -311,14 +316,18 @@ class OslBackend(Backend):
         outputs = shader.getStage(mx_gen_shader.PIXEL_STAGE).getOutputBlock(
             mx_gen_osl.OSL_OUTPUTS,
         )
-        port = outputs.find(lambda _: True)
-        if port is None:
+        if not len(outputs):
             raise LookupError(f"Shader has no output to render: {name}")
-        type_name = port.getType().getName()
-        if type_name not in self._OSL_TYPES:
-            raise LookupError(f"Unsupported OSL output type {type_name}: {name}")
+        output_port = outputs[0]
+
+        output_type_name = output_port.getType().getName()
+        if output_type_name not in self._OSL_TYPES:
+            raise LookupError(
+                f"Unsupported OSL output type {output_type_name}: {name}"
+            )
+
         self.renderer.setOslShaderOutput(
-            port.getVariable(), self._OSL_TYPES[type_name],
+            output_port.getVariable(), self._OSL_TYPES[output_type_name],
         )
 
 
