@@ -19,6 +19,9 @@ Support code lives in the `rendertest/` package next to the tests:
   `MATERIALX_BUILD_GEN_GLSL=ON`)
 - `PYTHONPATH` configured to find `MaterialX` and `MaterialX.PyMaterialX*`
   modules
+- Optional, for OSL rendering: an [OSL](https://github.com/AcademySoftwareFoundation/OpenShadingLanguage)
+  install with `bin/oslc` and `bin/testrender`, pointed to by the `OSL_ROOT`
+  environment variable (see [Backends](#backends))
 - Install test dependencies:
 
 ```bash
@@ -186,10 +189,32 @@ means running `test_render.py` (stdlib) before
 | `--no-render` | off | Skip GPU rendering (shader generation only) |
 | `--flip-threshold` | `0.05` | Mean FLIP error threshold |
 
+## Backends
+
 Tests that use the `backend` fixture run once per backend (`glsl`, `osl`).
 Each backend id is also a marker, so select backends with `-m`, e.g.
-`-m glsl` or `-m osl`.  The OSL backend generates and compares shaders
-only; it doesn't render yet.
+`-m glsl` or `-m osl`.
+
+The GLSL backend renders with MaterialX's OpenGL `GlslRenderer`.  The OSL
+backend renders with OSL's `testrender` through MaterialX's `OslRenderer`
+when the `OSL_ROOT` environment variable points at an OSL install;
+otherwise it only generates and compares shaders.  `testrender`'s
+intermediate files (`.oso`, scene XML, error logs) go to a temporary
+directory, and only the `*_osl.png` images land next to the baselines.
+
+```bash
+OSL_ROOT=/path/to/osl/install pytest test_render.py -m osl -v
+```
+
+OSL renders don't match MaterialXTest's yet, because some `OslRenderer`
+settings lack Python bindings:
+
+- `setAaLit` / `setAaUnlit`: renders use `testrender`'s default of one
+  sample per pixel, so glossy materials are much noisier.
+- `setEnvShaderParameterOverrides`: the radiance map is baked into a copy
+  of the `envmap.osl` utility shader instead.
+- `GenOptions.oslConnectCiWrapper` isn't set, and MaterialXTest's
+  tangent/bitangent implementation overrides aren't registered.
 
 ## CI Workflow
 
