@@ -58,6 +58,8 @@ class Backend:
     generator_class: type
     file_extension: str
     has_vertex_stage: bool
+    # OpenGL readbacks are bottom-up; images read from disk are not.
+    flip_saved_image: bool = True
 
     def __init__(
         self,
@@ -143,7 +145,7 @@ class Backend:
             )
 
         try:
-            self._prepare_program(shader, name)
+            self._prepare_program(shader, name, search_path)
             self.renderer.createProgram(shader)
         except LookupError as err:
             return RenderResult(
@@ -168,12 +170,18 @@ class Backend:
                 output_path / f"{mx.createValidName(name)}_{self.id}.png"
             )
             self.renderer.getImageHandler().saveImage(
-                str(image_path), self.renderer.captureImage(None), True,
+                str(image_path), self.renderer.captureImage(None),
+                self.flip_saved_image,
             )
             result.output_path = image_path
         return result
 
-    def _prepare_program(self, shader: mx_gen_shader.Shader, name: str) -> None:
+    def _prepare_program(
+        self,
+        shader: mx_gen_shader.Shader,
+        name: str,
+        search_path: mx.FileSearchPath | None,
+    ) -> None:
         """Per-shader renderer setup before ``createProgram``."""
 
     def dump_stages(
@@ -242,6 +250,7 @@ class OslBackend(Backend):
     generator_class = mx_gen_osl.OslShaderGenerator
     file_extension = "osl"
     has_vertex_stage = False
+    flip_saved_image = False
 
     # MaterialX type -> OSL type of the scene template's output shader input.
     _OSL_TYPES = {
@@ -291,13 +300,15 @@ class OslBackend(Backend):
         shutil.copytree(_OSL_UTILITIES, utilities)
 
         # TODO: OslRenderer.setEnvShaderParameterOverrides has no Python
-        # binding yet, so bake the radiance map into envmap.osl's default.
-        # testrender crashes on an empty environment map filename.
-        envmap = utilities / "envmap.osl"
-        envmap.write_text(envmap.read_text().replace(
-            'envmap_filename = ""',
-            f'envmap_filename = "{scene_options.radiance_path.as_posix()}"',
-        ))
+        # binding yet, so bake the radiance map into the defaults of the
+        # utility shaders that sample it.  testrender crashes on an empty
+        # environment map filename.
+        for env_shader in ("envmap.osl", "raytype_background.osl"):
+            path = utilities / env_shader
+            path.write_text(path.read_text().replace(
+                'envmap_filename = ""',
+                f'envmap_filename = "{scene_options.radiance_path.as_posix()}"',
+            ))
 
         renderer.setOslOutputFilePath(mx.FilePath(str(utilities)))
         for osl_file in sorted(utilities.glob("*.osl")):
@@ -309,10 +320,16 @@ class OslBackend(Backend):
         renderer.setOslOutputFilePath(mx.FilePath(str(work_dir)))
         return renderer
 
-    def _prepare_program(self, shader, name):
+    def _prepare_program(self, shader, name, search_path):
         # testrender writes <shader name>_osl.png into the output path, which
-        # captureImage() then reads back.
+        # captureImage() then reads back.  Different materials can share a
+        # shader name, so drop the image cached from an earlier render.
         self.renderer.setOslShaderName(shader.getName())
+        self.renderer.getImageHandler().clearImageCache()
+        self.renderer.setShaderParameterOverrides(
+            self._texture_overrides(shader, search_path),
+        )
+
         outputs = shader.getStage(mx_gen_shader.PIXEL_STAGE).getOutputBlock(
             mx_gen_osl.OSL_OUTPUTS,
         )
@@ -329,6 +346,38 @@ class OslBackend(Backend):
         self.renderer.setOslShaderOutput(
             output_port.getVariable(), self._OSL_TYPES[output_type_name],
         )
+
+    @staticmethod
+    def _texture_overrides(
+        shader: mx_gen_shader.Shader, search_path: mx.FileSearchPath | None,
+    ) -> list[str]:
+        """Absolute texture paths for testrender, as parameter overrides.
+
+        Filenames in the generated shader stay as authored (often relative
+        to the document) so the dumped baselines are portable, but
+        testrender resolves them from its working directory.
+        """
+        if search_path is None:
+            return []
+        uniforms = shader.getStage(mx_gen_shader.PIXEL_STAGE).getUniformBlock(
+            mx_gen_osl.OSL_UNIFORMS,
+        )
+        overrides = []
+        for i in range(len(uniforms)):
+            port = uniforms[i]
+            if port.getType().getName() != "filename":
+                continue
+            resolved = search_path.find(mx.FilePath(port.getValueString()))
+            if not resolved.exists():
+                continue
+            # The generator emits a filename input as a string parameter,
+            # then appends "_" to the variable for the textureresource it
+            # builds from that parameter.
+            param = port.getVariable().removesuffix("_")
+            overrides.append(
+                f'string {param} "{Path(resolved.asString()).as_posix()}";\n'
+            )
+        return overrides
 
 
 BACKENDS: dict[str, type[Backend]] = {
