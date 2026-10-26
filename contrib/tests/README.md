@@ -216,6 +216,10 @@ settings lack Python bindings:
 - `GenOptions.oslConnectCiWrapper` isn't set, and MaterialXTest's
   tangent/bitangent implementation overrides aren't registered.
 
+`OslRenderer` doesn't quote the paths in its `oslc` and `testrender`
+command lines, so neither `OSL_ROOT` nor the temporary directory may
+contain spaces.
+
 ## CI Workflow
 
 ```

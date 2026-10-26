@@ -296,6 +296,14 @@ class OslBackend(Backend):
         # than next to the committed baselines.
         work_dir = Path(tempfile.mkdtemp(prefix="mx_osl_"))
         atexit.register(shutil.rmtree, work_dir, ignore_errors=True)
+
+        # OslRenderer passes these paths to oslc and testrender unquoted.
+        for path in (osl_bin, work_dir):
+            if " " in str(path):
+                raise ValueError(
+                    f"OSL rendering doesn't support paths with spaces: {path}"
+                )
+
         utilities = work_dir / "Utilities"
         shutil.copytree(_OSL_UTILITIES, utilities)
 
