@@ -10,6 +10,11 @@ since several generators share a target (``VkShaderGenerator`` and
 """
 from __future__ import annotations
 
+import atexit
+import os
+import shutil
+import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,9 +24,16 @@ import MaterialX.PyMaterialXGenOsl as mx_gen_osl
 import MaterialX.PyMaterialXGenShader as mx_gen_shader
 import MaterialX.PyMaterialXRender as mx_render
 import MaterialX.PyMaterialXRenderGlsl as mx_render_glsl
+import MaterialX.PyMaterialXRenderOsl as mx_render_osl
 
 from rendertest import codegen
 from rendertest.scene_setup import SceneOptions, setup_raster_scene
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+# Utility shaders and scene template that MaterialXTest uses with testrender.
+_OSL_UTILITIES = (
+    _REPO_ROOT / "source" / "MaterialXTest" / "MaterialXRenderOsl" / "Utilities"
+)
 
 
 @dataclass
@@ -46,6 +58,8 @@ class Backend:
     generator_class: type
     file_extension: str
     has_vertex_stage: bool
+    # OpenGL readbacks are bottom-up; images read from disk are not.
+    flip_saved_image: bool = True
 
     def __init__(
         self,
@@ -131,6 +145,7 @@ class Backend:
             )
 
         try:
+            self._prepare_program(shader, name, search_path)
             self.renderer.createProgram(shader)
         except LookupError as err:
             return RenderResult(
@@ -155,10 +170,19 @@ class Backend:
                 output_path / f"{mx.createValidName(name)}_{self.id}.png"
             )
             self.renderer.getImageHandler().saveImage(
-                str(image_path), self.renderer.captureImage(None), True,
+                str(image_path), self.renderer.captureImage(None),
+                self.flip_saved_image,
             )
             result.output_path = image_path
         return result
+
+    def _prepare_program(
+        self,
+        shader: mx_gen_shader.Shader,
+        name: str,
+        search_path: mx.FileSearchPath | None,
+    ) -> None:
+        """Per-shader renderer setup before ``createProgram``."""
 
     def dump_stages(
         self, shader: mx_gen_shader.Shader, output_path: Path, name: str,
@@ -215,12 +239,153 @@ class GlslBackend(Backend):
 
 
 class OslBackend(Backend):
-    """OSL generation only; ``OslRenderer`` support is not wired up yet."""
+    """OSL generation, rendered with OSL's ``testrender`` via ``OslRenderer``.
+
+    Rendering requires the ``OSL_ROOT`` environment variable to point at
+    an OSL install containing ``bin/oslc`` and ``bin/testrender``; without
+    it, this backend only generates shaders.
+    """
 
     id = "osl"
     generator_class = mx_gen_osl.OslShaderGenerator
     file_extension = "osl"
     has_vertex_stage = False
+    flip_saved_image = False
+
+    # MaterialX type -> OSL type of the scene template's output shader input.
+    _OSL_TYPES = {
+        "float": "float",
+        "color3": "color",
+        "color4": "color4",
+        "vector2": "vector2",
+        "vector3": "vector",
+        "vector4": "vector4",
+        "surfaceshader": "closure color",
+        "material": "closure color",
+    }
+
+    @classmethod
+    def _create_renderer(cls, search_path, scene_options):
+        osl_root = os.environ.get("OSL_ROOT")
+        if not osl_root:
+            return None
+        osl_bin = Path(osl_root) / "bin"
+        exe_suffix = ".exe" if sys.platform == "win32" else ""
+
+        renderer = mx_render_osl.OslRenderer.create(
+            scene_options.width, scene_options.height,
+            mx_render.BaseType.UINT8,
+        )
+        renderer.setOslCompilerExecutable(str(osl_bin / f"oslc{exe_suffix}"))
+        renderer.setOslTestRenderExecutable(
+            str(osl_bin / f"testrender{exe_suffix}"),
+        )
+        renderer.setOslIncludePath(mx.FileSearchPath(
+            str(_REPO_ROOT / "libraries" / "stdlib" / "genosl" / "include"),
+        ))
+        renderer.initialize()
+
+        image_handler = mx_render.ImageHandler.create(
+            mx_render.StbImageLoader.create(),
+        )
+        image_handler.setSearchPath(mx.FileSearchPath(search_path.asString()))
+        renderer.setImageHandler(image_handler)
+        renderer.setLightHandler(None)
+
+        # testrender's intermediate files go to a scratch directory rather
+        # than next to the committed baselines.
+        work_dir = Path(tempfile.mkdtemp(prefix="mx_osl_"))
+        atexit.register(shutil.rmtree, work_dir, ignore_errors=True)
+
+        # OslRenderer passes these paths to oslc and testrender unquoted.
+        for path in (osl_bin, work_dir):
+            if " " in str(path):
+                raise ValueError(
+                    f"OSL rendering doesn't support paths with spaces: {path}"
+                )
+
+        utilities = work_dir / "Utilities"
+        shutil.copytree(_OSL_UTILITIES, utilities)
+
+        # TODO: OslRenderer.setEnvShaderParameterOverrides has no Python
+        # binding yet, so bake the radiance map into the defaults of the
+        # utility shaders that sample it.  testrender crashes on an empty
+        # environment map filename.
+        for env_shader in ("envmap.osl", "raytype_background.osl"):
+            path = utilities / env_shader
+            path.write_text(path.read_text().replace(
+                'envmap_filename = ""',
+                f'envmap_filename = "{scene_options.radiance_path.as_posix()}"',
+            ))
+
+        renderer.setOslOutputFilePath(mx.FilePath(str(utilities)))
+        for osl_file in sorted(utilities.glob("*.osl")):
+            renderer.compileOSL(mx.FilePath(str(osl_file)))
+        renderer.setOslUtilityOSOPath(mx.FilePath(str(utilities)))
+        renderer.setOslTestRenderSceneTemplateFile(
+            str(utilities / "scene_template.xml"),
+        )
+        renderer.setOslOutputFilePath(mx.FilePath(str(work_dir)))
+        return renderer
+
+    def _prepare_program(self, shader, name, search_path):
+        # testrender writes <shader name>_osl.png into the output path, which
+        # captureImage() then reads back.  Different materials can share a
+        # shader name, so drop the image cached from an earlier render.
+        self.renderer.setOslShaderName(shader.getName())
+        self.renderer.getImageHandler().clearImageCache()
+        self.renderer.setShaderParameterOverrides(
+            self._texture_overrides(shader, search_path),
+        )
+
+        outputs = shader.getStage(mx_gen_shader.PIXEL_STAGE).getOutputBlock(
+            mx_gen_osl.OSL_OUTPUTS,
+        )
+        if not len(outputs):
+            raise LookupError(f"Shader has no output to render: {name}")
+        output_port = outputs[0]
+
+        output_type_name = output_port.getType().getName()
+        if output_type_name not in self._OSL_TYPES:
+            raise LookupError(
+                f"Unsupported OSL output type {output_type_name}: {name}"
+            )
+
+        self.renderer.setOslShaderOutput(
+            output_port.getVariable(), self._OSL_TYPES[output_type_name],
+        )
+
+    @staticmethod
+    def _texture_overrides(
+        shader: mx_gen_shader.Shader, search_path: mx.FileSearchPath | None,
+    ) -> list[str]:
+        """Absolute texture paths for testrender, as parameter overrides.
+
+        Filenames in the generated shader stay as authored (often relative
+        to the document) so the dumped baselines are portable, but
+        testrender resolves them from its working directory.
+        """
+        if search_path is None:
+            return []
+        uniforms = shader.getStage(mx_gen_shader.PIXEL_STAGE).getUniformBlock(
+            mx_gen_osl.OSL_UNIFORMS,
+        )
+        overrides = []
+        for i in range(len(uniforms)):
+            port = uniforms[i]
+            if port.getType().getName() != "filename":
+                continue
+            resolved = search_path.find(mx.FilePath(port.getValueString()))
+            if not resolved.exists():
+                continue
+            # The generator emits a filename input as a string parameter,
+            # then appends "_" to the variable for the textureresource it
+            # builds from that parameter.
+            param = port.getVariable().removesuffix("_")
+            overrides.append(
+                f'string {param} "{Path(resolved.asString()).as_posix()}";\n'
+            )
+        return overrides
 
 
 BACKENDS: dict[str, type[Backend]] = {
