@@ -101,6 +101,9 @@ def search_path(repo_root) -> mx.FileSearchPath:
     adsk_path = repo_root / "contrib" / "adsk" / "libraries"
     if adsk_path.exists():
         sp.append(str(adsk_path))
+    # Test documents reference images relative to the repo root
+    # (e.g. "resources/Images/grid.png"), as MaterialXTest resolves them.
+    sp.append(str(repo_root))
     return sp
 
 
