@@ -265,6 +265,15 @@ class OslBackend(Backend):
     }
 
     @classmethod
+    def create(cls, stdlib, search_path, scene_options=None):
+        backend = super().create(stdlib, search_path, scene_options)
+        # Generation options match MaterialXTest's OSL render tests.
+        options = backend.context.getOptions()
+        options.fileTextureVerticalFlip = False
+        options.oslConnectCiWrapper = True
+        return backend
+
+    @classmethod
     def _create_renderer(cls, search_path, scene_options):
         osl_root = os.environ.get("OSL_ROOT")
         if not osl_root:
@@ -298,32 +307,28 @@ class OslBackend(Backend):
         atexit.register(shutil.rmtree, work_dir, ignore_errors=True)
 
         # OslRenderer passes these paths to oslc and testrender unquoted.
-        for path in (osl_bin, work_dir):
+        for path in (osl_bin, work_dir, _OSL_UTILITIES):
             if " " in str(path):
                 raise ValueError(
                     f"OSL rendering doesn't support paths with spaces: {path}"
                 )
 
+        # Sample counts match MaterialXTest's non-reference-quality renders.
+        # testrender traces N * N samples per pixel.
+        renderer.setAaLit(2)
+        renderer.setAaUnlit(1)
+        renderer.setEnvShaderParameterOverrides([
+            f'string envmap_filename "{scene_options.radiance_path.as_posix()}";\n',
+        ])
+
         utilities = work_dir / "Utilities"
-        shutil.copytree(_OSL_UTILITIES, utilities)
-
-        # TODO: OslRenderer.setEnvShaderParameterOverrides has no Python
-        # binding yet, so bake the radiance map into the defaults of the
-        # utility shaders that sample it.  testrender crashes on an empty
-        # environment map filename.
-        for env_shader in ("envmap.osl", "raytype_background.osl"):
-            path = utilities / env_shader
-            path.write_text(path.read_text().replace(
-                'envmap_filename = ""',
-                f'envmap_filename = "{scene_options.radiance_path.as_posix()}"',
-            ))
-
+        utilities.mkdir()
         renderer.setOslOutputFilePath(mx.FilePath(str(utilities)))
-        for osl_file in sorted(utilities.glob("*.osl")):
+        for osl_file in sorted(_OSL_UTILITIES.glob("*.osl")):
             renderer.compileOSL(mx.FilePath(str(osl_file)))
         renderer.setOslUtilityOSOPath(mx.FilePath(str(utilities)))
         renderer.setOslTestRenderSceneTemplateFile(
-            str(utilities / "scene_template.xml"),
+            str(_OSL_UTILITIES / "scene_template.xml"),
         )
         renderer.setOslOutputFilePath(mx.FilePath(str(work_dir)))
         return renderer
