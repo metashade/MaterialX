@@ -526,6 +526,77 @@ void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacements
     result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
 }
 
+void mx_set_ci (
+    int output_type,
+
+    // the per-type inputs must be named with "input_<typename>"
+    // the of these inputs defines their corresponding output_type value.
+    // this is dynamically derived in the shader generation code by
+    // inspecting the order of the inputs in the node definition
+    surfaceshader input_surfaceshader,
+    MATERIAL input_material,
+    BSDF input_BSDF,
+    EDF input_EDF,
+    float input_float,
+    color input_color3,
+    color4 input_color4,
+    vector2 input_vector2,
+    vector input_vector3,
+    vector4 input_vector4,
+    int input_integer,
+    int input_boolean,
+    matrix input_matrix33,
+    matrix input_matrix44,
+    displacementshader input_displacementshader,
+
+    output closure color out_ci
+)
+{
+    color c = 0;
+    float a = 1;
+
+    if (output_type == 0) {
+        float opacity_weight = clamp(input_surfaceshader.opacity, 0.0, 1.0);
+        out_ci =  (input_surfaceshader.bsdf + input_surfaceshader.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+    } else if (output_type == 1) {
+        out_ci = input_material;
+    } else if (output_type == 2) {
+        out_ci = input_BSDF;
+    } else if (output_type == 3) {
+        out_ci = input_EDF;
+    } else {
+        if (output_type == 4) {
+            c = input_float;
+        } else if (output_type == 5) {
+            c = input_color3;
+        } else if (output_type == 6) {
+            c = input_color4.rgb;
+            a = input_color4.a;
+        } else if (output_type == 7) {
+            c = color(input_vector2.x, input_vector2.y, 0);
+        } else if (output_type == 8) {
+            c = color(input_vector3);
+        } else if (output_type == 9) {
+            c = color(input_vector4.x, input_vector4.y, input_vector4.z);
+            a = input_vector4.w;
+        } else if (output_type == 10) {
+            c = color(input_integer);
+        } else if (output_type == 11) {
+            c = color(input_boolean);
+        } else if (output_type == 12) {
+            c = color(input_matrix33[0][0], input_matrix33[1][1], input_matrix33[2][2]);
+        } else if (output_type == 13) {
+            c = color(input_matrix44[0][0], input_matrix44[1][1], input_matrix44[2][2]);
+            a = input_matrix44[4][4];
+        } else if (output_type == 14) {
+            c = color(input_displacementshader);
+        }
+        out_ci = c * a * emission() + (1-a) * transparent();
+    }
+
+    Ci = out_ci;
+}
+
 shader M_legacy_waves
 [[
     string mtlx_category = "surfacematerial",
@@ -709,11 +780,13 @@ shader M_legacy_waves
     color legacy_waves_color3_out = color(0.0);
     NG_legacy_waves_color3(geomprop_Pworld_out1, legacy_waves_color3_color1, legacy_waves_color3_color2, legacy_waves_color3_waves, legacy_waves_color3_radius, legacy_waves_color3_seed, legacy_waves_color3_wave_min, legacy_waves_color3_wave_max, legacy_waves_color3_phase, legacy_waves_color3_distribution_3d, legacy_waves_color3_fade, legacy_waves_color3_realworld_offset, legacy_waves_color3_rotation_angle, legacy_waves_color3_out);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_testmat1_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_testmat1_base, legacy_waves_color3_out, SR_testmat1_diffuse_roughness, SR_testmat1_metalness, SR_testmat1_specular, SR_testmat1_specular_color, SR_testmat1_specular_roughness, SR_testmat1_specular_IOR, SR_testmat1_specular_anisotropy, SR_testmat1_specular_rotation, SR_testmat1_transmission, SR_testmat1_transmission_color, SR_testmat1_transmission_depth, SR_testmat1_transmission_scatter, SR_testmat1_transmission_scatter_anisotropy, SR_testmat1_transmission_dispersion, SR_testmat1_transmission_extra_roughness, SR_testmat1_subsurface, SR_testmat1_subsurface_color, SR_testmat1_subsurface_radius, SR_testmat1_subsurface_scale, SR_testmat1_subsurface_anisotropy, SR_testmat1_sheen, SR_testmat1_sheen_color, SR_testmat1_sheen_roughness, SR_testmat1_coat, SR_testmat1_coat_color, SR_testmat1_coat_roughness, SR_testmat1_coat_anisotropy, SR_testmat1_coat_rotation, SR_testmat1_coat_IOR, geomprop_Nworld_out1, SR_testmat1_coat_affect_color, SR_testmat1_coat_affect_roughness, SR_testmat1_thin_film_thickness, SR_testmat1_thin_film_IOR, SR_testmat1_emission, SR_testmat1_emission_color, SR_testmat1_opacity, SR_testmat1_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_testmat1_out);
     MATERIAL M_legacy_waves_out = null_closure();
     mx_surfacematerial(SR_testmat1_out, backsurfaceshader, displacementshader1, M_legacy_waves_out);
-    out = M_legacy_waves_out;
+    MATERIAL oslSetCi_out_ci = null_closure();
+    mx_set_ci(1, surfaceshader(null_closure(), null_closure(), 1.0), M_legacy_waves_out, null_closure(), null_closure(), 0.0, color(0.0), color4(color(0.0), 0.0), vector2(0.0, 0.0), vector(0.0), vector4(0.0, 0.0, 0.0, 0.0), 0, 0, matrix(1.0), matrix(1.0), vector(0.0), oslSetCi_out_ci);
+    out = oslSetCi_out_ci;
 }
 

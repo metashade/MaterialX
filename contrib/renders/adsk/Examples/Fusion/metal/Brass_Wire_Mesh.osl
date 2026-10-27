@@ -69,7 +69,7 @@ void NG_place2d_vector2(vector2 texcoord, vector2 pivot, vector2 scale, float ro
 
 vector2 mx_transform_uv(vector2 texcoord)
 {
-    return vector2(texcoord.x, 1.0 - texcoord.y);
+    return texcoord;
 }
 
 void mx_image_color3(textureresource file, string layer, color default_value, vector2 texcoord, string uaddressmode, string vaddressmode, string filtertype, string framerange, int frameoffset, string frameendaction, output color out)
@@ -450,8 +450,7 @@ void adsk_NG_adsk_metal(color metal_f0, color surface_albedo, float surface_roug
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     color base_color_value_out = surface_albedo * metal_f0;
     float oneminus_surfaniso0_in1_tmp = 1.000000;
     float oneminus_surfaniso0_out = oneminus_surfaniso0_in1_tmp - surface_anisotropy;
@@ -474,6 +473,77 @@ void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacements
 {
     float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
     result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+void mx_set_ci (
+    int output_type,
+
+    // the per-type inputs must be named with "input_<typename>"
+    // the of these inputs defines their corresponding output_type value.
+    // this is dynamically derived in the shader generation code by
+    // inspecting the order of the inputs in the node definition
+    surfaceshader input_surfaceshader,
+    MATERIAL input_material,
+    BSDF input_BSDF,
+    EDF input_EDF,
+    float input_float,
+    color input_color3,
+    color4 input_color4,
+    vector2 input_vector2,
+    vector input_vector3,
+    vector4 input_vector4,
+    int input_integer,
+    int input_boolean,
+    matrix input_matrix33,
+    matrix input_matrix44,
+    displacementshader input_displacementshader,
+
+    output closure color out_ci
+)
+{
+    color c = 0;
+    float a = 1;
+
+    if (output_type == 0) {
+        float opacity_weight = clamp(input_surfaceshader.opacity, 0.0, 1.0);
+        out_ci =  (input_surfaceshader.bsdf + input_surfaceshader.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+    } else if (output_type == 1) {
+        out_ci = input_material;
+    } else if (output_type == 2) {
+        out_ci = input_BSDF;
+    } else if (output_type == 3) {
+        out_ci = input_EDF;
+    } else {
+        if (output_type == 4) {
+            c = input_float;
+        } else if (output_type == 5) {
+            c = input_color3;
+        } else if (output_type == 6) {
+            c = input_color4.rgb;
+            a = input_color4.a;
+        } else if (output_type == 7) {
+            c = color(input_vector2.x, input_vector2.y, 0);
+        } else if (output_type == 8) {
+            c = color(input_vector3);
+        } else if (output_type == 9) {
+            c = color(input_vector4.x, input_vector4.y, input_vector4.z);
+            a = input_vector4.w;
+        } else if (output_type == 10) {
+            c = color(input_integer);
+        } else if (output_type == 11) {
+            c = color(input_boolean);
+        } else if (output_type == 12) {
+            c = color(input_matrix33[0][0], input_matrix33[1][1], input_matrix33[2][2]);
+        } else if (output_type == 13) {
+            c = color(input_matrix44[0][0], input_matrix44[1][1], input_matrix44[2][2]);
+            a = input_matrix44[4][4];
+        } else if (output_type == 14) {
+            c = color(input_displacementshader);
+        }
+        out_ci = c * a * emission() + (1-a) * transparent();
+    }
+
+    Ci = out_ci;
 }
 
 shader Brass_Wire_Mesh
@@ -609,7 +679,7 @@ shader Brass_Wire_Mesh
     vector2 normal_texturemap_realworld_offset_unit_out = normal_texturemap_realworld_offset_unit_in1 * normal_texturemap_realworld_offset_unit_in2;
     vector2 normal_texturemap_realworld_scale_unit_out = normal_texturemap_realworld_scale_unit_in1 * normal_texturemap_realworld_scale_unit_in2;
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector normal_texturemap_out = vector(0.0);
     adsk_NG_adsk_normal_map(normal_texturemap_file_, normal_texturemap_realworld_offset_unit_out, normal_texturemap_realworld_scale_unit_out, normal_texturemap_uv_offset, normal_texturemap_uv_scale, normal_texturemap_rotation_angle, normal_texturemap_normal_scale, normal_texturemap_uaddressmode, normal_texturemap_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_texturemap_out);
     vector2 surfacecutout_texturemap_realworld_offset_unit_out = surfacecutout_texturemap_realworld_offset_unit_in1 * surfacecutout_texturemap_realworld_offset_unit_in2;
@@ -620,6 +690,8 @@ shader Brass_Wire_Mesh
     adsk_NG_adsk_metal(shaderref3_metal_f0, surfacealbedo_texturemap_out, shaderref3_surface_roughness, shaderref3_surface_anisotropy, shaderref3_surface_rotation, normal_texturemap_out, surfacecutout_texturemap_out, shaderref3_out);
     MATERIAL Brass_Wire_Mesh_out = null_closure();
     mx_surfacematerial(shaderref3_out, backsurfaceshader, displacementshader1, Brass_Wire_Mesh_out);
-    out = Brass_Wire_Mesh_out;
+    MATERIAL oslSetCi_out_ci = null_closure();
+    mx_set_ci(1, surfaceshader(null_closure(), null_closure(), 1.0), Brass_Wire_Mesh_out, null_closure(), null_closure(), 0.0, color(0.0), color4(color(0.0), 0.0), vector2(0.0, 0.0), vector(0.0), vector4(0.0, 0.0, 0.0, 0.0), 0, 0, matrix(1.0), matrix(1.0), vector(0.0), oslSetCi_out_ci);
+    out = oslSetCi_out_ci;
 }
 

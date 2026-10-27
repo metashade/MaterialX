@@ -69,7 +69,7 @@ void NG_place2d_vector2(vector2 texcoord, vector2 pivot, vector2 scale, float ro
 
 vector2 mx_transform_uv(vector2 texcoord)
 {
-    return vector2(texcoord.x, 1.0 - texcoord.y);
+    return texcoord;
 }
 
 void mx_image_vector3(textureresource file, string layer, vector default_value, vector2 texcoord, string uaddressmode, string vaddressmode, string filtertype, string framerange, int frameoffset, string frameendaction, output vector out)
@@ -138,10 +138,8 @@ void adsk_NG_adsk_normal_map(textureresource  file, vector2 realworld_offset, ve
 
 void NG_transformnormal_w2t_vector3(vector world_normal, output vector tangent_normal)
 {
-    string tangent_vector3_space_tmp = "world";
-    vector tangent_vector3_out = transform(tangent_vector3_space_tmp, normalize(dPdu));
-    string bitangent_vector3_space_tmp = "world";
-    vector bitangent_vector3_out = transform(bitangent_vector3_space_tmp, normalize(dPdv));
+    vector tangent_vector3_out = normalize(vector(N[2], 0, -N[0]));
+    vector bitangent_vector3_out = normalize(cross(N, vector(N[2], 0, -N[0])));
     string normal_vector4_space_tmp = "world";
     vector normal_vector4_out = transform(normal_vector4_space_tmp, N);
     float dotproduct_vx_out = dot(world_normal, tangent_vector3_out);
@@ -287,10 +285,8 @@ void NG_util_proc_to_norm(vector2 texcoord, color color1, float amount_htn, floa
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int extract_r_index_tmp = 0;
     float extract_r_out = mx_extract(color1, extract_r_index_tmp);
     vector heighttonormal1_out = vector(0.0);
@@ -655,10 +651,8 @@ void NG_legacy_glass(vector2 texcoord, int color1, color custom_color, int test_
     vector2 relief_scale_adj_out = texcoord / relief_scale;
     vector transformnormal_w2t_vector3_1_tangent_normal = vector(0.0);
     NG_transformnormal_w2t_vector3(normal_custom_relief, transformnormal_w2t_vector3_1_tangent_normal);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     float modulo_col_in2_tmp = 5.000000;
     float modulo_col_out = mod(convert_color_float_out, modulo_col_in2_tmp);
     float divide_col_in2_tmp = 5.000000;
@@ -714,6 +708,77 @@ void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacements
 {
     float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
     result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+void mx_set_ci (
+    int output_type,
+
+    // the per-type inputs must be named with "input_<typename>"
+    // the of these inputs defines their corresponding output_type value.
+    // this is dynamically derived in the shader generation code by
+    // inspecting the order of the inputs in the node definition
+    surfaceshader input_surfaceshader,
+    MATERIAL input_material,
+    BSDF input_BSDF,
+    EDF input_EDF,
+    float input_float,
+    color input_color3,
+    color4 input_color4,
+    vector2 input_vector2,
+    vector input_vector3,
+    vector4 input_vector4,
+    int input_integer,
+    int input_boolean,
+    matrix input_matrix33,
+    matrix input_matrix44,
+    displacementshader input_displacementshader,
+
+    output closure color out_ci
+)
+{
+    color c = 0;
+    float a = 1;
+
+    if (output_type == 0) {
+        float opacity_weight = clamp(input_surfaceshader.opacity, 0.0, 1.0);
+        out_ci =  (input_surfaceshader.bsdf + input_surfaceshader.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+    } else if (output_type == 1) {
+        out_ci = input_material;
+    } else if (output_type == 2) {
+        out_ci = input_BSDF;
+    } else if (output_type == 3) {
+        out_ci = input_EDF;
+    } else {
+        if (output_type == 4) {
+            c = input_float;
+        } else if (output_type == 5) {
+            c = input_color3;
+        } else if (output_type == 6) {
+            c = input_color4.rgb;
+            a = input_color4.a;
+        } else if (output_type == 7) {
+            c = color(input_vector2.x, input_vector2.y, 0);
+        } else if (output_type == 8) {
+            c = color(input_vector3);
+        } else if (output_type == 9) {
+            c = color(input_vector4.x, input_vector4.y, input_vector4.z);
+            a = input_vector4.w;
+        } else if (output_type == 10) {
+            c = color(input_integer);
+        } else if (output_type == 11) {
+            c = color(input_boolean);
+        } else if (output_type == 12) {
+            c = color(input_matrix33[0][0], input_matrix33[1][1], input_matrix33[2][2]);
+        } else if (output_type == 13) {
+            c = color(input_matrix44[0][0], input_matrix44[1][1], input_matrix44[2][2]);
+            a = input_matrix44[4][4];
+        } else if (output_type == 14) {
+            c = color(input_displacementshader);
+        }
+        out_ci = c * a * emission() + (1-a) * transparent();
+    }
+
+    Ci = out_ci;
 }
 
 shader M_legacy_glass
@@ -854,7 +919,7 @@ shader M_legacy_glass
     textureresource normal_map_custom_file_ = {normal_map_custom_file, normal_map_custom_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector normal_map_rippled_out = vector(0.0);
     adsk_NG_adsk_normal_map(normal_map_rippled_file_, normal_map_rippled_realworld_offset, normal_map_rippled_realworld_scale, normal_map_rippled_uv_offset, normal_map_rippled_uv_scale, normal_map_rippled_rotation_angle, normal_map_rippled_normal_scale, normal_map_rippled_uaddressmode, normal_map_rippled_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_map_rippled_out);
     vector normal_map_wavy_out = vector(0.0);
@@ -865,6 +930,8 @@ shader M_legacy_glass
     NG_legacy_glass(geomprop_UV0_out1, SR_legacy_glass_color, SR_legacy_glass_custom_color, SR_legacy_glass_test_sRGB, SR_legacy_glass_reflectance, SR_legacy_glass_refraction_ior, SR_legacy_glass_custom_ior, SR_legacy_glass_roughness, SR_legacy_glass_tint_enable, SR_legacy_glass_tint_color, SR_legacy_glass_relief_enable, SR_legacy_glass_relief_type, normal_map_rippled_out, normal_map_wavy_out, normal_map_custom_out, SR_legacy_glass_relief_amount, SR_legacy_glass_relief_scale, SR_legacy_glass_out);
     MATERIAL M_legacy_glass_out = null_closure();
     mx_surfacematerial(SR_legacy_glass_out, backsurfaceshader, displacementshader1, M_legacy_glass_out);
-    out = M_legacy_glass_out;
+    MATERIAL oslSetCi_out_ci = null_closure();
+    mx_set_ci(1, surfaceshader(null_closure(), null_closure(), 1.0), M_legacy_glass_out, null_closure(), null_closure(), 0.0, color(0.0), color4(color(0.0), 0.0), vector2(0.0, 0.0), vector(0.0), vector4(0.0, 0.0, 0.0, 0.0), 0, 0, matrix(1.0), matrix(1.0), vector(0.0), oslSetCi_out_ci);
+    out = oslSetCi_out_ci;
 }
 

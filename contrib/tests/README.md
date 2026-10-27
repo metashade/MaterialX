@@ -206,15 +206,14 @@ directory, and only the `*_osl.png` images land next to the baselines.
 OSL_ROOT=/path/to/osl/install pytest test_render.py -m osl -v
 ```
 
-OSL renders don't match MaterialXTest's yet, because some `OslRenderer`
-settings lack Python bindings:
-
-- `setAaLit` / `setAaUnlit`: renders use `testrender`'s default of one
-  sample per pixel, so glossy materials are much noisier.
-- `setEnvShaderParameterOverrides`: the radiance map is baked into copies
-  of the `envmap.osl` and `raytype_background.osl` utility shaders instead.
-- `GenOptions.oslConnectCiWrapper` isn't set, and MaterialXTest's
-  tangent/bitangent implementation overrides aren't registered.
+The OSL backend uses MaterialXTest's OSL render settings: its utility
+shaders and scene template, the same `-aa` sample counts, the radiance map
+as an environment shader override, `oslConnectCiWrapper`, no
+`fileTextureVerticalFlip`, and its tangent and bitangent implementations.
+MaterialXTest registers those as C++ `ShaderNodeImpl`s; the OSL backend
+substitutes their expressions for the inline source of the stdlib
+`genosl` implementations, since Python can't register node
+implementations.  The shader baselines include these test-only tangents.
 
 `OslRenderer` doesn't quote the paths in its `oslc` and `testrender`
 command lines, so neither `OSL_ROOT` nor the temporary directory may

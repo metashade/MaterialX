@@ -129,8 +129,7 @@ void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfa
 
 void IMP_UsdPreviewSurface_surfaceshader(color diffuseColor, color emissiveColor, int useSpecularWorkflow, color specularColor, float metallic, float roughness, float clearcoat, float clearcoatRoughness, float opacity, int opacityMode, float opacityThreshold, float ior, vector normal1, float displacement, float occlusion, output surfaceshader out)
 {
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float one_minus_ior_in1_tmp = 1.000000;
     float one_minus_ior_out = one_minus_ior_in1_tmp - ior;
     float one_plus_ior_in1_tmp = 1.000000;
@@ -139,8 +138,7 @@ void IMP_UsdPreviewSurface_surfaceshader(color diffuseColor, color emissiveColor
     mx_roughness_anisotropy(clearcoatRoughness, 0.000000, coat_roughness_out);
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     float scale_normal_in2_tmp = 0.500000;
     vector scale_normal_out = normal1 * scale_normal_in2_tmp;
     vector2 specular_roughness_out = vector2(0.0, 0.0);
@@ -210,6 +208,77 @@ void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacements
     result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
 }
 
+void mx_set_ci (
+    int output_type,
+
+    // the per-type inputs must be named with "input_<typename>"
+    // the of these inputs defines their corresponding output_type value.
+    // this is dynamically derived in the shader generation code by
+    // inspecting the order of the inputs in the node definition
+    surfaceshader input_surfaceshader,
+    MATERIAL input_material,
+    BSDF input_BSDF,
+    EDF input_EDF,
+    float input_float,
+    color input_color3,
+    color4 input_color4,
+    vector2 input_vector2,
+    vector input_vector3,
+    vector4 input_vector4,
+    int input_integer,
+    int input_boolean,
+    matrix input_matrix33,
+    matrix input_matrix44,
+    displacementshader input_displacementshader,
+
+    output closure color out_ci
+)
+{
+    color c = 0;
+    float a = 1;
+
+    if (output_type == 0) {
+        float opacity_weight = clamp(input_surfaceshader.opacity, 0.0, 1.0);
+        out_ci =  (input_surfaceshader.bsdf + input_surfaceshader.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+    } else if (output_type == 1) {
+        out_ci = input_material;
+    } else if (output_type == 2) {
+        out_ci = input_BSDF;
+    } else if (output_type == 3) {
+        out_ci = input_EDF;
+    } else {
+        if (output_type == 4) {
+            c = input_float;
+        } else if (output_type == 5) {
+            c = input_color3;
+        } else if (output_type == 6) {
+            c = input_color4.rgb;
+            a = input_color4.a;
+        } else if (output_type == 7) {
+            c = color(input_vector2.x, input_vector2.y, 0);
+        } else if (output_type == 8) {
+            c = color(input_vector3);
+        } else if (output_type == 9) {
+            c = color(input_vector4.x, input_vector4.y, input_vector4.z);
+            a = input_vector4.w;
+        } else if (output_type == 10) {
+            c = color(input_integer);
+        } else if (output_type == 11) {
+            c = color(input_boolean);
+        } else if (output_type == 12) {
+            c = color(input_matrix33[0][0], input_matrix33[1][1], input_matrix33[2][2]);
+        } else if (output_type == 13) {
+            c = color(input_matrix44[0][0], input_matrix44[1][1], input_matrix44[2][2]);
+            a = input_matrix44[4][4];
+        } else if (output_type == 14) {
+            c = color(input_displacementshader);
+        }
+        out_ci = c * a * emission() + (1-a) * transparent();
+    }
+
+    Ci = out_ci;
+}
+
 shader USD_Gold
 [[
     string mtlx_category = "surfacematerial",
@@ -273,6 +342,8 @@ shader USD_Gold
     IMP_UsdPreviewSurface_surfaceshader(SR_gold_diffuseColor, SR_gold_emissiveColor, SR_gold_useSpecularWorkflow, SR_gold_specularColor, SR_gold_metallic, SR_gold_roughness, SR_gold_clearcoat, SR_gold_clearcoatRoughness, SR_gold_opacity, SR_gold_opacityMode, SR_gold_opacityThreshold, SR_gold_ior, SR_gold_normal, SR_gold_displacement, SR_gold_occlusion, SR_gold_out);
     MATERIAL USD_Gold_out = null_closure();
     mx_surfacematerial(SR_gold_out, backsurfaceshader, displacementshader1, USD_Gold_out);
-    out = USD_Gold_out;
+    MATERIAL oslSetCi_out_ci = null_closure();
+    mx_set_ci(1, surfaceshader(null_closure(), null_closure(), 1.0), USD_Gold_out, null_closure(), null_closure(), 0.0, color(0.0), color4(color(0.0), 0.0), vector2(0.0, 0.0), vector(0.0), vector4(0.0, 0.0, 0.0, 0.0), 0, 0, matrix(1.0), matrix(1.0), vector(0.0), oslSetCi_out_ci);
+    out = oslSetCi_out_ci;
 }
 
