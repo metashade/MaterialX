@@ -672,8 +672,8 @@ shader test_flake3d
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
     vector geomprop_Pobject_out1 = transform(geomprop_Pobject_space, P);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int flake3d_id = 0;
     float flake3d_rand = 0.0;
     float flake3d_presence = 0.0;

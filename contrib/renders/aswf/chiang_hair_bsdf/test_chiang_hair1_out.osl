@@ -151,7 +151,7 @@ shader out
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF chiang_hair_bsdf1_out = null_closure();
     mx_chiang_hair_bsdf(chiang_hair_bsdf1_tint_R, chiang_hair_bsdf1_tint_TT, chiang_hair_bsdf1_tint_TRT, chiang_hair_bsdf1_ior, chiang_hair_bsdf1_roughness_R, chiang_hair_bsdf1_roughness_TT, chiang_hair_bsdf1_roughness_TRT, chiang_hair_bsdf1_cuticle_angle, chiang_hair_bsdf1_absorption_coefficient, geomprop_Nworld_out1, geomprop_Tworld_out1, chiang_hair_bsdf1_out);
     surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);

@@ -631,8 +631,8 @@ shader ss_out
     mx_image_float(image_file_, image_layer, image_default, scaled_texcoord_out, image_uaddressmode, image_vaddressmode, image_filtertype, image_framerange, image_frameoffset, image_frameendaction, image_out);
     vector heighttonormal_out = vector(0.0);
     mx_heighttonormal_vector3(image_out, heighttonormal_scale, scaled_texcoord_out, heighttonormal_out);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     vector normalmap_out = vector(0.0);
     mx_normalmap_float(heighttonormal_out, normalmap_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, normalmap_out);
     surfaceshader standard_surface_out = surfaceshader(null_closure(), null_closure(), 1.0);

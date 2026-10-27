@@ -498,10 +498,8 @@ void NG_legacy_ceramic(color color1, int tint_enable, color tint_color, int type
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
     vector switch_normal_out = vector(0.0);
     NG_switch_vector3I(normal_wavy_finish, normal_custom_finish, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), finish_bump, switch_normal_out);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     float switch_coat_out = 0.0;
@@ -687,7 +685,7 @@ shader M_legacy_ceramic
     textureresource height_map1_ceramic_file_ = {height_map1_ceramic_file, height_map1_ceramic_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector height_map3_ceramic_out = vector(0.0);
     adsk_NG_adsk_height_map(height_map3_ceramic_file_, height_map3_ceramic_realworld_offset, height_map3_ceramic_realworld_scale, height_map3_ceramic_uv_offset, height_map3_ceramic_uv_scale, height_map3_ceramic_rotation_angle, height_map3_ceramic_depth, height_map3_ceramic_uaddressmode, height_map3_ceramic_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, height_map3_ceramic_out);
     vector height_map1_ceramic_out = vector(0.0);

@@ -409,8 +409,7 @@ void adsk_NG_adsk_metal(color metal_f0, color surface_albedo, float surface_roug
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     color base_color_value_out = surface_albedo * metal_f0;
     float oneminus_surfaniso0_in1_tmp = 1.000000;
     float oneminus_surfaniso0_out = oneminus_surfaniso0_in1_tmp - surface_anisotropy;
@@ -577,7 +576,7 @@ shader Aluminum_Diamond_Plate
     vector2 normal_texturemap_realworld_scale_unit_out = normal_texturemap_realworld_scale_unit_in1 * normal_texturemap_realworld_scale_unit_in2;
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector normal_texturemap_out = vector(0.0);
     adsk_NG_adsk_normal_map(normal_texturemap_file_, normal_texturemap_realworld_offset_unit_out, normal_texturemap_realworld_scale_unit_out, normal_texturemap_uv_offset, normal_texturemap_uv_scale, normal_texturemap_rotation_angle, normal_texturemap_normal_scale, normal_texturemap_uaddressmode, normal_texturemap_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_texturemap_out);
     surfaceshader shaderref5_out = surfaceshader(null_closure(), null_closure(), 1.0);

@@ -178,7 +178,7 @@ shader out
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF dielectric_out = null_closure();
     mx_dielectric_bsdf(dielectric_weight, dielectric_tint, dielectric_ior, dielectric_roughness, dielectric_retroreflective, dielectric_thinfilm_thickness, dielectric_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, dielectric_distribution, dielectric_scatter_mode, dielectric_out);
     BSDF multiply_out = (multiply_in2 * dielectric_out);

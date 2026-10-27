@@ -667,7 +667,7 @@ shader Tiled_Brass
     color image_color_out_cm_out = color(0.0);
     NG_srgb_texture_to_lin_rec709_color3(image_color_out, image_color_out_cm_out);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_brass1_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_brass1_base, SR_brass1_base_color, SR_brass1_diffuse_roughness, SR_brass1_metalness, SR_brass1_specular, SR_brass1_specular_color, image_roughness_out, SR_brass1_specular_IOR, SR_brass1_specular_anisotropy, SR_brass1_specular_rotation, SR_brass1_transmission, SR_brass1_transmission_color, SR_brass1_transmission_depth, SR_brass1_transmission_scatter, SR_brass1_transmission_scatter_anisotropy, SR_brass1_transmission_dispersion, SR_brass1_transmission_extra_roughness, SR_brass1_subsurface, SR_brass1_subsurface_color, SR_brass1_subsurface_radius, SR_brass1_subsurface_scale, SR_brass1_subsurface_anisotropy, SR_brass1_sheen, SR_brass1_sheen_color, SR_brass1_sheen_roughness, SR_brass1_coat, image_color_out_cm_out, image_roughness_out, SR_brass1_coat_anisotropy, SR_brass1_coat_rotation, SR_brass1_coat_IOR, geomprop_Nworld_out1, SR_brass1_coat_affect_color, SR_brass1_coat_affect_roughness, SR_brass1_thin_film_thickness, SR_brass1_thin_film_IOR, SR_brass1_emission, SR_brass1_emission_color, SR_brass1_opacity, SR_brass1_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_brass1_out);
     MATERIAL Tiled_Brass_out = null_closure();

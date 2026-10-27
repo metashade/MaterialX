@@ -189,7 +189,7 @@ shader out
     vector2 roughness1_out = vector2(0.0, 0.0);
     mx_roughness_anisotropy(roughness1_roughness, roughness1_anisotropy, roughness1_out);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF conductor_brdf1_out = conductor_brdf1_weight * conductor_bsdf(geomprop_Nworld_out1, geomprop_Tworld_out1, roughness1_out.x, roughness1_out.y, conductor_brdf1__artistic_ior_ior, conductor_brdf1__artistic_ior_extinction, conductor_brdf1_distribution, "thinfilm_thickness", conductor_brdf1_thinfilm_thickness, "thinfilm_ior", conductor_brdf1_thinfilm_ior);
     surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);
     mx_surface(conductor_brdf1_out, null_closure(), surface1_opacity, surface1_thin_walled, surface1_out);

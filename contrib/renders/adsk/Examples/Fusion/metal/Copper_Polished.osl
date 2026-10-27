@@ -288,8 +288,7 @@ void adsk_NG_adsk_metal(color metal_f0, color surface_albedo, float surface_roug
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     color base_color_value_out = surface_albedo * metal_f0;
     float oneminus_surfaniso0_in1_tmp = 1.000000;
     float oneminus_surfaniso0_out = oneminus_surfaniso0_in1_tmp - surface_anisotropy;

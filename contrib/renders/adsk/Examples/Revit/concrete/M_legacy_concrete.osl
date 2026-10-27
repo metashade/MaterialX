@@ -551,8 +551,7 @@ void NG_legacy_concrete(color color1, int tint_enable, color tint_color, int sea
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
     vector switch_bump_out = vector(0.0);
     NG_switch_vector3I(normal_broomstraight, normal_broomcurved, normal_smooth, normal_polished, normal_custom, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), finish_bump, switch_bump_out);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     int ifequal_color3B_value2_tmp = 1;
@@ -822,7 +821,7 @@ shader M_legacy_concrete
     textureresource texture_custom_file_ = {texture_custom_file, texture_custom_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector texture_broomstraight_out = vector(0.0);
     adsk_NG_adsk_height_map(texture_broomstraight_file_, texture_broomstraight_realworld_offset, texture_broomstraight_realworld_scale, texture_broomstraight_uv_offset, texture_broomstraight_uv_scale, texture_broomstraight_rotation_angle, texture_broomstraight_depth, texture_broomstraight_uaddressmode, texture_broomstraight_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, texture_broomstraight_out);
     vector texture_broomcurved_out = vector(0.0);

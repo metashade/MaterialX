@@ -106,10 +106,8 @@ void NG_legacy_knurl(vector2 texcoord, float amount, float rotation_angle, vecto
     float diag_adjustment_out = rotation_angle - diag_adjustment_in2_tmp;
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     vector2 rotate2d_pattern_out = vector2(0.0, 0.0);
     mx_rotate_vector2(offset_uv_out, lagacy_rot_direction_out, rotate2d_pattern_out);
     float amount_to_degrees_in2_tmp = 90.000000;
@@ -672,7 +670,7 @@ shader M_legacy_knurl
     color legacy_knurl_out_rgb = color(0.0);
     vector legacy_knurl_out_vec3 = vector(0.0);
     NG_legacy_knurl(geomprop_UV0_out1, legacy_knurl_amount, legacy_knurl_rotation_angle, legacy_knurl_realworld_scale_unit_out, legacy_knurl_realworld_offset, legacy_knurl_diagonal, legacy_knurl_out_rgb, legacy_knurl_out_vec3);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_legacy_knurl_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_legacy_knurl_base, SR_legacy_knurl_base_color, SR_legacy_knurl_diffuse_roughness, SR_legacy_knurl_metalness, SR_legacy_knurl_specular, SR_legacy_knurl_specular_color, SR_legacy_knurl_specular_roughness, SR_legacy_knurl_specular_IOR, SR_legacy_knurl_specular_anisotropy, SR_legacy_knurl_specular_rotation, SR_legacy_knurl_transmission, SR_legacy_knurl_transmission_color, SR_legacy_knurl_transmission_depth, SR_legacy_knurl_transmission_scatter, SR_legacy_knurl_transmission_scatter_anisotropy, SR_legacy_knurl_transmission_dispersion, SR_legacy_knurl_transmission_extra_roughness, SR_legacy_knurl_subsurface, SR_legacy_knurl_subsurface_color, SR_legacy_knurl_subsurface_radius, SR_legacy_knurl_subsurface_scale, SR_legacy_knurl_subsurface_anisotropy, SR_legacy_knurl_sheen, SR_legacy_knurl_sheen_color, SR_legacy_knurl_sheen_roughness, SR_legacy_knurl_coat, SR_legacy_knurl_coat_color, SR_legacy_knurl_coat_roughness, SR_legacy_knurl_coat_anisotropy, SR_legacy_knurl_coat_rotation, SR_legacy_knurl_coat_IOR, geomprop_Nworld_out1, SR_legacy_knurl_coat_affect_color, SR_legacy_knurl_coat_affect_roughness, SR_legacy_knurl_thin_film_thickness, SR_legacy_knurl_thin_film_IOR, SR_legacy_knurl_emission, SR_legacy_knurl_emission_color, SR_legacy_knurl_opacity, SR_legacy_knurl_thin_walled, legacy_knurl_out_vec3, geomprop_Tworld_out1, SR_legacy_knurl_out);
     MATERIAL M_legacy_knurl_out = null_closure();

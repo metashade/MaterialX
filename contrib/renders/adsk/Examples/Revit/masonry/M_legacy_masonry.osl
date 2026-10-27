@@ -468,10 +468,8 @@ void NG_legacy_masonry(int type, color color1, int tint_enable, color tint_color
     NG_switch_floatI(0.100000, 0.400000, 0.700000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, finish, switch_finish_out);
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     vector normalmap_out = vector(0.0);
@@ -624,7 +622,7 @@ shader M_legacy_masonry
     textureresource test_bump_masonry_file_ = {test_bump_masonry_file, test_bump_masonry_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector test_bump_masonry_out = vector(0.0);
     adsk_NG_adsk_height_map(test_bump_masonry_file_, test_bump_masonry_realworld_offset, test_bump_masonry_realworld_scale, test_bump_masonry_uv_offset, test_bump_masonry_uv_scale, test_bump_masonry_rotation_angle, test_bump_masonry_depth, test_bump_masonry_uaddressmode, test_bump_masonry_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, test_bump_masonry_out);
     surfaceshader SR_legacy_masonry_out = surfaceshader(null_closure(), null_closure(), 1.0);

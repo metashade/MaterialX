@@ -64,10 +64,8 @@ void mx_image_color3(textureresource file, string layer, color default_value, ve
 
 void NG_transformnormal_w2t_vector3(vector world_normal, output vector tangent_normal)
 {
-    string tangent_vector3_space_tmp = "world";
-    vector tangent_vector3_out = transform(tangent_vector3_space_tmp, normalize(dPdu));
-    string bitangent_vector3_space_tmp = "world";
-    vector bitangent_vector3_out = transform(bitangent_vector3_space_tmp, normalize(dPdv));
+    vector tangent_vector3_out = normalize(vector(N[2], 0, -N[0]));
+    vector bitangent_vector3_out = normalize(cross(N, vector(N[2], 0, -N[0])));
     string normal_vector4_space_tmp = "world";
     vector normal_vector4_out = transform(normal_vector4_space_tmp, N);
     float dotproduct_vx_out = dot(world_normal, tangent_vector3_out);
@@ -438,10 +436,8 @@ void NG_legacy_generic(color diffuse_color, int diffuse_image_enable, color diff
     color cutout_selection_out = mx_ternary(cutout_enable == cutout_selection_value2_tmp, cutout_image, cutout_selection_in2_tmp);
     vector transformnormal_w2t_vector3_1_tangent_normal = vector(0.0);
     NG_transformnormal_w2t_vector3(normal_bump, transformnormal_w2t_vector3_1_tangent_normal);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int diffuse_image_selection_value2_tmp = 1;
     color diffuse_image_selection_out = mx_ternary(diffuse_image_enable == diffuse_image_selection_value2_tmp, diffuse_image_mix_out, diffuse_color);
     float metallic_component_value2_tmp = 0.100000;

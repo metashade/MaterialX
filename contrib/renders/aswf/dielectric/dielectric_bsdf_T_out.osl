@@ -154,7 +154,7 @@ shader T_out
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF dielectric_T_out = null_closure();
     mx_dielectric_bsdf(dielectric_T_weight, dielectric_T_tint, dielectric_T_ior, dielectric_T_roughness, dielectric_T_retroreflective, dielectric_T_thinfilm_thickness, dielectric_T_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, dielectric_T_distribution, dielectric_T_scatter_mode, dielectric_T_out);
     surfaceshader surface_T_out = surfaceshader(null_closure(), null_closure(), 1.0);

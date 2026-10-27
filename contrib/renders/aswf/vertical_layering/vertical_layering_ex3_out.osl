@@ -171,7 +171,7 @@ shader out
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF dielectric_bsdf2_out = null_closure();
     mx_dielectric_bsdf(dielectric_bsdf2_weight, dielectric_bsdf2_tint, dielectric_bsdf2_ior, dielectric_bsdf2_roughness, dielectric_bsdf2_retroreflective, dielectric_bsdf2_thinfilm_thickness, dielectric_bsdf2_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, dielectric_bsdf2_distribution, dielectric_bsdf2_scatter_mode, dielectric_bsdf2_out);
     BSDF oren_nayar_diffuse_bsdf1_out = oren_nayar_diffuse_bsdf1_weight * oren_nayar_diffuse_bsdf(geomprop_Nworld_out1, oren_nayar_diffuse_bsdf1_color, oren_nayar_diffuse_bsdf1_roughness);

@@ -505,7 +505,7 @@ shader Velvet
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_velvet_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_velvet_base, SR_velvet_base_color, SR_velvet_diffuse_roughness, SR_velvet_metalness, SR_velvet_specular, SR_velvet_specular_color, SR_velvet_specular_roughness, SR_velvet_specular_IOR, SR_velvet_specular_anisotropy, SR_velvet_specular_rotation, SR_velvet_transmission, SR_velvet_transmission_color, SR_velvet_transmission_depth, SR_velvet_transmission_scatter, SR_velvet_transmission_scatter_anisotropy, SR_velvet_transmission_dispersion, SR_velvet_transmission_extra_roughness, SR_velvet_subsurface, SR_velvet_subsurface_color, SR_velvet_subsurface_radius, SR_velvet_subsurface_scale, SR_velvet_subsurface_anisotropy, SR_velvet_sheen, SR_velvet_sheen_color, SR_velvet_sheen_roughness, SR_velvet_coat, SR_velvet_coat_color, SR_velvet_coat_roughness, SR_velvet_coat_anisotropy, SR_velvet_coat_rotation, SR_velvet_coat_IOR, geomprop_Nworld_out1, SR_velvet_coat_affect_color, SR_velvet_coat_affect_roughness, SR_velvet_thin_film_thickness, SR_velvet_thin_film_IOR, SR_velvet_emission, SR_velvet_emission_color, SR_velvet_opacity, SR_velvet_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_velvet_out);
     MATERIAL Velvet_out = null_closure();

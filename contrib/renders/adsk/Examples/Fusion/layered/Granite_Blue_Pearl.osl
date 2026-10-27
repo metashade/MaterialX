@@ -488,8 +488,7 @@ void adsk_NG_adsk_layered(vector surface_normal, color surface_cutout, color sur
     float div_rotation0_in2_tmp = 360.000000;
     float div_rotation0_out = surface_rotation / div_rotation0_in2_tmp;
     float sqrt_layeredf0_out = sqrt(layered_f0);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     int layered_fraction_value_value2_tmp = 1;
     float layered_fraction_value_out = mx_ternary(layered_fraction_invert == layered_fraction_value_value2_tmp, oneminus_layerfraction_out, layered_fraction);
     color oneminuslf_x_layerdiffuse_out = layered_diffuse * oneminus_layerfraction_out;
@@ -827,7 +826,7 @@ shader Granite_Blue_Pearl
     adsk_NG_adsk_bitmap_float(surfaceroughness_texturemap_file_, surfaceroughness_texturemap_realworld_offset_unit_out, surfaceroughness_texturemap_realworld_scale_unit_out, surfaceroughness_texturemap_uv_offset, surfaceroughness_texturemap_uv_scale, surfaceroughness_texturemap_rotation_angle, surfaceroughness_texturemap_rgbamount, surfaceroughness_texturemap_invert, surfaceroughness_texturemap_uaddressmode, surfaceroughness_texturemap_vaddressmode, geomprop_UV0_out1, surfaceroughness_texturemap_out);
     vector2 layerednormal_texturemap_realworld_offset_unit_out = layerednormal_texturemap_realworld_offset_unit_in1 * layerednormal_texturemap_realworld_offset_unit_in2;
     vector2 layerednormal_texturemap_realworld_scale_unit_out = layerednormal_texturemap_realworld_scale_unit_in1 * layerednormal_texturemap_realworld_scale_unit_in2;
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector layerednormal_texturemap_out = vector(0.0);
     adsk_NG_adsk_normal_map(layerednormal_texturemap_file_, layerednormal_texturemap_realworld_offset_unit_out, layerednormal_texturemap_realworld_scale_unit_out, layerednormal_texturemap_uv_offset, layerednormal_texturemap_uv_scale, layerednormal_texturemap_rotation_angle, layerednormal_texturemap_normal_scale, layerednormal_texturemap_uaddressmode, layerednormal_texturemap_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, layerednormal_texturemap_out);
     vector2 layeredfraction_texturemap_realworld_offset_unit_out = layeredfraction_texturemap_realworld_offset_unit_in1 * layeredfraction_texturemap_realworld_offset_unit_in2;

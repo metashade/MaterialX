@@ -366,8 +366,7 @@ void NG_legacy_glazing(int color1, color custom_color, int test_sRGB, float refl
     float refl_extra_out = mx_remap(reflectance, refl_extra_inlow_tmp, refl_extra_inhigh_tmp, refl_extra_outlow_tmp, refl_extra_outhigh_tmp, 0);
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float modulo_col_in2_tmp = 5.000000;
     float modulo_col_out = mod(convert_color_float_out, modulo_col_in2_tmp);
     float divide_col_in2_tmp = 5.000000;

@@ -697,7 +697,7 @@ shader Gold_pass
     vector2 heightnormal_texturemap_realworld_scale_unit_out = heightnormal_texturemap_realworld_scale_unit_in1 * heightnormal_texturemap_realworld_scale_unit_in2;
     float heightnormal_texturemap_depth_unit_out = heightnormal_texturemap_depth_unit_in1 * heightnormal_texturemap_depth_unit_in2;
     vector2 geomprop_UV0_out1 = vector2(u,v);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector heightnormal_texturemap_out = vector(0.0);
     adsk_NG_adsk_height_map(heightnormal_texturemap_file_, heightnormal_texturemap_realworld_offset_unit_out, heightnormal_texturemap_realworld_scale_unit_out, heightnormal_texturemap_uv_offset, heightnormal_texturemap_uv_scale, heightnormal_texturemap_rotation_angle, heightnormal_texturemap_depth_unit_out, heightnormal_texturemap_uaddressmode, heightnormal_texturemap_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, heightnormal_texturemap_out);
     surfaceshader SR_gold_pass_out = surfaceshader(null_closure(), null_closure(), 1.0);

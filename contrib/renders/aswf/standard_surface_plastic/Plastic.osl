@@ -505,7 +505,7 @@ shader Plastic
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_plastic_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_plastic_base, SR_plastic_base_color, SR_plastic_diffuse_roughness, SR_plastic_metalness, SR_plastic_specular, SR_plastic_specular_color, SR_plastic_specular_roughness, SR_plastic_specular_IOR, SR_plastic_specular_anisotropy, SR_plastic_specular_rotation, SR_plastic_transmission, SR_plastic_transmission_color, SR_plastic_transmission_depth, SR_plastic_transmission_scatter, SR_plastic_transmission_scatter_anisotropy, SR_plastic_transmission_dispersion, SR_plastic_transmission_extra_roughness, SR_plastic_subsurface, SR_plastic_subsurface_color, SR_plastic_subsurface_radius, SR_plastic_subsurface_scale, SR_plastic_subsurface_anisotropy, SR_plastic_sheen, SR_plastic_sheen_color, SR_plastic_sheen_roughness, SR_plastic_coat, SR_plastic_coat_color, SR_plastic_coat_roughness, SR_plastic_coat_anisotropy, SR_plastic_coat_rotation, SR_plastic_coat_IOR, geomprop_Nworld_out1, SR_plastic_coat_affect_color, SR_plastic_coat_affect_roughness, SR_plastic_thin_film_thickness, SR_plastic_thin_film_IOR, SR_plastic_emission, SR_plastic_emission_color, SR_plastic_opacity, SR_plastic_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_plastic_out);
     MATERIAL Plastic_out = null_closure();

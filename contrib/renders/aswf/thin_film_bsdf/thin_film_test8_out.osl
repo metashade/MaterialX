@@ -156,7 +156,7 @@ shader out
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF generalized_schlick_brdf_1_out = null_closure();
     mx_generalized_schlick_bsdf(generalized_schlick_brdf_1_weight, generalized_schlick_brdf_1_color0, generalized_schlick_brdf_1_color82, generalized_schlick_brdf_1_color90, generalized_schlick_brdf_1_exponent, generalized_schlick_brdf_1_roughness, generalized_schlick_brdf_1_retroreflective, generalized_schlick_brdf_1_thinfilm_thickness, generalized_schlick_brdf_1_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, generalized_schlick_brdf_1_distribution, generalized_schlick_brdf_1_scatter_mode, generalized_schlick_brdf_1_out);
     surfaceshader surface1_out = surfaceshader(null_closure(), null_closure(), 1.0);

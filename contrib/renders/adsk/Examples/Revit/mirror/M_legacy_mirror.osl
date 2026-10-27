@@ -288,8 +288,7 @@ void NG_legacy_mirror(color color1, int tint_enable, color tint_color, output su
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     color tint_mult_out = color1 * tint_color;
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);

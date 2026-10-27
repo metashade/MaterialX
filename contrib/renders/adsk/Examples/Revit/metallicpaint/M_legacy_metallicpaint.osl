@@ -161,10 +161,8 @@ void NG_legacy_flakes(vector position, color base_color, color specular_color, f
     vector default_density_out = position * default_density_in2_tmp;
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     vector adjust_size_out = default_density_out / size;
     vector position_noise_out = vector(0.0);
     mx_fractal3d_vector3(vector(0.500000, 0.500000, 0.500000), 2, 2.000000, 0.500000, adjust_size_out, position_noise_out);
@@ -497,10 +495,8 @@ void NG_legacy_metallicpaint(vector position, color color1, color specular_color
     NG_switch_floatI(1.500000, 1.800000, 1.500000, coat_custom_ior, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, coat_type, switch_coat_ior_out);
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     float switch_coat_rough_out = 0.0;

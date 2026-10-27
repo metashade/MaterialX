@@ -494,10 +494,8 @@ void NG_legacy_plastic(int type, color color1, int finish, int tint_enable, colo
     NG_switch_floatI(0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, type, transmission_amount_out);
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     vector normalmap_out = vector(0.0);
@@ -681,7 +679,7 @@ shader M_legacy_plastic
     textureresource height_map2_plastic_file_ = {height_map2_plastic_file, height_map2_plastic_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector height_map1_plastic_out = vector(0.0);
     adsk_NG_adsk_height_map(height_map1_plastic_file_, height_map1_plastic_realworld_offset, height_map1_plastic_realworld_scale, height_map1_plastic_uv_offset, height_map1_plastic_uv_scale, height_map1_plastic_rotation_angle, height_map1_plastic_depth, height_map1_plastic_uaddressmode, height_map1_plastic_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, height_map1_plastic_out);
     vector height_map2_plastic_out = vector(0.0);

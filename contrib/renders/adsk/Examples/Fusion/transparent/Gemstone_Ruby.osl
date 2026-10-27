@@ -295,8 +295,7 @@ void adsk_NG_adsk_transparent(vector surface_normal, color surface_cutout, color
     float div_rotation0_out = surface_rotation / div_rotation0_in2_tmp;
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float sqrt1minus_surfaniso0_out = sqrt(oneminus_surfaniso0_out);
     float specular_anisotropy_value_out = twotimes_surfaniso0_out - pow2_surfaniso0_out;
     float specular_rotation_value_in2_tmp = 1.000000;

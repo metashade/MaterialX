@@ -182,7 +182,7 @@ shader layer_RT2_out
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF schlick_R2_out = null_closure();
     mx_generalized_schlick_bsdf(schlick_R2_weight, schlick_R2_color0, schlick_R2_color82, schlick_R2_color90, schlick_R2_exponent, schlick_R2_roughness, schlick_R2_retroreflective, schlick_R2_thinfilm_thickness, schlick_R2_thinfilm_ior, geomprop_Nworld_out1, geomprop_Tworld_out1, schlick_R2_distribution, schlick_R2_scatter_mode, schlick_R2_out);
     BSDF schlick_T2_out = null_closure();

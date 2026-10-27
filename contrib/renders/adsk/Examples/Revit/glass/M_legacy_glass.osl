@@ -138,10 +138,8 @@ void adsk_NG_adsk_normal_map(textureresource  file, vector2 realworld_offset, ve
 
 void NG_transformnormal_w2t_vector3(vector world_normal, output vector tangent_normal)
 {
-    string tangent_vector3_space_tmp = "world";
-    vector tangent_vector3_out = transform(tangent_vector3_space_tmp, normalize(dPdu));
-    string bitangent_vector3_space_tmp = "world";
-    vector bitangent_vector3_out = transform(bitangent_vector3_space_tmp, normalize(dPdv));
+    vector tangent_vector3_out = normalize(vector(N[2], 0, -N[0]));
+    vector bitangent_vector3_out = normalize(cross(N, vector(N[2], 0, -N[0])));
     string normal_vector4_space_tmp = "world";
     vector normal_vector4_out = transform(normal_vector4_space_tmp, N);
     float dotproduct_vx_out = dot(world_normal, tangent_vector3_out);
@@ -287,10 +285,8 @@ void NG_util_proc_to_norm(vector2 texcoord, color color1, float amount_htn, floa
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int extract_r_index_tmp = 0;
     float extract_r_out = mx_extract(color1, extract_r_index_tmp);
     vector heighttonormal1_out = vector(0.0);
@@ -655,10 +651,8 @@ void NG_legacy_glass(vector2 texcoord, int color1, color custom_color, int test_
     vector2 relief_scale_adj_out = texcoord / relief_scale;
     vector transformnormal_w2t_vector3_1_tangent_normal = vector(0.0);
     NG_transformnormal_w2t_vector3(normal_custom_relief, transformnormal_w2t_vector3_1_tangent_normal);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     float modulo_col_in2_tmp = 5.000000;
     float modulo_col_out = mod(convert_color_float_out, modulo_col_in2_tmp);
     float divide_col_in2_tmp = 5.000000;
@@ -925,7 +919,7 @@ shader M_legacy_glass
     textureresource normal_map_custom_file_ = {normal_map_custom_file, normal_map_custom_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector normal_map_rippled_out = vector(0.0);
     adsk_NG_adsk_normal_map(normal_map_rippled_file_, normal_map_rippled_realworld_offset, normal_map_rippled_realworld_scale, normal_map_rippled_uv_offset, normal_map_rippled_uv_scale, normal_map_rippled_rotation_angle, normal_map_rippled_normal_scale, normal_map_rippled_uaddressmode, normal_map_rippled_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_map_rippled_out);
     vector normal_map_wavy_out = vector(0.0);

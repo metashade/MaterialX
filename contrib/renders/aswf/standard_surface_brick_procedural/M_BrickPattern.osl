@@ -831,8 +831,8 @@ shader M_BrickPattern
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
     vector node_tiledimage_vector3_27_out = vector(0.0);
     NG_tiledimage_vector3(node_tiledimage_vector3_27_file_, node_tiledimage_vector3_27_default, geomprop_UV0_out1, node_convert_1_out, node_tiledimage_vector3_27_uvoffset, node_tiledimage_vector3_27_realworldimagesize, node_tiledimage_vector3_27_realworldtilesize, node_tiledimage_vector3_27_filtertype, node_tiledimage_vector3_27_framerange, node_tiledimage_vector3_27_frameoffset, node_tiledimage_vector3_27_frameendaction, node_tiledimage_vector3_27_out);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     vector node_normalmap_3_out = vector(0.0);
     mx_normalmap_float(node_tiledimage_vector3_27_out, node_normalmap_3_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, node_normalmap_3_out);
     surfaceshader N_StandardSurface_out = surfaceshader(null_closure(), null_closure(), 1.0);

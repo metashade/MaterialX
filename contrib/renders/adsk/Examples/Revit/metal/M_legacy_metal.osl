@@ -1181,10 +1181,8 @@ void NG_legacy_metal(vector2 texcoord, int type, color custom_color, int finish,
     float convert_cutout_float_out = float(cutout);
     vector switch_relief_out = vector(0.0);
     NG_switch_vector3I(normal_knurl, normal_diamondplate, normal_checkerplate, normal_custom_relief, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), relief, switch_relief_out);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     float patina_range_out = 0.0;
     NG_range_float(patina, 0.000000, 1.000000, 1.000000, 0.000000, patina_min_out, 0, patina_range_out);
     float modulo_type_in2_tmp = 5.000000;
@@ -1495,7 +1493,7 @@ shader M_legacy_metal
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
     float SR_legacy_metal_cutout_size_unit_out = SR_legacy_metal_cutout_size_unit_in1 * SR_legacy_metal_cutout_size_unit_in2;
     float SR_legacy_metal_cutout_spacing_unit_out = SR_legacy_metal_cutout_spacing_unit_in1 * SR_legacy_metal_cutout_spacing_unit_in2;
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector normal_map_knurl_out = vector(0.0);
     adsk_NG_adsk_normal_map(normal_map_knurl_file_, normal_map_knurl_realworld_offset, normal_map_knurl_realworld_scale, normal_map_knurl_uv_offset, normal_map_knurl_uv_scale, normal_map_knurl_rotation_angle, normal_map_knurl_normal_scale, normal_map_knurl_uaddressmode, normal_map_knurl_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, normal_map_knurl_out);
     vector normal_map_diamondplate_out = vector(0.0);

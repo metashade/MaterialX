@@ -505,7 +505,7 @@ shader Chrome
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_chrome_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_chrome_base, SR_chrome_base_color, SR_chrome_diffuse_roughness, SR_chrome_metalness, SR_chrome_specular, SR_chrome_specular_color, SR_chrome_specular_roughness, SR_chrome_specular_IOR, SR_chrome_specular_anisotropy, SR_chrome_specular_rotation, SR_chrome_transmission, SR_chrome_transmission_color, SR_chrome_transmission_depth, SR_chrome_transmission_scatter, SR_chrome_transmission_scatter_anisotropy, SR_chrome_transmission_dispersion, SR_chrome_transmission_extra_roughness, SR_chrome_subsurface, SR_chrome_subsurface_color, SR_chrome_subsurface_radius, SR_chrome_subsurface_scale, SR_chrome_subsurface_anisotropy, SR_chrome_sheen, SR_chrome_sheen_color, SR_chrome_sheen_roughness, SR_chrome_coat, SR_chrome_coat_color, SR_chrome_coat_roughness, SR_chrome_coat_anisotropy, SR_chrome_coat_rotation, SR_chrome_coat_IOR, geomprop_Nworld_out1, SR_chrome_coat_affect_color, SR_chrome_coat_affect_roughness, SR_chrome_thin_film_thickness, SR_chrome_thin_film_IOR, SR_chrome_emission, SR_chrome_emission_color, SR_chrome_opacity, SR_chrome_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_chrome_out);
     MATERIAL Chrome_out = null_closure();

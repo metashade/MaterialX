@@ -505,7 +505,7 @@ shader Copper
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_copper_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_copper_base, SR_copper_base_color, SR_copper_diffuse_roughness, SR_copper_metalness, SR_copper_specular, SR_copper_specular_color, SR_copper_specular_roughness, SR_copper_specular_IOR, SR_copper_specular_anisotropy, SR_copper_specular_rotation, SR_copper_transmission, SR_copper_transmission_color, SR_copper_transmission_depth, SR_copper_transmission_scatter, SR_copper_transmission_scatter_anisotropy, SR_copper_transmission_dispersion, SR_copper_transmission_extra_roughness, SR_copper_subsurface, SR_copper_subsurface_color, SR_copper_subsurface_radius, SR_copper_subsurface_scale, SR_copper_subsurface_anisotropy, SR_copper_sheen, SR_copper_sheen_color, SR_copper_sheen_roughness, SR_copper_coat, SR_copper_coat_color, SR_copper_coat_roughness, SR_copper_coat_anisotropy, SR_copper_coat_rotation, SR_copper_coat_IOR, geomprop_Nworld_out1, SR_copper_coat_affect_color, SR_copper_coat_affect_roughness, SR_copper_thin_film_thickness, SR_copper_thin_film_IOR, SR_copper_emission, SR_copper_emission_color, SR_copper_opacity, SR_copper_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_copper_out);
     MATERIAL Copper_out = null_closure();

@@ -646,7 +646,7 @@ shader Filename_CM_Test
     color tr1_out_cm_out = color(0.0);
     NG_srgb_texture_to_lin_rec709_color3(tr1_out, tr1_out_cm_out);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader shaderref1_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(shaderref1_base, bl_out_cm_out, shaderref1_diffuse_roughness, shaderref1_metalness, shaderref1_specular, bl1_out_cm_out, shaderref1_specular_roughness, shaderref1_specular_IOR, shaderref1_specular_anisotropy, shaderref1_specular_rotation, shaderref1_transmission, tr1_out_cm_out, shaderref1_transmission_depth, shaderref1_transmission_scatter, shaderref1_transmission_scatter_anisotropy, shaderref1_transmission_dispersion, shaderref1_transmission_extra_roughness, shaderref1_subsurface, shaderref1_subsurface_color, shaderref1_subsurface_radius, shaderref1_subsurface_scale, shaderref1_subsurface_anisotropy, shaderref1_sheen, shaderref1_sheen_color, shaderref1_sheen_roughness, shaderref1_coat, shaderref1_coat_color, shaderref1_coat_roughness, shaderref1_coat_anisotropy, shaderref1_coat_rotation, shaderref1_coat_IOR, geomprop_Nworld_out1, shaderref1_coat_affect_color, shaderref1_coat_affect_roughness, shaderref1_thin_film_thickness, shaderref1_thin_film_IOR, shaderref1_emission, shaderref1_emission_color, shaderref1_opacity, shaderref1_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, shaderref1_out);
     MATERIAL Filename_CM_Test_out = null_closure();

@@ -505,7 +505,7 @@ shader ThinFilm
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_thin_film_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_thin_film_base, SR_thin_film_base_color, SR_thin_film_diffuse_roughness, SR_thin_film_metalness, SR_thin_film_specular, SR_thin_film_specular_color, SR_thin_film_specular_roughness, SR_thin_film_specular_IOR, SR_thin_film_specular_anisotropy, SR_thin_film_specular_rotation, SR_thin_film_transmission, SR_thin_film_transmission_color, SR_thin_film_transmission_depth, SR_thin_film_transmission_scatter, SR_thin_film_transmission_scatter_anisotropy, SR_thin_film_transmission_dispersion, SR_thin_film_transmission_extra_roughness, SR_thin_film_subsurface, SR_thin_film_subsurface_color, SR_thin_film_subsurface_radius, SR_thin_film_subsurface_scale, SR_thin_film_subsurface_anisotropy, SR_thin_film_sheen, SR_thin_film_sheen_color, SR_thin_film_sheen_roughness, SR_thin_film_coat, SR_thin_film_coat_color, SR_thin_film_coat_roughness, SR_thin_film_coat_anisotropy, SR_thin_film_coat_rotation, SR_thin_film_coat_IOR, geomprop_Nworld_out1, SR_thin_film_coat_affect_color, SR_thin_film_coat_affect_roughness, SR_thin_film_thin_film_thickness, SR_thin_film_thin_film_IOR, SR_thin_film_emission, SR_thin_film_emission_color, SR_thin_film_opacity, SR_thin_film_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_thin_film_out);
     MATERIAL ThinFilm_out = null_closure();

@@ -26,8 +26,7 @@ void IMP_mybsdf(float diffuse1, color diffuseColor, float specular, color specul
 {
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     BSDF dielectric_brdf1_out = null_closure();
     mx_dielectric_bsdf(specular, specularColor, 1.520000, vector2(0.050000, 0.050000), 0, 0.000000, 1.500000, geomprop_Nworld_out1, geomprop_Tworld_out1, "ggx", "R", dielectric_brdf1_out);
     float diffuse_brdf1_roughness_tmp = 0.000000;

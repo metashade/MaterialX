@@ -505,7 +505,7 @@ shader Jade
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_jade_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_jade_base, SR_jade_base_color, SR_jade_diffuse_roughness, SR_jade_metalness, SR_jade_specular, SR_jade_specular_color, SR_jade_specular_roughness, SR_jade_specular_IOR, SR_jade_specular_anisotropy, SR_jade_specular_rotation, SR_jade_transmission, SR_jade_transmission_color, SR_jade_transmission_depth, SR_jade_transmission_scatter, SR_jade_transmission_scatter_anisotropy, SR_jade_transmission_dispersion, SR_jade_transmission_extra_roughness, SR_jade_subsurface, SR_jade_subsurface_color, SR_jade_subsurface_radius, SR_jade_subsurface_scale, SR_jade_subsurface_anisotropy, SR_jade_sheen, SR_jade_sheen_color, SR_jade_sheen_roughness, SR_jade_coat, SR_jade_coat_color, SR_jade_coat_roughness, SR_jade_coat_anisotropy, SR_jade_coat_rotation, SR_jade_coat_IOR, geomprop_Nworld_out1, SR_jade_coat_affect_color, SR_jade_coat_affect_roughness, SR_jade_thin_film_thickness, SR_jade_thin_film_IOR, SR_jade_emission, SR_jade_emission_color, SR_jade_opacity, SR_jade_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_jade_out);
     MATERIAL Jade_out = null_closure();

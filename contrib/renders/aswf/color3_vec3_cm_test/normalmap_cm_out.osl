@@ -250,8 +250,8 @@ shader out
     vector c3tov3_out = vector(0.0);
     NG_convert_color3_vector3(b_image_out_cm_out, c3tov3_out);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     vector impl_normalmap_out = vector(0.0);
     mx_normalmap_float(c3tov3_out, impl_normalmap_scale, geomprop_Nworld_out1, geomprop_Tworld_out1, geomprop_Bworld_out1, impl_normalmap_out);
     MATERIAL oslSetCi_out_ci = null_closure();

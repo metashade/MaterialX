@@ -303,8 +303,7 @@ void adsk_NG_adsk_opaque(vector surface_normal, color surface_cutout, color surf
     int emission_value_value2_tmp = 1;
     float emission_value_in2_tmp = 0.000000;
     float emission_value_out = mx_ternary(opaque_emission == emission_value_value2_tmp, opaque_luminance, emission_value_in2_tmp);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float sqrt1minus_surfaniso0_out = sqrt(oneminus_surfaniso0_out);
     float oneplus_sqrtopaquef0_in1_tmp = 1.000000;
     float oneplus_sqrtopaquef0_out = oneplus_sqrtopaquef0_in1_tmp + sqrt_opaquef0_out;

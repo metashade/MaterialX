@@ -306,8 +306,7 @@ void adsk_NG_adsk_glazing(color surface_albedo, vector surface_normal, color sur
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
     int surface_cutout_value_index_tmp = 0;
     float surface_cutout_value_out = mx_extract(surface_cutout, surface_cutout_value_index_tmp);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float sqrt1minus_surfaceaniso0_out = sqrt(oneminus_surfaceaniso0_out);
     int lum_glazing_f0_float_index_tmp = 0;
     float lum_glazing_f0_float_out = mx_extract(lum_glazing_f0_out, lum_glazing_f0_float_index_tmp);

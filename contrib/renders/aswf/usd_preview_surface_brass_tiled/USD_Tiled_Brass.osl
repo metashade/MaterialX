@@ -244,8 +244,7 @@ void mx_surface(BSDF bsdf, EDF edf, float opacity, int thin_walled, output surfa
 
 void IMP_UsdPreviewSurface_surfaceshader(color diffuseColor, color emissiveColor, int useSpecularWorkflow, color specularColor, float metallic, float roughness, float clearcoat, float clearcoatRoughness, float opacity, int opacityMode, float opacityThreshold, float ior, vector normal1, float displacement, float occlusion, output surfaceshader out)
 {
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float one_minus_ior_in1_tmp = 1.000000;
     float one_minus_ior_out = one_minus_ior_in1_tmp - ior;
     float one_plus_ior_in1_tmp = 1.000000;
@@ -254,8 +253,7 @@ void IMP_UsdPreviewSurface_surfaceshader(color diffuseColor, color emissiveColor
     mx_roughness_anisotropy(clearcoatRoughness, 0.000000, coat_roughness_out);
     string geomprop_Nworld_space_tmp = "world";
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     float scale_normal_in2_tmp = 0.500000;
     vector scale_normal_out = normal1 * scale_normal_in2_tmp;
     vector2 specular_roughness_out = vector2(0.0, 0.0);

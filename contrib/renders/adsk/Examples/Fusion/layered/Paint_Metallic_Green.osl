@@ -306,8 +306,7 @@ void adsk_NG_adsk_layered(vector surface_normal, color surface_cutout, color sur
     float div_rotation0_in2_tmp = 360.000000;
     float div_rotation0_out = surface_rotation / div_rotation0_in2_tmp;
     float sqrt_layeredf0_out = sqrt(layered_f0);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     int layered_fraction_value_value2_tmp = 1;
     float layered_fraction_value_out = mx_ternary(layered_fraction_invert == layered_fraction_value_value2_tmp, oneminus_layerfraction_out, layered_fraction);
     color oneminuslf_x_layerdiffuse_out = layered_diffuse * oneminus_layerfraction_out;

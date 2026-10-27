@@ -493,8 +493,7 @@ void NG_legacy_wallpaint(color color1, int finish, int application, int tint_ena
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
     vector switch_application_out = vector(0.0);
     NG_switch_vector3I(normal_roller, normal_brush, normal_spray, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), application, switch_application_out);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     float modulo_rough_in2_tmp = 5.000000;
@@ -698,7 +697,7 @@ shader M_legacy_wallpaint
     vector2 test_uv_mult_out = test_uv_mult_in1 * test_uv_mult_in2;
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector roller_map_out = vector(0.0);
     adsk_NG_adsk_height_map(roller_map_file_, roller_map_realworld_offset, roller_map_realworld_scale, roller_map_uv_offset, test_uv_mult_out, roller_map_rotation_angle, roller_map_depth, roller_map_uaddressmode, roller_map_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, roller_map_out);
     vector brush_map_out = vector(0.0);

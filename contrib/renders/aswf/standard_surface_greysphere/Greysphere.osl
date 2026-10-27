@@ -505,7 +505,7 @@ shader Greysphere
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_greysphere_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_greysphere_base, SR_greysphere_base_color, SR_greysphere_diffuse_roughness, SR_greysphere_metalness, SR_greysphere_specular, SR_greysphere_specular_color, SR_greysphere_specular_roughness, SR_greysphere_specular_IOR, SR_greysphere_specular_anisotropy, SR_greysphere_specular_rotation, SR_greysphere_transmission, SR_greysphere_transmission_color, SR_greysphere_transmission_depth, SR_greysphere_transmission_scatter, SR_greysphere_transmission_scatter_anisotropy, SR_greysphere_transmission_dispersion, SR_greysphere_transmission_extra_roughness, SR_greysphere_subsurface, SR_greysphere_subsurface_color, SR_greysphere_subsurface_radius, SR_greysphere_subsurface_scale, SR_greysphere_subsurface_anisotropy, SR_greysphere_sheen, SR_greysphere_sheen_color, SR_greysphere_sheen_roughness, SR_greysphere_coat, SR_greysphere_coat_color, SR_greysphere_coat_roughness, SR_greysphere_coat_anisotropy, SR_greysphere_coat_rotation, SR_greysphere_coat_IOR, geomprop_Nworld_out1, SR_greysphere_coat_affect_color, SR_greysphere_coat_affect_roughness, SR_greysphere_thin_film_thickness, SR_greysphere_thin_film_IOR, SR_greysphere_emission, SR_greysphere_emission_color, SR_greysphere_opacity, SR_greysphere_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_greysphere_out);
     MATERIAL Greysphere_out = null_closure();

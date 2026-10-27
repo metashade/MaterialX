@@ -505,7 +505,7 @@ shader Car_Paint
 )
 {
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     surfaceshader SR_carpaint_out = surfaceshader(null_closure(), null_closure(), 1.0);
     NG_standard_surface_surfaceshader_100(SR_carpaint_base, SR_carpaint_base_color, SR_carpaint_diffuse_roughness, SR_carpaint_metalness, SR_carpaint_specular, SR_carpaint_specular_color, SR_carpaint_specular_roughness, SR_carpaint_specular_IOR, SR_carpaint_specular_anisotropy, SR_carpaint_specular_rotation, SR_carpaint_transmission, SR_carpaint_transmission_color, SR_carpaint_transmission_depth, SR_carpaint_transmission_scatter, SR_carpaint_transmission_scatter_anisotropy, SR_carpaint_transmission_dispersion, SR_carpaint_transmission_extra_roughness, SR_carpaint_subsurface, SR_carpaint_subsurface_color, SR_carpaint_subsurface_radius, SR_carpaint_subsurface_scale, SR_carpaint_subsurface_anisotropy, SR_carpaint_sheen, SR_carpaint_sheen_color, SR_carpaint_sheen_roughness, SR_carpaint_coat, SR_carpaint_coat_color, SR_carpaint_coat_roughness, SR_carpaint_coat_anisotropy, SR_carpaint_coat_rotation, SR_carpaint_coat_IOR, geomprop_Nworld_out1, SR_carpaint_coat_affect_color, SR_carpaint_coat_affect_roughness, SR_carpaint_thin_film_thickness, SR_carpaint_thin_film_IOR, SR_carpaint_emission, SR_carpaint_emission_color, SR_carpaint_opacity, SR_carpaint_thin_walled, geomprop_Nworld_out1, geomprop_Tworld_out1, SR_carpaint_out);
     MATERIAL Car_Paint_out = null_closure();

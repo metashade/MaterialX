@@ -192,10 +192,8 @@ void NG_switch_floatI(float in1, float in2, float in3, float in4, float in5, flo
 
 void NG_transformnormal_w2t_vector3(vector world_normal, output vector tangent_normal)
 {
-    string tangent_vector3_space_tmp = "world";
-    vector tangent_vector3_out = transform(tangent_vector3_space_tmp, normalize(dPdu));
-    string bitangent_vector3_space_tmp = "world";
-    vector bitangent_vector3_out = transform(bitangent_vector3_space_tmp, normalize(dPdv));
+    vector tangent_vector3_out = normalize(vector(N[2], 0, -N[0]));
+    vector bitangent_vector3_out = normalize(cross(N, vector(N[2], 0, -N[0])));
     string normal_vector4_space_tmp = "world";
     vector normal_vector4_out = transform(normal_vector4_space_tmp, N);
     float dotproduct_vx_out = dot(world_normal, tangent_vector3_out);
@@ -516,16 +514,14 @@ void NG_legacy_stone(vector2 texcoord, color color1, int finish, int tint_enable
     float invert_scale_out = invert_scale_in1_tmp / finish_scale;
     float bump_amt_granite_in1_tmp = 0.030000;
     float bump_amt_granite_out = bump_amt_granite_in1_tmp * finish_amount;
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float bump_amt_wall_in1_tmp = 0.100000;
     float bump_amt_wall_out = bump_amt_wall_in1_tmp * finish_amount;
     float bump_amt_marble_in1_tmp = 0.020000;
     float bump_amt_marble_out = bump_amt_marble_in1_tmp * finish_amount;
     vector transformnormal_w2t_vector3_1_tangent_normal = vector(0.0);
     NG_transformnormal_w2t_vector3(normal_custom_finish, transformnormal_w2t_vector3_1_tangent_normal);
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int tint_selection_value2_tmp = 1;
     color tint_selection_out = mx_ternary(tint_enable == tint_selection_value2_tmp, tint_mult_out, color1);
     vector2 finish_scale_adj_out = { invert_scale_out,invert_scale_out };
@@ -820,7 +816,7 @@ shader M_legacy_stone
     textureresource SR_legacy_stone_finish_marble_filename_ = {SR_legacy_stone_finish_marble_filename, SR_legacy_stone_finish_marble_filename_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector test_granite_bump_out = vector(0.0);
     adsk_NG_adsk_height_map(test_granite_bump_file_, test_granite_bump_realworld_offset, test_granite_bump_realworld_scale, test_granite_bump_uv_offset, test_granite_bump_uv_scale, test_granite_bump_rotation_angle, test_granite_bump_depth, test_granite_bump_uaddressmode, test_granite_bump_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, test_granite_bump_out);
     vector test_marble_bump_out = vector(0.0);

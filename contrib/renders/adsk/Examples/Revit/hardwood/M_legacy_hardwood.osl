@@ -599,10 +599,8 @@ void NG_legacy_hardwood(color color1, int stain_enable, color stain_color, int f
     color luminance_color_out = color(0.0);
     mx_luminance_color3(color1, color(0.299000, 0.587000, 0.114000), luminance_color_out);
     vector2 geomprop_UV0_out1 = vector2(u,v);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
-    string geomprop_Bworld_space_tmp = "world";
-    vector geomprop_Bworld_out1 = transform(geomprop_Bworld_space_tmp, normalize(dPdv));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
+    vector geomprop_Bworld_out1 = normalize(cross(N, vector(N[2], 0, -N[0])));
     int stain_selection_value2_tmp = 1;
     color stain_selection_out = mx_ternary(stain_enable == stain_selection_value2_tmp, texture_stain_out, color1);
     int extract_float_bump_index_tmp = 0;
@@ -800,7 +798,7 @@ shader M_legacy_hardwood
     color image_hardwood_out = color(0.0);
     mx_image_color3(image_hardwood_file_, image_hardwood_layer, image_hardwood_default, geomprop_UV0_out1, image_hardwood_uaddressmode, image_hardwood_vaddressmode, image_hardwood_filtertype, image_hardwood_framerange, image_hardwood_frameoffset, image_hardwood_frameendaction, image_hardwood_out);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector height_map1_hardwood_out = vector(0.0);
     adsk_NG_adsk_height_map(height_map1_hardwood_file_, height_map1_hardwood_realworld_offset, height_map1_hardwood_realworld_scale, height_map1_hardwood_uv_offset, height_map1_hardwood_uv_scale, height_map1_hardwood_rotation_angle, height_map1_hardwood_depth, height_map1_hardwood_uaddressmode, height_map1_hardwood_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, height_map1_hardwood_out);
     surfaceshader SR_legacy_hardwood_out = surfaceshader(null_closure(), null_closure(), 1.0);

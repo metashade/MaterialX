@@ -592,8 +592,7 @@ void NG_legacy_water(int type, int test_sRGB, int secondary_color, color custom_
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space_tmp, N);
     vector type_bump_map_out = vector(0.0);
     NG_switch_vector3I(normal_swimming_pool, normal_generic_refl_pool, normal_generic_stream, normal_generic_pond, normal_generic_sea, vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), vector(0.000000, 0.000000, 0.000000), type, type_bump_map_out);
-    string geomprop_Tworld_space_tmp = "world";
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space_tmp, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     float modulo_sec_color_in2_tmp = 5.000000;
     float modulo_sec_color_out = mod(convert_seccol_float_out, modulo_sec_color_in2_tmp);
     float divide_sec_color_in2_tmp = 5.000000;
@@ -805,7 +804,7 @@ shader M_legacy_water
     textureresource height_map2_water_file_ = {height_map2_water_file, height_map2_water_file_colorspace};
     vector2 geomprop_UV0_out1 = vector2(u,v);
     vector geomprop_Nworld_out1 = transform(geomprop_Nworld_space, N);
-    vector geomprop_Tworld_out1 = transform(geomprop_Tworld_space, normalize(dPdu));
+    vector geomprop_Tworld_out1 = normalize(vector(N[2], 0, -N[0]));
     vector height_map1_water_out = vector(0.0);
     adsk_NG_adsk_height_map(height_map1_water_file_, height_map1_water_realworld_offset, height_map1_water_realworld_scale, height_map1_water_uv_offset, height_map1_water_uv_scale, height_map1_water_rotation_angle, height_map1_water_depth, height_map1_water_uaddressmode, height_map1_water_vaddressmode, geomprop_UV0_out1, geomprop_Nworld_out1, geomprop_Tworld_out1, height_map1_water_out);
     vector height_map_water_out = vector(0.0);
