@@ -333,6 +333,27 @@ class OslBackend(Backend):
         renderer.setOslOutputFilePath(mx.FilePath(str(work_dir)))
         return renderer
 
+    # MaterialXTest's TangentOsl and BitangentOsl, which align the tangent
+    # frame conventions of MaterialXRender and testrender.  Python can't
+    # register ShaderNodeImpls, so these replace the inline source of the
+    # stdlib implementations instead.
+    _TANGENT_FRAME_SOURCE = {
+        "IM_tangent_vector3_genosl": "normalize(vector(N[2], 0, -N[0]))",
+        "IM_bitangent_vector3_genosl":
+            "normalize(cross(N, vector(N[2], 0, -N[0])))",
+    }
+
+    def process(self, node, *args, **kwargs):
+        doc = node.getDocument()
+        for lib in (doc, doc.getDataLibrary()):
+            if lib is None:
+                continue
+            for impl_name, source in self._TANGENT_FRAME_SOURCE.items():
+                impl = lib.getImplementation(impl_name)
+                if impl is not None:
+                    impl.setAttribute("sourcecode", source)
+        return super().process(node, *args, **kwargs)
+
     def _prepare_program(self, shader, name, search_path):
         # testrender writes <shader name>_osl.png into the output path, which
         # captureImage() then reads back.  Different materials can share a
