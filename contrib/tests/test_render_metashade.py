@@ -183,29 +183,33 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
-def _metashade_material_case(stem: str):
-    """A material from ``metashade_ref/materials/`` using new Metashade
-    nodes."""
+def _get_metashade_material_files(subdir: str):
+    """Collect the materials in ``metashade_ref/materials/<subdir>/``.
+
+    These use new Metashade nodes from ``metashade_ref/libraries/<subdir>/``.
+    """
     from test_render import get_repo_root
-    case = RenderTestCase(
-        input_path=get_repo_root() / _RefPaths.MATERIALS / f"{stem}.mtlx",
-        output_subpath=Path("metashade") / stem,
-    )
-    return pytest.param(case, id=stem)
+    materials_dir = get_repo_root() / _RefPaths.MATERIALS / subdir
+    files = []
+    for mtlx_file in sorted(materials_dir.glob("*.mtlx")):
+        case = RenderTestCase(
+            input_path=mtlx_file,
+            output_subpath=Path("metashade") / mtlx_file.stem,
+        )
+        files.append(pytest.param(case, id=mtlx_file.stem))
+    return files
 
 
 class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
     """Test rendering the basic Metashade source-code nodes.
 
     These are new nodes rather than overrides, so the materials using
-    them come from ``metashade_ref/materials/``.  ``dummy_purple`` is the
-    simplest possible pattern node, a baseline for the others.
+    them come from ``metashade_ref/materials/basic/``.  ``dummy_purple``
+    is the simplest possible pattern node, a baseline for the others.
     """
     SUBDIR = "basic"
 
-    @pytest.mark.parametrize("case", [
-        _metashade_material_case("dummy_purple"),
-    ])
+    @pytest.mark.parametrize("case", _get_metashade_material_files(SUBDIR))
     def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test rendering with the basic Metashade nodes."""
         override_env.run_test(case, subtests)
