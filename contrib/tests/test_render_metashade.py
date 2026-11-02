@@ -181,6 +181,33 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+def _metashade_material_case(stem: str):
+    """A material from ``metashade_materials/`` using new Metashade nodes."""
+    case = RenderTestCase(
+        input_path=Path(__file__).parent / "metashade_materials"
+        / f"{stem}.mtlx",
+        output_subpath=Path("metashade") / stem,
+    )
+    return pytest.param(case, id=stem)
+
+
+class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
+    """Test rendering the basic Metashade source-code nodes.
+
+    These are new nodes rather than overrides, so the materials using
+    them come from ``metashade_materials/``.  ``dummy_purple`` is the
+    simplest possible pattern node, a baseline for the others.
+    """
+    SUBDIR = "basic"
+
+    @pytest.mark.parametrize("case", [
+        _metashade_material_case("dummy_purple"),
+    ])
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test rendering with the basic Metashade nodes."""
+        override_env.run_test(case, subtests)
+
+
 _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_default.mtlx",
     "Examples/StandardSurface/standard_surface_plastic.mtlx",

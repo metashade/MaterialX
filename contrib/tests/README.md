@@ -76,6 +76,7 @@ environment's identity in the output tree.
 | stdlib / adsk (default) | `renders/` |
 | Metashade passthru | `tests/metashade_ref/renders/source_code_node_passthrus/` |
 | Metashade broken schlick | `tests/metashade_ref/renders/broken_schlick/` |
+| Metashade basic | `tests/metashade_ref/renders/basic/` |
 | Metashade standard surface | `tests/metashade_ref/renders/standard_surface/` |
 | Metashade standard surface pruned | `tests/metashade_ref/renders/standard_surface_pruned/` |
 
@@ -135,6 +136,7 @@ path logic — those are properties of the test collection.
 | adsk | All Autodesk materials | Autodesk materials baseline |
 | Metashade passthru | All ASWF materials | Prove overrides match C++ |
 | Metashade broken schlick | Schlick-related subset | Diagnostic override |
+| Metashade basic | `metashade_materials/` using basic nodes | Baseline for new Metashade nodes |
 | Metashade standard surface | Standard Surface subset | SS reimplementation, FLIP vs stdlib |
 | Metashade standard surface pruned | Non-subsurface SS subset | Pruned variant, FLIP vs stdlib |
 
