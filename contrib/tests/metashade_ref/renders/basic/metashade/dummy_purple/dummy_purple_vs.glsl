@@ -8,11 +8,6 @@ uniform mat4 u_viewProjectionMatrix = mat4(1.0);
 // Inputs block: VertexInputs
 in vec3 i_position;
 
-out VertexData
-{
-    vec3 positionObject;
-} vd;
-
 #define M_FLOAT_EPS 1e-8
 #define M_PI 3.1415926535897932
 
@@ -65,6 +60,5 @@ void main()
 {
     vec4 hPositionWorld = u_worldMatrix * vec4(i_position, 1.0);
     gl_Position = u_viewProjectionMatrix * hPositionWorld;
-    vd.positionObject = i_position;
 }
 

@@ -181,26 +181,30 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
-class TestRenderMetashadeJuliaSet(MetashadeOverrideTestBase):
-    """Test rendering the Metashade Julia set source-code node.
+def _metashade_material_case(stem: str):
+    """A material from ``metashade_materials/`` using new Metashade nodes."""
+    case = RenderTestCase(
+        input_path=Path(__file__).parent / "metashade_materials"
+        / f"{stem}.mtlx",
+        output_subpath=Path("metashade") / stem,
+    )
+    return pytest.param(case, id=stem)
 
-    ``ND_julia_set`` is a new node rather than an override, so the
-    materials using it come from ``metashade_materials/``.
+
+class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
+    """Test rendering the basic Metashade source-code nodes.
+
+    These are new nodes rather than overrides, so the materials using
+    them come from ``metashade_materials/``.  ``dummy_purple`` is the
+    simplest possible pattern node, a baseline for the others.
     """
-    SUBDIR = "julia_set"
+    SUBDIR = "basic"
 
     @pytest.mark.parametrize("case", [
-        pytest.param(
-            RenderTestCase(
-                input_path=Path(__file__).parent / "metashade_materials"
-                / "julia_set.mtlx",
-                output_subpath=Path("metashade") / "julia_set",
-            ),
-            id="julia_set",
-        ),
+        _metashade_material_case("dummy_purple"),
     ])
     def test_render(self, case: RenderTestCase, subtests, override_env):
-        """Test rendering with the Julia set node."""
+        """Test rendering with the basic Metashade nodes."""
         override_env.run_test(case, subtests)
 
 

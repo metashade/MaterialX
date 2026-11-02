@@ -13,20 +13,10 @@ struct lightshader { vec3 intensity; vec3 direction; };
 // Uniform block: PublicUniforms
 uniform surfaceshader backsurfaceshader;
 uniform displacementshader displacementshader1;
-uniform float julia_cx = -0.745430;
-uniform float julia_cy = 0.113010;
-uniform float julia_scale = 3.000000;
-uniform int julia_max_iterations = 64;
-uniform float julia_phase = 0.000000;
 uniform float unlit_emission = 1.000000;
 uniform float unlit_transmission = 0.000000;
 uniform vec3 unlit_transmission_color = vec3(1.000000, 1.000000, 1.000000);
 uniform float unlit_opacity = 1.000000;
-
-in VertexData
-{
-    vec3 positionObject;
-} vd;
 
 // Pixel shader outputs
 out vec4 out1;
@@ -81,9 +71,9 @@ vec3 mx_srgb_encode(vec3 color)
 
 #define AIRY_FRESNEL_ITERATIONS 2
 
-void mx_julia_set(vec3 position, float cx, float cy, float scale, int max_iterations, float phase, out vec3 out_)
+void dummy_purple(out vec3 result)
 {
-	out_ = vec3(1.0, 0.0, 0.5);
+	result = vec3(0.5, 0.0, 1.0);
 }
 
 
@@ -96,12 +86,11 @@ void mx_surface_unlit(float emission, vec3 emission_color, float transmission, v
 
 void main()
 {
-    vec3 geomprop_Pobject_out1 = vd.positionObject;
-    vec3 julia_out = vec3(0.0);
-    mx_julia_set(geomprop_Pobject_out1, julia_cx, julia_cy, julia_scale, julia_max_iterations, julia_phase, julia_out);
+    vec3 purple_result = vec3(0.0);
+    dummy_purple(purple_result);
     surfaceshader unlit_out = surfaceshader(vec3(0.0),vec3(0.0));
-    mx_surface_unlit(unlit_emission, julia_out, unlit_transmission, unlit_transmission_color, unlit_opacity, unlit_out);
-    material julia_set_out = unlit_out;
-    out1 = vec4(julia_set_out.color, 1.0);
+    mx_surface_unlit(unlit_emission, purple_result, unlit_transmission, unlit_transmission_color, unlit_opacity, unlit_out);
+    material dummy_purple_out = unlit_out;
+    out1 = vec4(dummy_purple_out.color, 1.0);
 }
 
