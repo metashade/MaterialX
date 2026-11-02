@@ -181,6 +181,29 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+class TestRenderMetashadeJuliaSet(MetashadeOverrideTestBase):
+    """Test rendering the Metashade Julia set source-code node.
+
+    ``ND_julia_set`` is a new node rather than an override, so the
+    materials using it come from ``metashade_materials/``.
+    """
+    SUBDIR = "julia_set"
+
+    @pytest.mark.parametrize("case", [
+        pytest.param(
+            RenderTestCase(
+                input_path=Path(__file__).parent / "metashade_materials"
+                / "julia_set.mtlx",
+                output_subpath=Path("metashade") / "julia_set",
+            ),
+            id="julia_set",
+        ),
+    ])
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test rendering with the Julia set node."""
+        override_env.run_test(case, subtests)
+
+
 _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_default.mtlx",
     "Examples/StandardSurface/standard_surface_plastic.mtlx",
