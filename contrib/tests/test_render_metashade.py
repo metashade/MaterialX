@@ -26,12 +26,14 @@ _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
 class _RefPaths:
     """Paths for Metashade reference data.
 
-    ``LIBRARIES`` is always repo-relative (committed reference inputs).
+    ``LIBRARIES`` and ``MATERIALS`` are always repo-relative (committed
+    reference inputs).
     ``ENV_SUBPATH`` is the environment subpath for render output,
     relative to ``output_root``.
     """
     ROOT = Path("tests") / "metashade_ref"
     LIBRARIES = Path("contrib") / ROOT / "libraries"
+    MATERIALS = Path("contrib") / ROOT / "materials"
     ENV_SUBPATH = ROOT / "renders"
 
 
@@ -182,10 +184,11 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
 
 
 def _metashade_material_case(stem: str):
-    """A material from ``metashade_materials/`` using new Metashade nodes."""
+    """A material from ``metashade_ref/materials/`` using new Metashade
+    nodes."""
+    from test_render import get_repo_root
     case = RenderTestCase(
-        input_path=Path(__file__).parent / "metashade_materials"
-        / f"{stem}.mtlx",
+        input_path=get_repo_root() / _RefPaths.MATERIALS / f"{stem}.mtlx",
         output_subpath=Path("metashade") / stem,
     )
     return pytest.param(case, id=stem)
@@ -195,7 +198,7 @@ class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
     """Test rendering the basic Metashade source-code nodes.
 
     These are new nodes rather than overrides, so the materials using
-    them come from ``metashade_materials/``.  ``dummy_purple`` is the
+    them come from ``metashade_ref/materials/``.  ``dummy_purple`` is the
     simplest possible pattern node, a baseline for the others.
     """
     SUBDIR = "basic"
