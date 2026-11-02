@@ -208,6 +208,19 @@ class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+class TestRenderMetashadelib(MetashadeOverrideTestBase):
+    """Test rendering the nodes of metashadelib, implemented with
+    ``metashade.std``."""
+    SUBDIR = "metashadelib"
+
+    @pytest.mark.parametrize("case", [
+        _metashade_material_case("julia2d"),
+    ])
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test rendering with the metashadelib nodes."""
+        override_env.run_test(case, subtests)
+
+
 _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_default.mtlx",
     "Examples/StandardSurface/standard_surface_plastic.mtlx",
