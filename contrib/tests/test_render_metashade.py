@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 import MaterialX as mx
-from rendertest.backends import GlslBackend
+from rendertest.backends import BACKENDS, GlslBackend
 from test_render import (
     collect_adsk_test_files,
     collect_aswf_test_files,
@@ -43,23 +43,29 @@ class MetashadeOverrideTestBase:
     IMAGE_REF_ENV_SUBPATH = None
 
     @pytest.fixture(scope="class")
-    def override_search_path(self, search_path, repo_root):
+    def override_backend_id(self):
+        """Backend to render with; parametrize to run on several."""
+        return GlslBackend.id
+
+    @pytest.fixture(scope="class")
+    def override_search_path(self, search_path, repo_root, override_backend_id):
         """Create a custom search path including standard library source files and overrides."""
         custom_sp = mx.FileSearchPath(search_path.asString())
-        
-        # Find genglsl directories under the search_path so the shader
+        target = BACKENDS[override_backend_id].generator_class.create().getTarget()
+
+        # Find the target's directories under the search_path so the shader
         # generator can resolve #include directives for both pbrlib and
         # stdlib source-code nodes (e.g. mx_rotate_vector3.glsl).
         for p_str in search_path.asString().split(os.pathsep):
             p = Path(p_str)
             for lib in ("pbrlib", "stdlib"):
-                genglsl = p / "libraries" / lib / "genglsl"
-                if genglsl.exists():
-                    custom_sp.append(genglsl.as_posix())
+                target_dir = p / "libraries" / lib / target
+                if target_dir.exists():
+                    custom_sp.append(target_dir.as_posix())
                 else:
-                    genglsl_local = p / lib / "genglsl"
-                    if genglsl_local.exists():
-                        custom_sp.append(genglsl_local.as_posix())
+                    target_dir_local = p / lib / target
+                    if target_dir_local.exists():
+                        custom_sp.append(target_dir_local.as_posix())
             
         return custom_sp
 
@@ -94,10 +100,11 @@ class MetashadeOverrideTestBase:
         
     @pytest.fixture(scope="class")
     def override_backend(
-        self, override_stdlib, override_search_path, scene_options,
+        self, override_backend_id, override_stdlib, override_search_path,
+        scene_options,
     ):
-        """GLSL backend generating against the overridden stdlib."""
-        return GlslBackend.create(
+        """Backend generating against the overridden stdlib."""
+        return BACKENDS[override_backend_id].create(
             override_stdlib, override_search_path, scene_options,
         )
 
@@ -206,8 +213,19 @@ class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
     These are new nodes rather than overrides, so the materials using
     them come from ``metashade_ref/materials/basic/``.  ``dummy_purple``
     is the simplest possible pattern node, a baseline for the others.
+    Metashade generates them for every backend, so render on each.
     """
     SUBDIR = "basic"
+
+    @pytest.fixture(
+        scope="class",
+        params=[
+            pytest.param(backend_id, marks=getattr(pytest.mark, backend_id))
+            for backend_id in BACKENDS
+        ],
+    )
+    def override_backend_id(self, request):
+        return request.param
 
     @pytest.mark.parametrize("case", _get_metashade_material_files(SUBDIR))
     def test_render(self, case: RenderTestCase, subtests, override_env):
