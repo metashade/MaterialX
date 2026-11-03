@@ -26,12 +26,14 @@ _SOURCE_CODE_NODE_PASSTHRUS = "source_code_node_passthrus"
 class _RefPaths:
     """Paths for Metashade reference data.
 
-    ``LIBRARIES`` is always repo-relative (committed reference inputs).
+    ``LIBRARIES`` and ``MATERIALS`` are always repo-relative (committed
+    reference inputs).
     ``ENV_SUBPATH`` is the environment subpath for render output,
     relative to ``output_root``.
     """
     ROOT = Path("tests") / "metashade_ref"
     LIBRARIES = Path("contrib") / ROOT / "libraries"
+    MATERIALS = Path("contrib") / ROOT / "materials"
     ENV_SUBPATH = ROOT / "renders"
 
 
@@ -178,6 +180,38 @@ class TestRenderMetashadeBrokenSchlick(MetashadeOverrideTestBase):
     @pytest.mark.parametrize("case", _get_schlick_test_files())
     def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test rendering with Broken Schlick override."""
+        override_env.run_test(case, subtests)
+
+
+def _get_metashade_material_files(subdir: str):
+    """Collect the materials in ``metashade_ref/materials/<subdir>/``.
+
+    These use new Metashade nodes from ``metashade_ref/libraries/<subdir>/``.
+    """
+    from test_render import get_repo_root
+    materials_dir = get_repo_root() / _RefPaths.MATERIALS / subdir
+    files = []
+    for mtlx_file in sorted(materials_dir.glob("*.mtlx")):
+        case = RenderTestCase(
+            input_path=mtlx_file,
+            output_subpath=Path("metashade") / mtlx_file.stem,
+        )
+        files.append(pytest.param(case, id=mtlx_file.stem))
+    return files
+
+
+class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
+    """Test rendering the basic Metashade source-code nodes.
+
+    These are new nodes rather than overrides, so the materials using
+    them come from ``metashade_ref/materials/basic/``.  ``dummy_purple``
+    is the simplest possible pattern node, a baseline for the others.
+    """
+    SUBDIR = "basic"
+
+    @pytest.mark.parametrize("case", _get_metashade_material_files(SUBDIR))
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test rendering with the basic Metashade nodes."""
         override_env.run_test(case, subtests)
 
 
