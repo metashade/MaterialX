@@ -215,6 +215,20 @@ class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
+class TestRenderMetashadeJulia2d(MetashadeOverrideTestBase):
+    """Test rendering the ``julia2d`` Julia set pattern node.
+
+    The node comes from ``metashade.std.procedural``, and the material
+    leaves its inputs at the nodedef defaults, so ``texcoord`` reads UV0.
+    """
+    SUBDIR = "julia2d"
+
+    @pytest.mark.parametrize("case", _get_metashade_material_files(SUBDIR))
+    def test_render(self, case: RenderTestCase, subtests, override_env):
+        """Test rendering with the julia2d node."""
+        override_env.run_test(case, subtests)
+
+
 _STANDARD_SURFACE_TEST_PATHS = (
     "Examples/StandardSurface/standard_surface_default.mtlx",
     "Examples/StandardSurface/standard_surface_plastic.mtlx",
