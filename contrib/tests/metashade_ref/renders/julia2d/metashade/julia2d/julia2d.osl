@@ -1,0 +1,204 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+// Color of the Julia set of z^2 + c, centered on texcoord 0.5.
+// 
+// Points in the set are black, and escaping points cycle through a
+// cosine palette with the number of iterations before they escape.
+// 
+// Args:
+// texcoord: Point in the complex plane, before scaling
+// cx: Real part of the constant c
+// cy: Imaginary part of the constant c
+// scale: Extent of the complex plane per unit of texcoord
+// max_iterations: Maximum number of iterations of z^2 + c
+// phase: Offset of the color palette
+//
+color julia2d(vector2 texcoord, float cx, float cy, float scale, int max_iterations, float phase)
+{
+	float zx = (texcoord.x - 0.5) * scale;
+	float zy = (texcoord.y - 0.5) * scale;
+	float count = 0.0;
+	for (int i = 0; i < max_iterations; i += 1)
+	{
+		if (((zx * zx) + (zy * zy)) < 4.0)
+		{
+			float next_zx = ((zx * zx) - (zy * zy)) + cx;
+			zy = ((zx * zy) * 2.0) + cy;
+			zx = next_zx;
+			count += 1.0;
+		}
+	}
+	if (((zx * zx) + (zy * zy)) < 4.0)
+	{
+		return color(0.0);
+	}
+	float hue = (count * 0.23) + phase;
+	return color((sin(hue) * 0.5) + 0.5, (sin(hue + 2.09439) * 0.5) + 0.5, (sin(hue + 4.18879) * 0.5) + 0.5);
+}
+
+void mx_julia2d_color3(vector2 texcoord, float cx, float cy, float scale, int max_iterations, float phase, output color out_)
+{
+	out_ = julia2d(texcoord, cx, cy, scale, max_iterations, phase);
+}
+
+
+void mx_surface_unlit(float emission_weight, color emission_color, float transmission_weight, color transmission_color, float opacity, output surfaceshader result)
+{
+    float trans = clamp(transmission_weight, 0.0, 1.0);
+    result.bsdf = trans * transmission_color * transparent();
+    result.edf  = (1.0 - trans) * emission_weight * emission_color * emission();
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+void mx_set_ci (
+    int output_type,
+
+    // the per-type inputs must be named with "input_<typename>"
+    // the of these inputs defines their corresponding output_type value.
+    // this is dynamically derived in the shader generation code by
+    // inspecting the order of the inputs in the node definition
+    surfaceshader input_surfaceshader,
+    MATERIAL input_material,
+    BSDF input_BSDF,
+    EDF input_EDF,
+    float input_float,
+    color input_color3,
+    color4 input_color4,
+    vector2 input_vector2,
+    vector input_vector3,
+    vector4 input_vector4,
+    int input_integer,
+    int input_boolean,
+    matrix input_matrix33,
+    matrix input_matrix44,
+    displacementshader input_displacementshader,
+
+    output closure color out_ci
+)
+{
+    color c = 0;
+    float a = 1;
+
+    if (output_type == 0) {
+        float opacity_weight = clamp(input_surfaceshader.opacity, 0.0, 1.0);
+        out_ci =  (input_surfaceshader.bsdf + input_surfaceshader.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+    } else if (output_type == 1) {
+        out_ci = input_material;
+    } else if (output_type == 2) {
+        out_ci = input_BSDF;
+    } else if (output_type == 3) {
+        out_ci = input_EDF;
+    } else {
+        if (output_type == 4) {
+            c = input_float;
+        } else if (output_type == 5) {
+            c = input_color3;
+        } else if (output_type == 6) {
+            c = input_color4.rgb;
+            a = input_color4.a;
+        } else if (output_type == 7) {
+            c = color(input_vector2.x, input_vector2.y, 0);
+        } else if (output_type == 8) {
+            c = color(input_vector3);
+        } else if (output_type == 9) {
+            c = color(input_vector4.x, input_vector4.y, input_vector4.z);
+            a = input_vector4.w;
+        } else if (output_type == 10) {
+            c = color(input_integer);
+        } else if (output_type == 11) {
+            c = color(input_boolean);
+        } else if (output_type == 12) {
+            c = color(input_matrix33[0][0], input_matrix33[1][1], input_matrix33[2][2]);
+        } else if (output_type == 13) {
+            c = color(input_matrix44[0][0], input_matrix44[1][1], input_matrix44[2][2]);
+            a = input_matrix44[4][4];
+        } else if (output_type == 14) {
+            c = color(input_displacementshader);
+        }
+        out_ci = c * a * emission() + (1-a) * transparent();
+    }
+
+    Ci = out_ci;
+}
+
+shader julia2d
+[[
+    string mtlx_category = "surfacematerial",
+    string mtlx_name = "julia2d"
+]]
+(
+    surfaceshader backsurfaceshader = { 0, 0, 1.0 },
+    displacementshader displacementshader1 = vector(0.0),
+    int geomprop_UV0_index = 0
+    [[
+        string widget = "number"
+    ]],
+    float julia_cx = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float julia_cy = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float julia_scale = 3.000000
+    [[
+        string widget = "number"
+    ]],
+    int julia_max_iterations = 64
+    [[
+        string widget = "number"
+    ]],
+    float julia_phase = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float unlit_emission = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float unlit_transmission = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color unlit_transmission_color = color(1.000000, 1.000000, 1.000000),
+    float unlit_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    output MATERIAL out = 0
+)
+{
+    vector2 geomprop_UV0_out1 = vector2(u,v);
+    color julia_out = color(0.0);
+    mx_julia2d_color3(geomprop_UV0_out1, julia_cx, julia_cy, julia_scale, julia_max_iterations, julia_phase, julia_out);
+    surfaceshader unlit_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface_unlit(unlit_emission, julia_out, unlit_transmission, unlit_transmission_color, unlit_opacity, unlit_out);
+    MATERIAL julia2d_out = null_closure();
+    mx_surfacematerial(unlit_out, backsurfaceshader, displacementshader1, julia2d_out);
+    MATERIAL oslSetCi_out_ci = null_closure();
+    mx_set_ci(1, surfaceshader(null_closure(), null_closure(), 1.0), julia2d_out, null_closure(), null_closure(), 0.0, color(0.0), color4(color(0.0), 0.0), vector2(0.0, 0.0), vector(0.0), vector4(0.0, 0.0, 0.0, 0.0), 0, 0, matrix(1.0), matrix(1.0), vector(0.0), oslSetCi_out_ci);
+    out = oslSetCi_out_ci;
+}
+

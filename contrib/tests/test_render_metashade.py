@@ -207,15 +207,9 @@ def _get_metashade_material_files(subdir: str):
     return files
 
 
-class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
-    """Test rendering the basic Metashade source-code nodes.
-
-    These are new nodes rather than overrides, so the materials using
-    them come from ``metashade_ref/materials/basic/``.  ``dummy_purple``
-    is the simplest possible pattern node, a baseline for the others.
-    Metashade generates them for every backend, so render on each.
-    """
-    SUBDIR = "basic"
+class _AllBackends:
+    """Mixin rendering on every backend, for libraries Metashade generates
+    for all of them.  List it before ``MetashadeOverrideTestBase``."""
 
     @pytest.fixture(
         scope="class",
@@ -227,13 +221,23 @@ class TestRenderMetashadeBasic(MetashadeOverrideTestBase):
     def override_backend_id(self, request):
         return request.param
 
+
+class TestRenderMetashadeBasic(_AllBackends, MetashadeOverrideTestBase):
+    """Test rendering the basic Metashade source-code nodes.
+
+    These are new nodes rather than overrides, so the materials using
+    them come from ``metashade_ref/materials/basic/``.  ``dummy_purple``
+    is the simplest possible pattern node, a baseline for the others.
+    """
+    SUBDIR = "basic"
+
     @pytest.mark.parametrize("case", _get_metashade_material_files(SUBDIR))
     def test_render(self, case: RenderTestCase, subtests, override_env):
         """Test rendering with the basic Metashade nodes."""
         override_env.run_test(case, subtests)
 
 
-class TestRenderMetashadeJulia2d(MetashadeOverrideTestBase):
+class TestRenderMetashadeJulia2d(_AllBackends, MetashadeOverrideTestBase):
     """Test rendering the ``julia2d`` Julia set pattern node.
 
     The node comes from ``metashade.std.procedural``, and the material
