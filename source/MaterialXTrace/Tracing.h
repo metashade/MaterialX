@@ -56,14 +56,44 @@ enum class Category
     Count
 };
 
-/// @enum AsyncTrack
-/// Async track identifiers for operations with explicit timing (e.g., GPU work).
-enum class AsyncTrack
+/// @struct AsyncTrack
+/// A named track for async events (e.g., GPU, Compile, Transfer).
+///
+/// The ID is a hash of the name, computed at compile time when the track is
+/// declared constexpr, so sinks need no registration step. Perfetto computes
+/// a track's uuid as (id ^ parent uuid), and thread tracks share the same
+/// process parent keyed by thread ID, so hand-picked small IDs could alias a
+/// live thread's track, and an ID of 0 would make the track its own parent.
+///
+/// Usage:
+///   constexpr AsyncTrack MY_TRACK("My Track");
+struct AsyncTrack
 {
-    /// GPU render operations (measured via GL timer queries)
-    GPU = 0
-    // Add more tracks here as needed (e.g., Compile, Transfer)
+    /// @param trackName Display name of the track. Must have static lifetime.
+    constexpr explicit AsyncTrack(const char* trackName) :
+        id(hashName(trackName)),
+        name(trackName)
+    {
+    }
+
+    uint64_t id;
+    const char* name;
+
+  private:
+    // 64-bit FNV-1a
+    static constexpr uint64_t hashName(const char* str)
+    {
+        uint64_t hash = 14695981039346656037ull;
+        for (; *str; ++str)
+        {
+            hash = (hash ^ static_cast<uint8_t>(*str)) * 1099511628211ull;
+        }
+        return hash;
+    }
 };
+
+/// Well-known async track for GPU timing events.
+constexpr AsyncTrack GPU_ASYNC_TRACK("GPU");
 
 /// @class Sink
 /// Abstract tracing sink interface.
@@ -84,16 +114,15 @@ class MX_TRACE_API Sink
     /// Record a counter value (e.g., GPU time, memory usage).
     virtual void counter(Category category, const char* name, double value) = 0;
 
-    /// Record an async event with explicit timing (e.g., GPU operations).
-    /// This creates a slice on a separate track, useful for GPU work that
-    /// runs asynchronously from CPU traces.
-    /// @param track The async track to record on (e.g., AsyncTrack::GPU)
+    /// Record a completed async event (e.g., GPU work whose timer query has
+    /// just been read back). The sink places the slice on @p track, ending at
+    /// the current time in its own trace clock.
+    /// @param track The async track to record on
     /// @param category The trace category for filtering
-    /// @param eventName Name of the event (e.g., material name)
-    /// @param startNs Start timestamp in nanoseconds (can be approximate)
-    /// @param durationNs Duration in nanoseconds (should be accurate)
-    virtual void asyncEvent(AsyncTrack track, Category category,
-                           const char* eventName, uint64_t startNs, uint64_t durationNs) = 0;
+    /// @param eventName Name of the event
+    /// @param durationNs Duration in nanoseconds
+    virtual void asyncEventEndingNow(const AsyncTrack& /*track*/, Category /*category*/,
+                                     const char* /*eventName*/, uint64_t /*durationNs*/) { }
 
     /// Set the current thread's name for trace visualization.
     virtual void setThreadName(const char* name) = 0;
@@ -163,12 +192,12 @@ class MX_TRACE_API Dispatcher
             _sink->counter(category, name, value);
     }
 
-    /// Record an async event with explicit timing.
-    void asyncEvent(AsyncTrack track, Category category,
-                   const char* eventName, uint64_t startNs, uint64_t durationNs)
+    /// Record a completed async event ending at the current time.
+    void asyncEventEndingNow(const AsyncTrack& track, Category category,
+                             const char* eventName, uint64_t durationNs)
     {
         if (_sink)
-            _sink->asyncEvent(track, category, eventName, startNs, durationNs);
+            _sink->asyncEventEndingNow(track, category, eventName, durationNs);
     }
 
   private:
@@ -263,9 +292,9 @@ MATERIALX_NAMESPACE_END
 #define MX_TRACE_COUNTER(category, name, value) \
     MaterialX::Tracing::Dispatcher::getInstance().counter(category, name, value)
 
-/// Record an async event with explicit timing (e.g., GPU operations).
-#define MX_TRACE_ASYNC(track, category, eventName, startNs, durationNs) \
-    MaterialX::Tracing::Dispatcher::getInstance().asyncEvent(track, category, eventName, startNs, durationNs)
+/// Record a completed async event ending at the current time (e.g., GPU operations).
+#define MX_TRACE_ASYNC_ENDING_NOW(track, category, eventName, durationNs) \
+    MaterialX::Tracing::Dispatcher::getInstance().asyncEventEndingNow(track, category, eventName, durationNs)
 
 /// Begin a trace event (must be paired with MX_TRACE_END).
 #define MX_TRACE_BEGIN(category, name) \
@@ -280,7 +309,7 @@ MATERIALX_NAMESPACE_END
 #define MX_TRACE_SCOPE(category, name)
 #define MX_TRACE_FUNCTION(category)
 #define MX_TRACE_COUNTER(category, name, value)
-#define MX_TRACE_ASYNC(track, category, eventName, startNs, durationNs)
+#define MX_TRACE_ASYNC_ENDING_NOW(track, category, eventName, durationNs)
 #define MX_TRACE_BEGIN(category, name)
 #define MX_TRACE_END(category)
 
