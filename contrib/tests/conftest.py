@@ -79,7 +79,7 @@ def pytest_addoption(parser):
         help="Skip GPU rendering; only generate shaders and run source comparisons.",
     )
     parser.addoption(
-        "--trace",
+        "--perfetto-trace",
         action="store",
         default=None,
         metavar="PATH",
@@ -278,14 +278,14 @@ _trace_dispatcher = None
 
 def _start_trace(config):
     global _trace_dispatcher
-    trace_path = config.getoption("--trace")
+    trace_path = config.getoption("--perfetto-trace")
     if not trace_path:
         return
     try:
         import MaterialX.PyMaterialXTrace as mx_trace
     except ImportError as e:
         raise pytest.UsageError(
-            "--trace needs MaterialX built with shared libraries and "
+            "--perfetto-trace needs MaterialX built with shared libraries and "
             f"MATERIALX_BUILD_PERFETTO_TRACING: {e}"
         )
     worker = os.environ.get("PYTEST_XDIST_WORKER")
