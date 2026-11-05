@@ -50,8 +50,11 @@ void bindPyTracing(py::module& mod)
         .value("Optimize", mxt::Category::Optimize)
         .value("Material", mxt::Category::Material);
 
-    py::enum_<mxt::AsyncTrack>(mod, "AsyncTrack")
-        .value("GPU", mxt::AsyncTrack::GPU);
+    // Tracks can't be created from Python: AsyncTrack requires a name with
+    // static lifetime, which a Python string doesn't have.
+    py::class_<mxt::AsyncTrack>(mod, "AsyncTrack")
+        .def_property_readonly("name", [](const mxt::AsyncTrack& track) { return std::string(track.name); });
+    mod.attr("GPU_ASYNC_TRACK") = py::cast(&mxt::GPU_ASYNC_TRACK, py::return_value_policy::reference);
 
     // Counters aren't bound: PerfettoSink keeps their names by pointer,
     // which a Python string doesn't outlive.
@@ -73,11 +76,12 @@ void bindPyTracing(py::module& mod)
                 dispatcher.beginEvent(category, name.c_str());
             })
         .def("endEvent", &mxt::Dispatcher::endEvent)
-        .def("asyncEvent", [](mxt::Dispatcher& dispatcher, mxt::AsyncTrack track, mxt::Category category,
-                              const std::string& eventName, uint64_t startNs, uint64_t durationNs)
+        .def("asyncEventEndingNow", [](mxt::Dispatcher& dispatcher, const mxt::AsyncTrack& track,
+                                       mxt::Category category, const std::string& eventName, uint64_t durationNs)
             {
-                dispatcher.asyncEvent(track, category, eventName.c_str(), startNs, durationNs);
-            });
+                dispatcher.asyncEventEndingNow(track, category, eventName.c_str(), durationNs);
+            },
+            py::arg("track"), py::arg("category"), py::arg("eventName"), py::arg("durationNs"));
 
     py::class_<PyScope>(mod, "Scope")
         .def(py::init<mxt::Category, std::string>(), py::arg("category"), py::arg("name"))
