@@ -11,8 +11,7 @@
                 "MATERIALX_BUILD_VIEWER": "ON",
                 "MATERIALX_BUILD_GRAPH_EDITOR": "ON",
                 "MATERIALX_BUILD_PYTHON": "ON",
-                "MATERIALX_BUILD_TESTS": "ON",
-                "MATERIALX_BUILD_RENDER_SLANG": "ON"
+                "MATERIALX_BUILD_TESTS": "ON"
             }
         },
         {
