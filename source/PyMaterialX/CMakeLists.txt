@@ -37,6 +37,15 @@ endif()
 
 add_subdirectory(PyMaterialXCore)
 add_subdirectory(PyMaterialXFormat)
+if(MATERIALX_BUILD_PERFETTO_TRACING)
+    # With static libraries, each Python module would link its own copy of
+    # MaterialXTrace, so a sink set from Python would miss the C++ events.
+    if(MATERIALX_BUILD_SHARED_LIBS)
+        add_subdirectory(PyMaterialXTrace)
+    else()
+        message(STATUS "Skipping PyMaterialXTrace: it requires MATERIALX_BUILD_SHARED_LIBS")
+    endif()
+endif()
 if (MATERIALX_BUILD_GEN_GLSL OR MATERIALX_BUILD_GEN_OSL OR MATERIALX_BUILD_GEN_MDL OR MATERIALX_BUILD_GEN_MSL OR MATERIALX_BUILD_GEN_SLANG)
     add_subdirectory(PyMaterialXGenShader)
     if (MATERIALX_BUILD_GEN_GLSL)
@@ -88,7 +97,7 @@ if (MATERIALX_BUILD_DOCS)
     foreach(_py_mod IN ITEMS PyMaterialXCore PyMaterialXFormat PyMaterialXGenShader
                               PyMaterialXGenGlsl PyMaterialXGenMsl PyMaterialXGenMdl
                               PyMaterialXGenOsl PyMaterialXRender PyMaterialXRenderGlsl
-                              PyMaterialXRenderOsl PyMaterialXRenderMsl)
+                              PyMaterialXRenderOsl PyMaterialXRenderMsl PyMaterialXTrace)
         if(TARGET ${_py_mod})
             add_dependencies(${_py_mod} PyBindDocs)
         endif()
