@@ -78,6 +78,24 @@
             }
         },
         {
+            "label": "Install MaterialX Release",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--install",
+                "build",
+                "--config",
+                "Release"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "isBackground": false,
+            "dependsOn": "Build MaterialX Release",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
             "label": "Clean MaterialX",
             "type": "shell",
             "command": "cmake",
