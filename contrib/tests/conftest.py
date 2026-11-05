@@ -6,9 +6,31 @@ Each pytest-xdist worker process gets its own fixture instances.
 """
 from __future__ import annotations
 
+import importlib.util
+import os
+import sys
 from pathlib import Path
 
 import pytest
+
+
+def _add_materialx_dll_directory():
+    """Let a CMake-installed shared MaterialX find its DLLs.
+
+    MaterialX/__init__.py skips this whenever any MaterialX is
+    pip-installed, even if it isn't the one being imported.
+    """
+    if sys.platform != "win32":
+        return
+    spec = importlib.util.find_spec("MaterialX")
+    if spec is None or spec.origin is None:
+        return
+    bin_dir = Path(spec.origin).parent.parent.parent / "bin"
+    if bin_dir.is_dir():
+        os.add_dll_directory(str(bin_dir))
+
+
+_add_materialx_dll_directory()
 
 import MaterialX as mx
 from rendertest.backends import BACKENDS
@@ -55,6 +77,18 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="Skip GPU rendering; only generate shaders and run source comparisons.",
+    )
+    parser.addoption(
+        "--trace",
+        action="store",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Record a Perfetto trace of the session to PATH, with one "
+            "event per test.  Requires MaterialX built with shared "
+            "libraries and MATERIALX_BUILD_PERFETTO_TRACING.  Under "
+            "pytest-xdist, each worker writes PATH with its id appended."
+        ),
     )
 
 
@@ -226,6 +260,55 @@ def pytest_configure(config):
     """Store pytest config globally so we can access options in hooks."""
     global _pytest_config
     _pytest_config = config
+    _start_trace(config)
+
+
+def pytest_unconfigure(config):
+    """Write the trace file, if tracing."""
+    if _trace_dispatcher is not None:
+        _trace_dispatcher.shutdownSink()
+
+
+# ---------------------------------------------------------------------------
+# Perfetto tracing
+# ---------------------------------------------------------------------------
+
+_trace_dispatcher = None
+
+
+def _start_trace(config):
+    global _trace_dispatcher
+    trace_path = config.getoption("--trace")
+    if not trace_path:
+        return
+    try:
+        import MaterialX.PyMaterialXTrace as mx_trace
+    except ImportError as e:
+        raise pytest.UsageError(
+            "--trace needs MaterialX built with shared libraries and "
+            f"MATERIALX_BUILD_PERFETTO_TRACING: {e}"
+        )
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if not worker and getattr(config.option, "numprocesses", None):
+        # The xdist controller runs no tests; its workers trace them.
+        return
+    path = Path(trace_path)
+    if worker:
+        path = path.with_name(f"{path.stem}_{worker}{path.suffix}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _trace_dispatcher = mx_trace.Dispatcher.getInstance()
+    _trace_dispatcher.setPerfettoSink(str(path))
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """Record each test as one trace event."""
+    if _trace_dispatcher is None:
+        yield
+        return
+    import MaterialX.PyMaterialXTrace as mx_trace
+    with mx_trace.Scope(mx_trace.Category.Material, item.nodeid):
+        yield
 
 
 _node_funcargs = {}
