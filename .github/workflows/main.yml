@@ -46,7 +46,7 @@ jobs:
           compiler: gcc
           compiler_version: "14"
           python: 3.13
-          cmake_config: -DMATERIALX_BUILD_PERFETTO_TRACING=ON
+          cmake_config: -DMATERIALX_BUILD_PERFETTO_TRACING=ON -DMATERIALX_BUILD_SHARED_LIBS=ON
           extended_build_perfetto: ON
           contrib_tests: ON
 
@@ -273,6 +273,7 @@ jobs:
       run: |
         python MaterialXTest/main.py
         python MaterialXTest/genshader.py
+        python MaterialXTest/tracing.py
         python Scripts/comparenodedefs.py --spec ../documents/Specification/MaterialX.StandardNodes.md --mtlx ../libraries/stdlib/stdlib_defs.mtlx
         python Scripts/comparenodedefs.py --spec ../documents/Specification/MaterialX.PBRSpec.md --mtlx ../libraries/pbrlib/pbrlib_defs.mtlx
         python Scripts/creatematerial.py ../resources/Materials/Examples/StandardSurface/chess_set --texturePrefix chessboard --shadingModel standard_surface
