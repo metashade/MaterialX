@@ -1,0 +1,3646 @@
+#include "mx_funcs.h"
+
+#define true 1
+#define false 0
+struct textureresource { string filename; string colorspace; };
+#define BSDF closure color
+#define EDF closure color
+#define VDF closure color
+struct surfaceshader { closure color bsdf; closure color edf; float opacity; };
+#define volumeshader closure color
+#define displacementshader vector
+#define lightshader closure color
+#define MATERIAL closure color
+
+#define M_FLOAT_EPS 1e-8
+closure color null_closure() { closure color null_closure = 0; return null_closure; } 
+
+void mx_surface_unlit(float emission_weight, color emission_color, float transmission_weight, color transmission_color, float opacity, output surfaceshader result)
+{
+    float trans = clamp(transmission_weight, 0.0, 1.0);
+    result.bsdf = trans * transmission_color * transparent();
+    result.edf  = (1.0 - trans) * emission_weight * emission_color * emission();
+    result.opacity = clamp(opacity, 0.0, 1.0);
+}
+
+void mx_surfacematerial(surfaceshader surface, surfaceshader back, displacementshader disp, output MATERIAL result)
+{
+    float opacity_weight = clamp(surface.opacity, 0.0, 1.0);
+    result =  (surface.bsdf + surface.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+}
+
+void mx_set_ci (
+    int output_type,
+
+    // the per-type inputs must be named with "input_<typename>"
+    // the of these inputs defines their corresponding output_type value.
+    // this is dynamically derived in the shader generation code by
+    // inspecting the order of the inputs in the node definition
+    surfaceshader input_surfaceshader,
+    MATERIAL input_material,
+    BSDF input_BSDF,
+    EDF input_EDF,
+    float input_float,
+    color input_color3,
+    color4 input_color4,
+    vector2 input_vector2,
+    vector input_vector3,
+    vector4 input_vector4,
+    int input_integer,
+    int input_boolean,
+    matrix input_matrix33,
+    matrix input_matrix44,
+    displacementshader input_displacementshader,
+
+    output closure color out_ci
+)
+{
+    color c = 0;
+    float a = 1;
+
+    if (output_type == 0) {
+        float opacity_weight = clamp(input_surfaceshader.opacity, 0.0, 1.0);
+        out_ci =  (input_surfaceshader.bsdf + input_surfaceshader.edf) * opacity_weight + transparent() * (1.0 - opacity_weight);
+    } else if (output_type == 1) {
+        out_ci = input_material;
+    } else if (output_type == 2) {
+        out_ci = input_BSDF;
+    } else if (output_type == 3) {
+        out_ci = input_EDF;
+    } else {
+        if (output_type == 4) {
+            c = input_float;
+        } else if (output_type == 5) {
+            c = input_color3;
+        } else if (output_type == 6) {
+            c = input_color4.rgb;
+            a = input_color4.a;
+        } else if (output_type == 7) {
+            c = color(input_vector2.x, input_vector2.y, 0);
+        } else if (output_type == 8) {
+            c = color(input_vector3);
+        } else if (output_type == 9) {
+            c = color(input_vector4.x, input_vector4.y, input_vector4.z);
+            a = input_vector4.w;
+        } else if (output_type == 10) {
+            c = color(input_integer);
+        } else if (output_type == 11) {
+            c = color(input_boolean);
+        } else if (output_type == 12) {
+            c = color(input_matrix33[0][0], input_matrix33[1][1], input_matrix33[2][2]);
+        } else if (output_type == 13) {
+            c = color(input_matrix44[0][0], input_matrix44[1][1], input_matrix44[2][2]);
+            a = input_matrix44[4][4];
+        } else if (output_type == 14) {
+            c = color(input_displacementshader);
+        }
+        out_ci = c * a * emission() + (1-a) * transparent();
+    }
+
+    Ci = out_ci;
+}
+
+shader julia_set_static
+[[
+    string mtlx_category = "surfacematerial",
+    string mtlx_name = "julia_set_static"
+]]
+(
+    surfaceshader backsurfaceshader = { 0, 0, 1.0 },
+    displacementshader displacementshader1 = vector(0.0),
+    int uv_index = 0
+    [[
+        string widget = "number"
+    ]],
+    vector2 var__0_in2 = {0.500000, 0.500000},
+    float p_in2 = 3.000000
+    [[
+        string widget = "number"
+    ]],
+    int zx_index = 0
+    [[
+        string widget = "number"
+    ]],
+    int zy_index = 1
+    [[
+        string widget = "number"
+    ]],
+    float var__7_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__3_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__3_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__alive__1_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__count__1_in1 = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__10_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__13_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__21_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY2_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__17_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__17_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX2_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active2_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__24_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__27_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__35_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY3_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__31_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__31_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX3_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active3_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__38_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__41_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__49_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY4_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__45_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__45_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX4_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active4_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__52_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__55_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__63_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY5_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__59_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__59_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX5_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active5_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__66_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__69_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__77_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY6_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__73_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__73_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX6_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active6_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__80_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__83_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__91_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY7_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__87_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__87_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX7_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active7_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__94_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__97_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__105_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY8_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__101_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__101_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX8_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active8_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__108_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__111_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__119_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY9_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__115_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__115_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX9_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active9_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__122_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__125_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__133_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY10_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__129_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__129_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX10_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active10_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__136_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__139_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__147_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY11_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__143_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__143_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX11_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active11_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__150_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__153_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__161_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY12_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__157_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__157_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX12_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active12_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__164_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__167_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__175_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY13_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__171_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__171_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX13_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active13_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__178_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__181_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__189_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY14_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__185_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__185_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX14_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active14_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__192_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__195_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__203_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY15_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__199_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__199_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX15_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active15_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__206_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__209_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__217_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY16_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__213_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__213_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX16_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active16_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__220_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__223_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__231_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY17_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__227_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__227_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX17_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active17_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__234_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__237_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__245_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY18_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__241_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__241_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX18_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active18_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__248_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__251_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__259_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY19_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__255_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__255_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX19_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active19_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__262_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__265_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__273_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY20_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__269_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__269_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX20_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active20_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__276_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__279_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__287_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY21_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__283_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__283_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX21_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active21_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__290_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__293_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__301_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY22_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__297_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__297_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX22_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active22_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__304_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__307_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__315_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY23_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__311_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__311_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX23_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active23_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__318_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__321_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__329_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY24_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__325_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__325_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX24_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active24_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__332_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__335_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__343_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY25_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__339_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__339_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX25_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active25_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__346_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__349_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__357_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY26_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__353_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__353_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX26_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active26_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__360_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__363_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__371_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY27_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__367_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__367_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX27_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active27_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__374_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__377_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__385_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY28_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__381_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__381_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX28_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active28_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__388_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__391_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__399_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY29_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__395_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__395_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX29_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active29_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__402_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__405_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__413_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY30_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__409_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__409_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX30_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active30_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__416_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__419_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__427_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY31_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__423_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__423_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX31_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active31_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__430_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__433_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__441_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY32_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__437_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__437_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX32_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active32_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__444_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__447_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__455_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY33_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__451_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__451_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX33_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active33_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__458_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__461_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__469_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY34_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__465_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__465_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX34_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active34_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__472_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__475_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__483_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY35_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__479_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__479_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX35_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active35_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__486_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__489_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__497_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY36_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__493_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__493_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX36_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active36_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__500_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__503_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__511_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY37_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__507_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__507_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX37_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active37_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__514_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__517_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__525_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY38_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__521_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__521_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX38_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active38_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__528_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__531_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__539_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY39_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__535_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__535_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX39_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active39_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__542_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__545_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__553_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY40_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__549_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__549_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX40_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active40_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__556_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__559_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__567_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY41_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__563_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__563_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX41_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active41_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__570_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__573_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__581_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY42_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__577_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__577_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX42_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active42_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__584_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__587_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__595_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY43_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__591_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__591_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX43_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active43_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__598_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__601_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__609_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY44_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__605_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__605_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX44_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active44_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__612_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__615_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__623_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY45_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__619_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__619_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX45_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active45_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__626_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__629_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__637_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY46_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__633_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__633_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX46_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active46_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__640_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__643_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__651_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY47_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__647_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__647_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX47_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active47_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__654_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__657_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__665_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY48_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__661_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__661_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX48_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active48_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__668_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__671_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__679_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY49_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__675_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__675_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX49_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active49_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__682_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__685_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__693_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY50_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__689_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__689_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX50_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active50_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__696_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__699_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__707_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY51_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__703_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__703_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX51_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active51_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__710_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__713_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__721_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY52_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__717_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__717_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX52_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active52_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__724_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__727_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__735_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY53_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__731_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__731_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX53_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active53_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__738_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__741_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__749_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY54_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__745_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__745_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX54_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active54_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__752_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__755_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__763_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY55_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__759_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__759_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX55_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active55_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__766_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__769_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__777_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY56_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__773_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__773_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX56_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active56_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__780_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__783_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__791_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY57_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__787_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__787_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX57_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active57_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__794_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__797_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__805_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY58_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__801_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__801_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX58_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active58_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__808_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__811_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__819_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY59_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__815_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__815_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX59_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active59_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__822_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__825_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__833_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY60_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__829_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__829_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX60_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active60_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__836_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__839_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__847_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY61_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__843_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__843_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX61_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active61_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__850_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__853_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__861_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY62_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__857_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__857_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX62_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active62_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__864_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__867_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__875_in1 = 2.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextY63_in2 = 0.113010
+    [[
+        string widget = "number"
+    ]],
+    float var__871_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__871_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float nextX63_in2 = -0.745430
+    [[
+        string widget = "number"
+    ]],
+    float active63_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__878_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__881_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__885_low = 3.999000
+    [[
+        string widget = "number"
+    ]],
+    float var__885_high = 4.000000
+    [[
+        string widget = "number"
+    ]],
+    float active64_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float escaped_in1 = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__897_in2 = 0.230000
+    [[
+        string widget = "number"
+    ]],
+    float hue_in2 = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    float var__900_in2 = 2.094390
+    [[
+        string widget = "number"
+    ]],
+    float var__903_in2 = 4.188790
+    [[
+        string widget = "number"
+    ]],
+    float var__899_in1 = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float red_in1 = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float var__902_in1 = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float var__905_in1 = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float green_in1 = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float blue_in1 = 0.500000
+    [[
+        string widget = "number"
+    ]],
+    float unlit_emission = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    float unlit_transmission = 0.000000
+    [[
+        string widget = "number"
+    ]],
+    color unlit_transmission_color = color(1.000000, 1.000000, 1.000000),
+    float unlit_opacity = 1.000000
+    [[
+        string widget = "number"
+    ]],
+    output MATERIAL out = 0
+)
+{
+    vector2 uv_out = vector2(u,v);
+    vector2 var__0_out = uv_out - var__0_in2;
+    vector2 p_out = var__0_out * p_in2;
+    float zx_out = mx_extract(p_out, zx_index);
+    float var__1_out = zx_out * zx_out;
+    float zy_out = mx_extract(p_out, zy_index);
+    float var__2_out = zy_out * zy_out;
+    float magnitude_out = var__1_out + var__2_out;
+    float var__3_out = smoothstep(var__3_low, var__3_high, magnitude_out);
+    float active_out = active_in1 - var__3_out;
+    float var__alive__1_out = var__alive__1_in1 * active_out;
+    float var__count__1_out = var__count__1_in1 + var__alive__1_out;
+    float var__4_out = zx_out * zx_out;
+    float var__5_out = zy_out * zy_out;
+    float var__6_out = var__4_out - var__5_out;
+    float nextX_out = var__6_out + nextX_in2;
+    float var__9_out = nextX_out * var__alive__1_out;
+    float var__10_out = var__10_in1 - var__alive__1_out;
+    float var__11_out = zx_out * var__10_out;
+    float var__zx__1_out = var__9_out + var__11_out;
+    float var__15_out = var__zx__1_out * var__zx__1_out;
+    float var__7_out = var__7_in1 * zx_out;
+    float var__8_out = var__7_out * zy_out;
+    float nextY_out = var__8_out + nextY_in2;
+    float var__12_out = nextY_out * var__alive__1_out;
+    float var__13_out = var__13_in1 - var__alive__1_out;
+    float var__14_out = zy_out * var__13_out;
+    float var__zy__1_out = var__12_out + var__14_out;
+    float var__16_out = var__zy__1_out * var__zy__1_out;
+    float magnitude2_out = var__15_out + var__16_out;
+    float var__17_out = smoothstep(var__17_low, var__17_high, magnitude2_out);
+    float active2_out = active2_in1 - var__17_out;
+    float var__alive__2_out = var__alive__1_out * active2_out;
+    float var__count__2_out = var__count__1_out + var__alive__2_out;
+    float var__18_out = var__zx__1_out * var__zx__1_out;
+    float var__19_out = var__zy__1_out * var__zy__1_out;
+    float var__20_out = var__18_out - var__19_out;
+    float nextX2_out = var__20_out + nextX2_in2;
+    float var__23_out = nextX2_out * var__alive__2_out;
+    float var__24_out = var__24_in1 - var__alive__2_out;
+    float var__25_out = var__zx__1_out * var__24_out;
+    float var__zx__2_out = var__23_out + var__25_out;
+    float var__29_out = var__zx__2_out * var__zx__2_out;
+    float var__21_out = var__21_in1 * var__zx__1_out;
+    float var__22_out = var__21_out * var__zy__1_out;
+    float nextY2_out = var__22_out + nextY2_in2;
+    float var__26_out = nextY2_out * var__alive__2_out;
+    float var__27_out = var__27_in1 - var__alive__2_out;
+    float var__28_out = var__zy__1_out * var__27_out;
+    float var__zy__2_out = var__26_out + var__28_out;
+    float var__30_out = var__zy__2_out * var__zy__2_out;
+    float magnitude3_out = var__29_out + var__30_out;
+    float var__31_out = smoothstep(var__31_low, var__31_high, magnitude3_out);
+    float active3_out = active3_in1 - var__31_out;
+    float var__alive__3_out = var__alive__2_out * active3_out;
+    float var__count__3_out = var__count__2_out + var__alive__3_out;
+    float var__32_out = var__zx__2_out * var__zx__2_out;
+    float var__33_out = var__zy__2_out * var__zy__2_out;
+    float var__34_out = var__32_out - var__33_out;
+    float nextX3_out = var__34_out + nextX3_in2;
+    float var__37_out = nextX3_out * var__alive__3_out;
+    float var__38_out = var__38_in1 - var__alive__3_out;
+    float var__39_out = var__zx__2_out * var__38_out;
+    float var__zx__3_out = var__37_out + var__39_out;
+    float var__43_out = var__zx__3_out * var__zx__3_out;
+    float var__35_out = var__35_in1 * var__zx__2_out;
+    float var__36_out = var__35_out * var__zy__2_out;
+    float nextY3_out = var__36_out + nextY3_in2;
+    float var__40_out = nextY3_out * var__alive__3_out;
+    float var__41_out = var__41_in1 - var__alive__3_out;
+    float var__42_out = var__zy__2_out * var__41_out;
+    float var__zy__3_out = var__40_out + var__42_out;
+    float var__44_out = var__zy__3_out * var__zy__3_out;
+    float magnitude4_out = var__43_out + var__44_out;
+    float var__45_out = smoothstep(var__45_low, var__45_high, magnitude4_out);
+    float active4_out = active4_in1 - var__45_out;
+    float var__alive__4_out = var__alive__3_out * active4_out;
+    float var__count__4_out = var__count__3_out + var__alive__4_out;
+    float var__46_out = var__zx__3_out * var__zx__3_out;
+    float var__47_out = var__zy__3_out * var__zy__3_out;
+    float var__48_out = var__46_out - var__47_out;
+    float nextX4_out = var__48_out + nextX4_in2;
+    float var__51_out = nextX4_out * var__alive__4_out;
+    float var__52_out = var__52_in1 - var__alive__4_out;
+    float var__53_out = var__zx__3_out * var__52_out;
+    float var__zx__4_out = var__51_out + var__53_out;
+    float var__57_out = var__zx__4_out * var__zx__4_out;
+    float var__49_out = var__49_in1 * var__zx__3_out;
+    float var__50_out = var__49_out * var__zy__3_out;
+    float nextY4_out = var__50_out + nextY4_in2;
+    float var__54_out = nextY4_out * var__alive__4_out;
+    float var__55_out = var__55_in1 - var__alive__4_out;
+    float var__56_out = var__zy__3_out * var__55_out;
+    float var__zy__4_out = var__54_out + var__56_out;
+    float var__58_out = var__zy__4_out * var__zy__4_out;
+    float magnitude5_out = var__57_out + var__58_out;
+    float var__59_out = smoothstep(var__59_low, var__59_high, magnitude5_out);
+    float active5_out = active5_in1 - var__59_out;
+    float var__alive__5_out = var__alive__4_out * active5_out;
+    float var__count__5_out = var__count__4_out + var__alive__5_out;
+    float var__60_out = var__zx__4_out * var__zx__4_out;
+    float var__61_out = var__zy__4_out * var__zy__4_out;
+    float var__62_out = var__60_out - var__61_out;
+    float nextX5_out = var__62_out + nextX5_in2;
+    float var__65_out = nextX5_out * var__alive__5_out;
+    float var__66_out = var__66_in1 - var__alive__5_out;
+    float var__67_out = var__zx__4_out * var__66_out;
+    float var__zx__5_out = var__65_out + var__67_out;
+    float var__71_out = var__zx__5_out * var__zx__5_out;
+    float var__63_out = var__63_in1 * var__zx__4_out;
+    float var__64_out = var__63_out * var__zy__4_out;
+    float nextY5_out = var__64_out + nextY5_in2;
+    float var__68_out = nextY5_out * var__alive__5_out;
+    float var__69_out = var__69_in1 - var__alive__5_out;
+    float var__70_out = var__zy__4_out * var__69_out;
+    float var__zy__5_out = var__68_out + var__70_out;
+    float var__72_out = var__zy__5_out * var__zy__5_out;
+    float magnitude6_out = var__71_out + var__72_out;
+    float var__73_out = smoothstep(var__73_low, var__73_high, magnitude6_out);
+    float active6_out = active6_in1 - var__73_out;
+    float var__alive__6_out = var__alive__5_out * active6_out;
+    float var__count__6_out = var__count__5_out + var__alive__6_out;
+    float var__74_out = var__zx__5_out * var__zx__5_out;
+    float var__75_out = var__zy__5_out * var__zy__5_out;
+    float var__76_out = var__74_out - var__75_out;
+    float nextX6_out = var__76_out + nextX6_in2;
+    float var__79_out = nextX6_out * var__alive__6_out;
+    float var__80_out = var__80_in1 - var__alive__6_out;
+    float var__81_out = var__zx__5_out * var__80_out;
+    float var__zx__6_out = var__79_out + var__81_out;
+    float var__85_out = var__zx__6_out * var__zx__6_out;
+    float var__77_out = var__77_in1 * var__zx__5_out;
+    float var__78_out = var__77_out * var__zy__5_out;
+    float nextY6_out = var__78_out + nextY6_in2;
+    float var__82_out = nextY6_out * var__alive__6_out;
+    float var__83_out = var__83_in1 - var__alive__6_out;
+    float var__84_out = var__zy__5_out * var__83_out;
+    float var__zy__6_out = var__82_out + var__84_out;
+    float var__86_out = var__zy__6_out * var__zy__6_out;
+    float magnitude7_out = var__85_out + var__86_out;
+    float var__87_out = smoothstep(var__87_low, var__87_high, magnitude7_out);
+    float active7_out = active7_in1 - var__87_out;
+    float var__alive__7_out = var__alive__6_out * active7_out;
+    float var__count__7_out = var__count__6_out + var__alive__7_out;
+    float var__88_out = var__zx__6_out * var__zx__6_out;
+    float var__89_out = var__zy__6_out * var__zy__6_out;
+    float var__90_out = var__88_out - var__89_out;
+    float nextX7_out = var__90_out + nextX7_in2;
+    float var__93_out = nextX7_out * var__alive__7_out;
+    float var__94_out = var__94_in1 - var__alive__7_out;
+    float var__95_out = var__zx__6_out * var__94_out;
+    float var__zx__7_out = var__93_out + var__95_out;
+    float var__99_out = var__zx__7_out * var__zx__7_out;
+    float var__91_out = var__91_in1 * var__zx__6_out;
+    float var__92_out = var__91_out * var__zy__6_out;
+    float nextY7_out = var__92_out + nextY7_in2;
+    float var__96_out = nextY7_out * var__alive__7_out;
+    float var__97_out = var__97_in1 - var__alive__7_out;
+    float var__98_out = var__zy__6_out * var__97_out;
+    float var__zy__7_out = var__96_out + var__98_out;
+    float var__100_out = var__zy__7_out * var__zy__7_out;
+    float magnitude8_out = var__99_out + var__100_out;
+    float var__101_out = smoothstep(var__101_low, var__101_high, magnitude8_out);
+    float active8_out = active8_in1 - var__101_out;
+    float var__alive__8_out = var__alive__7_out * active8_out;
+    float var__count__8_out = var__count__7_out + var__alive__8_out;
+    float var__102_out = var__zx__7_out * var__zx__7_out;
+    float var__103_out = var__zy__7_out * var__zy__7_out;
+    float var__104_out = var__102_out - var__103_out;
+    float nextX8_out = var__104_out + nextX8_in2;
+    float var__107_out = nextX8_out * var__alive__8_out;
+    float var__108_out = var__108_in1 - var__alive__8_out;
+    float var__109_out = var__zx__7_out * var__108_out;
+    float var__zx__8_out = var__107_out + var__109_out;
+    float var__113_out = var__zx__8_out * var__zx__8_out;
+    float var__105_out = var__105_in1 * var__zx__7_out;
+    float var__106_out = var__105_out * var__zy__7_out;
+    float nextY8_out = var__106_out + nextY8_in2;
+    float var__110_out = nextY8_out * var__alive__8_out;
+    float var__111_out = var__111_in1 - var__alive__8_out;
+    float var__112_out = var__zy__7_out * var__111_out;
+    float var__zy__8_out = var__110_out + var__112_out;
+    float var__114_out = var__zy__8_out * var__zy__8_out;
+    float magnitude9_out = var__113_out + var__114_out;
+    float var__115_out = smoothstep(var__115_low, var__115_high, magnitude9_out);
+    float active9_out = active9_in1 - var__115_out;
+    float var__alive__9_out = var__alive__8_out * active9_out;
+    float var__count__9_out = var__count__8_out + var__alive__9_out;
+    float var__116_out = var__zx__8_out * var__zx__8_out;
+    float var__117_out = var__zy__8_out * var__zy__8_out;
+    float var__118_out = var__116_out - var__117_out;
+    float nextX9_out = var__118_out + nextX9_in2;
+    float var__121_out = nextX9_out * var__alive__9_out;
+    float var__122_out = var__122_in1 - var__alive__9_out;
+    float var__123_out = var__zx__8_out * var__122_out;
+    float var__zx__9_out = var__121_out + var__123_out;
+    float var__127_out = var__zx__9_out * var__zx__9_out;
+    float var__119_out = var__119_in1 * var__zx__8_out;
+    float var__120_out = var__119_out * var__zy__8_out;
+    float nextY9_out = var__120_out + nextY9_in2;
+    float var__124_out = nextY9_out * var__alive__9_out;
+    float var__125_out = var__125_in1 - var__alive__9_out;
+    float var__126_out = var__zy__8_out * var__125_out;
+    float var__zy__9_out = var__124_out + var__126_out;
+    float var__128_out = var__zy__9_out * var__zy__9_out;
+    float magnitude10_out = var__127_out + var__128_out;
+    float var__129_out = smoothstep(var__129_low, var__129_high, magnitude10_out);
+    float active10_out = active10_in1 - var__129_out;
+    float var__alive__10_out = var__alive__9_out * active10_out;
+    float var__count__10_out = var__count__9_out + var__alive__10_out;
+    float var__130_out = var__zx__9_out * var__zx__9_out;
+    float var__131_out = var__zy__9_out * var__zy__9_out;
+    float var__132_out = var__130_out - var__131_out;
+    float nextX10_out = var__132_out + nextX10_in2;
+    float var__135_out = nextX10_out * var__alive__10_out;
+    float var__136_out = var__136_in1 - var__alive__10_out;
+    float var__137_out = var__zx__9_out * var__136_out;
+    float var__zx__10_out = var__135_out + var__137_out;
+    float var__141_out = var__zx__10_out * var__zx__10_out;
+    float var__133_out = var__133_in1 * var__zx__9_out;
+    float var__134_out = var__133_out * var__zy__9_out;
+    float nextY10_out = var__134_out + nextY10_in2;
+    float var__138_out = nextY10_out * var__alive__10_out;
+    float var__139_out = var__139_in1 - var__alive__10_out;
+    float var__140_out = var__zy__9_out * var__139_out;
+    float var__zy__10_out = var__138_out + var__140_out;
+    float var__142_out = var__zy__10_out * var__zy__10_out;
+    float magnitude11_out = var__141_out + var__142_out;
+    float var__143_out = smoothstep(var__143_low, var__143_high, magnitude11_out);
+    float active11_out = active11_in1 - var__143_out;
+    float var__alive__11_out = var__alive__10_out * active11_out;
+    float var__count__11_out = var__count__10_out + var__alive__11_out;
+    float var__144_out = var__zx__10_out * var__zx__10_out;
+    float var__145_out = var__zy__10_out * var__zy__10_out;
+    float var__146_out = var__144_out - var__145_out;
+    float nextX11_out = var__146_out + nextX11_in2;
+    float var__149_out = nextX11_out * var__alive__11_out;
+    float var__150_out = var__150_in1 - var__alive__11_out;
+    float var__151_out = var__zx__10_out * var__150_out;
+    float var__zx__11_out = var__149_out + var__151_out;
+    float var__155_out = var__zx__11_out * var__zx__11_out;
+    float var__147_out = var__147_in1 * var__zx__10_out;
+    float var__148_out = var__147_out * var__zy__10_out;
+    float nextY11_out = var__148_out + nextY11_in2;
+    float var__152_out = nextY11_out * var__alive__11_out;
+    float var__153_out = var__153_in1 - var__alive__11_out;
+    float var__154_out = var__zy__10_out * var__153_out;
+    float var__zy__11_out = var__152_out + var__154_out;
+    float var__156_out = var__zy__11_out * var__zy__11_out;
+    float magnitude12_out = var__155_out + var__156_out;
+    float var__157_out = smoothstep(var__157_low, var__157_high, magnitude12_out);
+    float active12_out = active12_in1 - var__157_out;
+    float var__alive__12_out = var__alive__11_out * active12_out;
+    float var__count__12_out = var__count__11_out + var__alive__12_out;
+    float var__158_out = var__zx__11_out * var__zx__11_out;
+    float var__159_out = var__zy__11_out * var__zy__11_out;
+    float var__160_out = var__158_out - var__159_out;
+    float nextX12_out = var__160_out + nextX12_in2;
+    float var__163_out = nextX12_out * var__alive__12_out;
+    float var__164_out = var__164_in1 - var__alive__12_out;
+    float var__165_out = var__zx__11_out * var__164_out;
+    float var__zx__12_out = var__163_out + var__165_out;
+    float var__169_out = var__zx__12_out * var__zx__12_out;
+    float var__161_out = var__161_in1 * var__zx__11_out;
+    float var__162_out = var__161_out * var__zy__11_out;
+    float nextY12_out = var__162_out + nextY12_in2;
+    float var__166_out = nextY12_out * var__alive__12_out;
+    float var__167_out = var__167_in1 - var__alive__12_out;
+    float var__168_out = var__zy__11_out * var__167_out;
+    float var__zy__12_out = var__166_out + var__168_out;
+    float var__170_out = var__zy__12_out * var__zy__12_out;
+    float magnitude13_out = var__169_out + var__170_out;
+    float var__171_out = smoothstep(var__171_low, var__171_high, magnitude13_out);
+    float active13_out = active13_in1 - var__171_out;
+    float var__alive__13_out = var__alive__12_out * active13_out;
+    float var__count__13_out = var__count__12_out + var__alive__13_out;
+    float var__172_out = var__zx__12_out * var__zx__12_out;
+    float var__173_out = var__zy__12_out * var__zy__12_out;
+    float var__174_out = var__172_out - var__173_out;
+    float nextX13_out = var__174_out + nextX13_in2;
+    float var__177_out = nextX13_out * var__alive__13_out;
+    float var__178_out = var__178_in1 - var__alive__13_out;
+    float var__179_out = var__zx__12_out * var__178_out;
+    float var__zx__13_out = var__177_out + var__179_out;
+    float var__183_out = var__zx__13_out * var__zx__13_out;
+    float var__175_out = var__175_in1 * var__zx__12_out;
+    float var__176_out = var__175_out * var__zy__12_out;
+    float nextY13_out = var__176_out + nextY13_in2;
+    float var__180_out = nextY13_out * var__alive__13_out;
+    float var__181_out = var__181_in1 - var__alive__13_out;
+    float var__182_out = var__zy__12_out * var__181_out;
+    float var__zy__13_out = var__180_out + var__182_out;
+    float var__184_out = var__zy__13_out * var__zy__13_out;
+    float magnitude14_out = var__183_out + var__184_out;
+    float var__185_out = smoothstep(var__185_low, var__185_high, magnitude14_out);
+    float active14_out = active14_in1 - var__185_out;
+    float var__alive__14_out = var__alive__13_out * active14_out;
+    float var__count__14_out = var__count__13_out + var__alive__14_out;
+    float var__186_out = var__zx__13_out * var__zx__13_out;
+    float var__187_out = var__zy__13_out * var__zy__13_out;
+    float var__188_out = var__186_out - var__187_out;
+    float nextX14_out = var__188_out + nextX14_in2;
+    float var__191_out = nextX14_out * var__alive__14_out;
+    float var__192_out = var__192_in1 - var__alive__14_out;
+    float var__193_out = var__zx__13_out * var__192_out;
+    float var__zx__14_out = var__191_out + var__193_out;
+    float var__197_out = var__zx__14_out * var__zx__14_out;
+    float var__189_out = var__189_in1 * var__zx__13_out;
+    float var__190_out = var__189_out * var__zy__13_out;
+    float nextY14_out = var__190_out + nextY14_in2;
+    float var__194_out = nextY14_out * var__alive__14_out;
+    float var__195_out = var__195_in1 - var__alive__14_out;
+    float var__196_out = var__zy__13_out * var__195_out;
+    float var__zy__14_out = var__194_out + var__196_out;
+    float var__198_out = var__zy__14_out * var__zy__14_out;
+    float magnitude15_out = var__197_out + var__198_out;
+    float var__199_out = smoothstep(var__199_low, var__199_high, magnitude15_out);
+    float active15_out = active15_in1 - var__199_out;
+    float var__alive__15_out = var__alive__14_out * active15_out;
+    float var__count__15_out = var__count__14_out + var__alive__15_out;
+    float var__200_out = var__zx__14_out * var__zx__14_out;
+    float var__201_out = var__zy__14_out * var__zy__14_out;
+    float var__202_out = var__200_out - var__201_out;
+    float nextX15_out = var__202_out + nextX15_in2;
+    float var__205_out = nextX15_out * var__alive__15_out;
+    float var__206_out = var__206_in1 - var__alive__15_out;
+    float var__207_out = var__zx__14_out * var__206_out;
+    float var__zx__15_out = var__205_out + var__207_out;
+    float var__211_out = var__zx__15_out * var__zx__15_out;
+    float var__203_out = var__203_in1 * var__zx__14_out;
+    float var__204_out = var__203_out * var__zy__14_out;
+    float nextY15_out = var__204_out + nextY15_in2;
+    float var__208_out = nextY15_out * var__alive__15_out;
+    float var__209_out = var__209_in1 - var__alive__15_out;
+    float var__210_out = var__zy__14_out * var__209_out;
+    float var__zy__15_out = var__208_out + var__210_out;
+    float var__212_out = var__zy__15_out * var__zy__15_out;
+    float magnitude16_out = var__211_out + var__212_out;
+    float var__213_out = smoothstep(var__213_low, var__213_high, magnitude16_out);
+    float active16_out = active16_in1 - var__213_out;
+    float var__alive__16_out = var__alive__15_out * active16_out;
+    float var__count__16_out = var__count__15_out + var__alive__16_out;
+    float var__214_out = var__zx__15_out * var__zx__15_out;
+    float var__215_out = var__zy__15_out * var__zy__15_out;
+    float var__216_out = var__214_out - var__215_out;
+    float nextX16_out = var__216_out + nextX16_in2;
+    float var__219_out = nextX16_out * var__alive__16_out;
+    float var__220_out = var__220_in1 - var__alive__16_out;
+    float var__221_out = var__zx__15_out * var__220_out;
+    float var__zx__16_out = var__219_out + var__221_out;
+    float var__225_out = var__zx__16_out * var__zx__16_out;
+    float var__217_out = var__217_in1 * var__zx__15_out;
+    float var__218_out = var__217_out * var__zy__15_out;
+    float nextY16_out = var__218_out + nextY16_in2;
+    float var__222_out = nextY16_out * var__alive__16_out;
+    float var__223_out = var__223_in1 - var__alive__16_out;
+    float var__224_out = var__zy__15_out * var__223_out;
+    float var__zy__16_out = var__222_out + var__224_out;
+    float var__226_out = var__zy__16_out * var__zy__16_out;
+    float magnitude17_out = var__225_out + var__226_out;
+    float var__227_out = smoothstep(var__227_low, var__227_high, magnitude17_out);
+    float active17_out = active17_in1 - var__227_out;
+    float var__alive__17_out = var__alive__16_out * active17_out;
+    float var__count__17_out = var__count__16_out + var__alive__17_out;
+    float var__228_out = var__zx__16_out * var__zx__16_out;
+    float var__229_out = var__zy__16_out * var__zy__16_out;
+    float var__230_out = var__228_out - var__229_out;
+    float nextX17_out = var__230_out + nextX17_in2;
+    float var__233_out = nextX17_out * var__alive__17_out;
+    float var__234_out = var__234_in1 - var__alive__17_out;
+    float var__235_out = var__zx__16_out * var__234_out;
+    float var__zx__17_out = var__233_out + var__235_out;
+    float var__239_out = var__zx__17_out * var__zx__17_out;
+    float var__231_out = var__231_in1 * var__zx__16_out;
+    float var__232_out = var__231_out * var__zy__16_out;
+    float nextY17_out = var__232_out + nextY17_in2;
+    float var__236_out = nextY17_out * var__alive__17_out;
+    float var__237_out = var__237_in1 - var__alive__17_out;
+    float var__238_out = var__zy__16_out * var__237_out;
+    float var__zy__17_out = var__236_out + var__238_out;
+    float var__240_out = var__zy__17_out * var__zy__17_out;
+    float magnitude18_out = var__239_out + var__240_out;
+    float var__241_out = smoothstep(var__241_low, var__241_high, magnitude18_out);
+    float active18_out = active18_in1 - var__241_out;
+    float var__alive__18_out = var__alive__17_out * active18_out;
+    float var__count__18_out = var__count__17_out + var__alive__18_out;
+    float var__242_out = var__zx__17_out * var__zx__17_out;
+    float var__243_out = var__zy__17_out * var__zy__17_out;
+    float var__244_out = var__242_out - var__243_out;
+    float nextX18_out = var__244_out + nextX18_in2;
+    float var__247_out = nextX18_out * var__alive__18_out;
+    float var__248_out = var__248_in1 - var__alive__18_out;
+    float var__249_out = var__zx__17_out * var__248_out;
+    float var__zx__18_out = var__247_out + var__249_out;
+    float var__253_out = var__zx__18_out * var__zx__18_out;
+    float var__245_out = var__245_in1 * var__zx__17_out;
+    float var__246_out = var__245_out * var__zy__17_out;
+    float nextY18_out = var__246_out + nextY18_in2;
+    float var__250_out = nextY18_out * var__alive__18_out;
+    float var__251_out = var__251_in1 - var__alive__18_out;
+    float var__252_out = var__zy__17_out * var__251_out;
+    float var__zy__18_out = var__250_out + var__252_out;
+    float var__254_out = var__zy__18_out * var__zy__18_out;
+    float magnitude19_out = var__253_out + var__254_out;
+    float var__255_out = smoothstep(var__255_low, var__255_high, magnitude19_out);
+    float active19_out = active19_in1 - var__255_out;
+    float var__alive__19_out = var__alive__18_out * active19_out;
+    float var__count__19_out = var__count__18_out + var__alive__19_out;
+    float var__256_out = var__zx__18_out * var__zx__18_out;
+    float var__257_out = var__zy__18_out * var__zy__18_out;
+    float var__258_out = var__256_out - var__257_out;
+    float nextX19_out = var__258_out + nextX19_in2;
+    float var__261_out = nextX19_out * var__alive__19_out;
+    float var__262_out = var__262_in1 - var__alive__19_out;
+    float var__263_out = var__zx__18_out * var__262_out;
+    float var__zx__19_out = var__261_out + var__263_out;
+    float var__267_out = var__zx__19_out * var__zx__19_out;
+    float var__259_out = var__259_in1 * var__zx__18_out;
+    float var__260_out = var__259_out * var__zy__18_out;
+    float nextY19_out = var__260_out + nextY19_in2;
+    float var__264_out = nextY19_out * var__alive__19_out;
+    float var__265_out = var__265_in1 - var__alive__19_out;
+    float var__266_out = var__zy__18_out * var__265_out;
+    float var__zy__19_out = var__264_out + var__266_out;
+    float var__268_out = var__zy__19_out * var__zy__19_out;
+    float magnitude20_out = var__267_out + var__268_out;
+    float var__269_out = smoothstep(var__269_low, var__269_high, magnitude20_out);
+    float active20_out = active20_in1 - var__269_out;
+    float var__alive__20_out = var__alive__19_out * active20_out;
+    float var__count__20_out = var__count__19_out + var__alive__20_out;
+    float var__270_out = var__zx__19_out * var__zx__19_out;
+    float var__271_out = var__zy__19_out * var__zy__19_out;
+    float var__272_out = var__270_out - var__271_out;
+    float nextX20_out = var__272_out + nextX20_in2;
+    float var__275_out = nextX20_out * var__alive__20_out;
+    float var__276_out = var__276_in1 - var__alive__20_out;
+    float var__277_out = var__zx__19_out * var__276_out;
+    float var__zx__20_out = var__275_out + var__277_out;
+    float var__281_out = var__zx__20_out * var__zx__20_out;
+    float var__273_out = var__273_in1 * var__zx__19_out;
+    float var__274_out = var__273_out * var__zy__19_out;
+    float nextY20_out = var__274_out + nextY20_in2;
+    float var__278_out = nextY20_out * var__alive__20_out;
+    float var__279_out = var__279_in1 - var__alive__20_out;
+    float var__280_out = var__zy__19_out * var__279_out;
+    float var__zy__20_out = var__278_out + var__280_out;
+    float var__282_out = var__zy__20_out * var__zy__20_out;
+    float magnitude21_out = var__281_out + var__282_out;
+    float var__283_out = smoothstep(var__283_low, var__283_high, magnitude21_out);
+    float active21_out = active21_in1 - var__283_out;
+    float var__alive__21_out = var__alive__20_out * active21_out;
+    float var__count__21_out = var__count__20_out + var__alive__21_out;
+    float var__284_out = var__zx__20_out * var__zx__20_out;
+    float var__285_out = var__zy__20_out * var__zy__20_out;
+    float var__286_out = var__284_out - var__285_out;
+    float nextX21_out = var__286_out + nextX21_in2;
+    float var__289_out = nextX21_out * var__alive__21_out;
+    float var__290_out = var__290_in1 - var__alive__21_out;
+    float var__291_out = var__zx__20_out * var__290_out;
+    float var__zx__21_out = var__289_out + var__291_out;
+    float var__295_out = var__zx__21_out * var__zx__21_out;
+    float var__287_out = var__287_in1 * var__zx__20_out;
+    float var__288_out = var__287_out * var__zy__20_out;
+    float nextY21_out = var__288_out + nextY21_in2;
+    float var__292_out = nextY21_out * var__alive__21_out;
+    float var__293_out = var__293_in1 - var__alive__21_out;
+    float var__294_out = var__zy__20_out * var__293_out;
+    float var__zy__21_out = var__292_out + var__294_out;
+    float var__296_out = var__zy__21_out * var__zy__21_out;
+    float magnitude22_out = var__295_out + var__296_out;
+    float var__297_out = smoothstep(var__297_low, var__297_high, magnitude22_out);
+    float active22_out = active22_in1 - var__297_out;
+    float var__alive__22_out = var__alive__21_out * active22_out;
+    float var__count__22_out = var__count__21_out + var__alive__22_out;
+    float var__298_out = var__zx__21_out * var__zx__21_out;
+    float var__299_out = var__zy__21_out * var__zy__21_out;
+    float var__300_out = var__298_out - var__299_out;
+    float nextX22_out = var__300_out + nextX22_in2;
+    float var__303_out = nextX22_out * var__alive__22_out;
+    float var__304_out = var__304_in1 - var__alive__22_out;
+    float var__305_out = var__zx__21_out * var__304_out;
+    float var__zx__22_out = var__303_out + var__305_out;
+    float var__309_out = var__zx__22_out * var__zx__22_out;
+    float var__301_out = var__301_in1 * var__zx__21_out;
+    float var__302_out = var__301_out * var__zy__21_out;
+    float nextY22_out = var__302_out + nextY22_in2;
+    float var__306_out = nextY22_out * var__alive__22_out;
+    float var__307_out = var__307_in1 - var__alive__22_out;
+    float var__308_out = var__zy__21_out * var__307_out;
+    float var__zy__22_out = var__306_out + var__308_out;
+    float var__310_out = var__zy__22_out * var__zy__22_out;
+    float magnitude23_out = var__309_out + var__310_out;
+    float var__311_out = smoothstep(var__311_low, var__311_high, magnitude23_out);
+    float active23_out = active23_in1 - var__311_out;
+    float var__alive__23_out = var__alive__22_out * active23_out;
+    float var__count__23_out = var__count__22_out + var__alive__23_out;
+    float var__312_out = var__zx__22_out * var__zx__22_out;
+    float var__313_out = var__zy__22_out * var__zy__22_out;
+    float var__314_out = var__312_out - var__313_out;
+    float nextX23_out = var__314_out + nextX23_in2;
+    float var__317_out = nextX23_out * var__alive__23_out;
+    float var__318_out = var__318_in1 - var__alive__23_out;
+    float var__319_out = var__zx__22_out * var__318_out;
+    float var__zx__23_out = var__317_out + var__319_out;
+    float var__323_out = var__zx__23_out * var__zx__23_out;
+    float var__315_out = var__315_in1 * var__zx__22_out;
+    float var__316_out = var__315_out * var__zy__22_out;
+    float nextY23_out = var__316_out + nextY23_in2;
+    float var__320_out = nextY23_out * var__alive__23_out;
+    float var__321_out = var__321_in1 - var__alive__23_out;
+    float var__322_out = var__zy__22_out * var__321_out;
+    float var__zy__23_out = var__320_out + var__322_out;
+    float var__324_out = var__zy__23_out * var__zy__23_out;
+    float magnitude24_out = var__323_out + var__324_out;
+    float var__325_out = smoothstep(var__325_low, var__325_high, magnitude24_out);
+    float active24_out = active24_in1 - var__325_out;
+    float var__alive__24_out = var__alive__23_out * active24_out;
+    float var__count__24_out = var__count__23_out + var__alive__24_out;
+    float var__326_out = var__zx__23_out * var__zx__23_out;
+    float var__327_out = var__zy__23_out * var__zy__23_out;
+    float var__328_out = var__326_out - var__327_out;
+    float nextX24_out = var__328_out + nextX24_in2;
+    float var__331_out = nextX24_out * var__alive__24_out;
+    float var__332_out = var__332_in1 - var__alive__24_out;
+    float var__333_out = var__zx__23_out * var__332_out;
+    float var__zx__24_out = var__331_out + var__333_out;
+    float var__337_out = var__zx__24_out * var__zx__24_out;
+    float var__329_out = var__329_in1 * var__zx__23_out;
+    float var__330_out = var__329_out * var__zy__23_out;
+    float nextY24_out = var__330_out + nextY24_in2;
+    float var__334_out = nextY24_out * var__alive__24_out;
+    float var__335_out = var__335_in1 - var__alive__24_out;
+    float var__336_out = var__zy__23_out * var__335_out;
+    float var__zy__24_out = var__334_out + var__336_out;
+    float var__338_out = var__zy__24_out * var__zy__24_out;
+    float magnitude25_out = var__337_out + var__338_out;
+    float var__339_out = smoothstep(var__339_low, var__339_high, magnitude25_out);
+    float active25_out = active25_in1 - var__339_out;
+    float var__alive__25_out = var__alive__24_out * active25_out;
+    float var__count__25_out = var__count__24_out + var__alive__25_out;
+    float var__340_out = var__zx__24_out * var__zx__24_out;
+    float var__341_out = var__zy__24_out * var__zy__24_out;
+    float var__342_out = var__340_out - var__341_out;
+    float nextX25_out = var__342_out + nextX25_in2;
+    float var__345_out = nextX25_out * var__alive__25_out;
+    float var__346_out = var__346_in1 - var__alive__25_out;
+    float var__347_out = var__zx__24_out * var__346_out;
+    float var__zx__25_out = var__345_out + var__347_out;
+    float var__351_out = var__zx__25_out * var__zx__25_out;
+    float var__343_out = var__343_in1 * var__zx__24_out;
+    float var__344_out = var__343_out * var__zy__24_out;
+    float nextY25_out = var__344_out + nextY25_in2;
+    float var__348_out = nextY25_out * var__alive__25_out;
+    float var__349_out = var__349_in1 - var__alive__25_out;
+    float var__350_out = var__zy__24_out * var__349_out;
+    float var__zy__25_out = var__348_out + var__350_out;
+    float var__352_out = var__zy__25_out * var__zy__25_out;
+    float magnitude26_out = var__351_out + var__352_out;
+    float var__353_out = smoothstep(var__353_low, var__353_high, magnitude26_out);
+    float active26_out = active26_in1 - var__353_out;
+    float var__alive__26_out = var__alive__25_out * active26_out;
+    float var__count__26_out = var__count__25_out + var__alive__26_out;
+    float var__354_out = var__zx__25_out * var__zx__25_out;
+    float var__355_out = var__zy__25_out * var__zy__25_out;
+    float var__356_out = var__354_out - var__355_out;
+    float nextX26_out = var__356_out + nextX26_in2;
+    float var__359_out = nextX26_out * var__alive__26_out;
+    float var__360_out = var__360_in1 - var__alive__26_out;
+    float var__361_out = var__zx__25_out * var__360_out;
+    float var__zx__26_out = var__359_out + var__361_out;
+    float var__365_out = var__zx__26_out * var__zx__26_out;
+    float var__357_out = var__357_in1 * var__zx__25_out;
+    float var__358_out = var__357_out * var__zy__25_out;
+    float nextY26_out = var__358_out + nextY26_in2;
+    float var__362_out = nextY26_out * var__alive__26_out;
+    float var__363_out = var__363_in1 - var__alive__26_out;
+    float var__364_out = var__zy__25_out * var__363_out;
+    float var__zy__26_out = var__362_out + var__364_out;
+    float var__366_out = var__zy__26_out * var__zy__26_out;
+    float magnitude27_out = var__365_out + var__366_out;
+    float var__367_out = smoothstep(var__367_low, var__367_high, magnitude27_out);
+    float active27_out = active27_in1 - var__367_out;
+    float var__alive__27_out = var__alive__26_out * active27_out;
+    float var__count__27_out = var__count__26_out + var__alive__27_out;
+    float var__368_out = var__zx__26_out * var__zx__26_out;
+    float var__369_out = var__zy__26_out * var__zy__26_out;
+    float var__370_out = var__368_out - var__369_out;
+    float nextX27_out = var__370_out + nextX27_in2;
+    float var__373_out = nextX27_out * var__alive__27_out;
+    float var__374_out = var__374_in1 - var__alive__27_out;
+    float var__375_out = var__zx__26_out * var__374_out;
+    float var__zx__27_out = var__373_out + var__375_out;
+    float var__379_out = var__zx__27_out * var__zx__27_out;
+    float var__371_out = var__371_in1 * var__zx__26_out;
+    float var__372_out = var__371_out * var__zy__26_out;
+    float nextY27_out = var__372_out + nextY27_in2;
+    float var__376_out = nextY27_out * var__alive__27_out;
+    float var__377_out = var__377_in1 - var__alive__27_out;
+    float var__378_out = var__zy__26_out * var__377_out;
+    float var__zy__27_out = var__376_out + var__378_out;
+    float var__380_out = var__zy__27_out * var__zy__27_out;
+    float magnitude28_out = var__379_out + var__380_out;
+    float var__381_out = smoothstep(var__381_low, var__381_high, magnitude28_out);
+    float active28_out = active28_in1 - var__381_out;
+    float var__alive__28_out = var__alive__27_out * active28_out;
+    float var__count__28_out = var__count__27_out + var__alive__28_out;
+    float var__382_out = var__zx__27_out * var__zx__27_out;
+    float var__383_out = var__zy__27_out * var__zy__27_out;
+    float var__384_out = var__382_out - var__383_out;
+    float nextX28_out = var__384_out + nextX28_in2;
+    float var__387_out = nextX28_out * var__alive__28_out;
+    float var__388_out = var__388_in1 - var__alive__28_out;
+    float var__389_out = var__zx__27_out * var__388_out;
+    float var__zx__28_out = var__387_out + var__389_out;
+    float var__393_out = var__zx__28_out * var__zx__28_out;
+    float var__385_out = var__385_in1 * var__zx__27_out;
+    float var__386_out = var__385_out * var__zy__27_out;
+    float nextY28_out = var__386_out + nextY28_in2;
+    float var__390_out = nextY28_out * var__alive__28_out;
+    float var__391_out = var__391_in1 - var__alive__28_out;
+    float var__392_out = var__zy__27_out * var__391_out;
+    float var__zy__28_out = var__390_out + var__392_out;
+    float var__394_out = var__zy__28_out * var__zy__28_out;
+    float magnitude29_out = var__393_out + var__394_out;
+    float var__395_out = smoothstep(var__395_low, var__395_high, magnitude29_out);
+    float active29_out = active29_in1 - var__395_out;
+    float var__alive__29_out = var__alive__28_out * active29_out;
+    float var__count__29_out = var__count__28_out + var__alive__29_out;
+    float var__396_out = var__zx__28_out * var__zx__28_out;
+    float var__397_out = var__zy__28_out * var__zy__28_out;
+    float var__398_out = var__396_out - var__397_out;
+    float nextX29_out = var__398_out + nextX29_in2;
+    float var__401_out = nextX29_out * var__alive__29_out;
+    float var__402_out = var__402_in1 - var__alive__29_out;
+    float var__403_out = var__zx__28_out * var__402_out;
+    float var__zx__29_out = var__401_out + var__403_out;
+    float var__407_out = var__zx__29_out * var__zx__29_out;
+    float var__399_out = var__399_in1 * var__zx__28_out;
+    float var__400_out = var__399_out * var__zy__28_out;
+    float nextY29_out = var__400_out + nextY29_in2;
+    float var__404_out = nextY29_out * var__alive__29_out;
+    float var__405_out = var__405_in1 - var__alive__29_out;
+    float var__406_out = var__zy__28_out * var__405_out;
+    float var__zy__29_out = var__404_out + var__406_out;
+    float var__408_out = var__zy__29_out * var__zy__29_out;
+    float magnitude30_out = var__407_out + var__408_out;
+    float var__409_out = smoothstep(var__409_low, var__409_high, magnitude30_out);
+    float active30_out = active30_in1 - var__409_out;
+    float var__alive__30_out = var__alive__29_out * active30_out;
+    float var__count__30_out = var__count__29_out + var__alive__30_out;
+    float var__410_out = var__zx__29_out * var__zx__29_out;
+    float var__411_out = var__zy__29_out * var__zy__29_out;
+    float var__412_out = var__410_out - var__411_out;
+    float nextX30_out = var__412_out + nextX30_in2;
+    float var__415_out = nextX30_out * var__alive__30_out;
+    float var__416_out = var__416_in1 - var__alive__30_out;
+    float var__417_out = var__zx__29_out * var__416_out;
+    float var__zx__30_out = var__415_out + var__417_out;
+    float var__421_out = var__zx__30_out * var__zx__30_out;
+    float var__413_out = var__413_in1 * var__zx__29_out;
+    float var__414_out = var__413_out * var__zy__29_out;
+    float nextY30_out = var__414_out + nextY30_in2;
+    float var__418_out = nextY30_out * var__alive__30_out;
+    float var__419_out = var__419_in1 - var__alive__30_out;
+    float var__420_out = var__zy__29_out * var__419_out;
+    float var__zy__30_out = var__418_out + var__420_out;
+    float var__422_out = var__zy__30_out * var__zy__30_out;
+    float magnitude31_out = var__421_out + var__422_out;
+    float var__423_out = smoothstep(var__423_low, var__423_high, magnitude31_out);
+    float active31_out = active31_in1 - var__423_out;
+    float var__alive__31_out = var__alive__30_out * active31_out;
+    float var__count__31_out = var__count__30_out + var__alive__31_out;
+    float var__424_out = var__zx__30_out * var__zx__30_out;
+    float var__425_out = var__zy__30_out * var__zy__30_out;
+    float var__426_out = var__424_out - var__425_out;
+    float nextX31_out = var__426_out + nextX31_in2;
+    float var__429_out = nextX31_out * var__alive__31_out;
+    float var__430_out = var__430_in1 - var__alive__31_out;
+    float var__431_out = var__zx__30_out * var__430_out;
+    float var__zx__31_out = var__429_out + var__431_out;
+    float var__435_out = var__zx__31_out * var__zx__31_out;
+    float var__427_out = var__427_in1 * var__zx__30_out;
+    float var__428_out = var__427_out * var__zy__30_out;
+    float nextY31_out = var__428_out + nextY31_in2;
+    float var__432_out = nextY31_out * var__alive__31_out;
+    float var__433_out = var__433_in1 - var__alive__31_out;
+    float var__434_out = var__zy__30_out * var__433_out;
+    float var__zy__31_out = var__432_out + var__434_out;
+    float var__436_out = var__zy__31_out * var__zy__31_out;
+    float magnitude32_out = var__435_out + var__436_out;
+    float var__437_out = smoothstep(var__437_low, var__437_high, magnitude32_out);
+    float active32_out = active32_in1 - var__437_out;
+    float var__alive__32_out = var__alive__31_out * active32_out;
+    float var__count__32_out = var__count__31_out + var__alive__32_out;
+    float var__438_out = var__zx__31_out * var__zx__31_out;
+    float var__439_out = var__zy__31_out * var__zy__31_out;
+    float var__440_out = var__438_out - var__439_out;
+    float nextX32_out = var__440_out + nextX32_in2;
+    float var__443_out = nextX32_out * var__alive__32_out;
+    float var__444_out = var__444_in1 - var__alive__32_out;
+    float var__445_out = var__zx__31_out * var__444_out;
+    float var__zx__32_out = var__443_out + var__445_out;
+    float var__449_out = var__zx__32_out * var__zx__32_out;
+    float var__441_out = var__441_in1 * var__zx__31_out;
+    float var__442_out = var__441_out * var__zy__31_out;
+    float nextY32_out = var__442_out + nextY32_in2;
+    float var__446_out = nextY32_out * var__alive__32_out;
+    float var__447_out = var__447_in1 - var__alive__32_out;
+    float var__448_out = var__zy__31_out * var__447_out;
+    float var__zy__32_out = var__446_out + var__448_out;
+    float var__450_out = var__zy__32_out * var__zy__32_out;
+    float magnitude33_out = var__449_out + var__450_out;
+    float var__451_out = smoothstep(var__451_low, var__451_high, magnitude33_out);
+    float active33_out = active33_in1 - var__451_out;
+    float var__alive__33_out = var__alive__32_out * active33_out;
+    float var__count__33_out = var__count__32_out + var__alive__33_out;
+    float var__452_out = var__zx__32_out * var__zx__32_out;
+    float var__453_out = var__zy__32_out * var__zy__32_out;
+    float var__454_out = var__452_out - var__453_out;
+    float nextX33_out = var__454_out + nextX33_in2;
+    float var__457_out = nextX33_out * var__alive__33_out;
+    float var__458_out = var__458_in1 - var__alive__33_out;
+    float var__459_out = var__zx__32_out * var__458_out;
+    float var__zx__33_out = var__457_out + var__459_out;
+    float var__463_out = var__zx__33_out * var__zx__33_out;
+    float var__455_out = var__455_in1 * var__zx__32_out;
+    float var__456_out = var__455_out * var__zy__32_out;
+    float nextY33_out = var__456_out + nextY33_in2;
+    float var__460_out = nextY33_out * var__alive__33_out;
+    float var__461_out = var__461_in1 - var__alive__33_out;
+    float var__462_out = var__zy__32_out * var__461_out;
+    float var__zy__33_out = var__460_out + var__462_out;
+    float var__464_out = var__zy__33_out * var__zy__33_out;
+    float magnitude34_out = var__463_out + var__464_out;
+    float var__465_out = smoothstep(var__465_low, var__465_high, magnitude34_out);
+    float active34_out = active34_in1 - var__465_out;
+    float var__alive__34_out = var__alive__33_out * active34_out;
+    float var__count__34_out = var__count__33_out + var__alive__34_out;
+    float var__466_out = var__zx__33_out * var__zx__33_out;
+    float var__467_out = var__zy__33_out * var__zy__33_out;
+    float var__468_out = var__466_out - var__467_out;
+    float nextX34_out = var__468_out + nextX34_in2;
+    float var__471_out = nextX34_out * var__alive__34_out;
+    float var__472_out = var__472_in1 - var__alive__34_out;
+    float var__473_out = var__zx__33_out * var__472_out;
+    float var__zx__34_out = var__471_out + var__473_out;
+    float var__477_out = var__zx__34_out * var__zx__34_out;
+    float var__469_out = var__469_in1 * var__zx__33_out;
+    float var__470_out = var__469_out * var__zy__33_out;
+    float nextY34_out = var__470_out + nextY34_in2;
+    float var__474_out = nextY34_out * var__alive__34_out;
+    float var__475_out = var__475_in1 - var__alive__34_out;
+    float var__476_out = var__zy__33_out * var__475_out;
+    float var__zy__34_out = var__474_out + var__476_out;
+    float var__478_out = var__zy__34_out * var__zy__34_out;
+    float magnitude35_out = var__477_out + var__478_out;
+    float var__479_out = smoothstep(var__479_low, var__479_high, magnitude35_out);
+    float active35_out = active35_in1 - var__479_out;
+    float var__alive__35_out = var__alive__34_out * active35_out;
+    float var__count__35_out = var__count__34_out + var__alive__35_out;
+    float var__480_out = var__zx__34_out * var__zx__34_out;
+    float var__481_out = var__zy__34_out * var__zy__34_out;
+    float var__482_out = var__480_out - var__481_out;
+    float nextX35_out = var__482_out + nextX35_in2;
+    float var__485_out = nextX35_out * var__alive__35_out;
+    float var__486_out = var__486_in1 - var__alive__35_out;
+    float var__487_out = var__zx__34_out * var__486_out;
+    float var__zx__35_out = var__485_out + var__487_out;
+    float var__491_out = var__zx__35_out * var__zx__35_out;
+    float var__483_out = var__483_in1 * var__zx__34_out;
+    float var__484_out = var__483_out * var__zy__34_out;
+    float nextY35_out = var__484_out + nextY35_in2;
+    float var__488_out = nextY35_out * var__alive__35_out;
+    float var__489_out = var__489_in1 - var__alive__35_out;
+    float var__490_out = var__zy__34_out * var__489_out;
+    float var__zy__35_out = var__488_out + var__490_out;
+    float var__492_out = var__zy__35_out * var__zy__35_out;
+    float magnitude36_out = var__491_out + var__492_out;
+    float var__493_out = smoothstep(var__493_low, var__493_high, magnitude36_out);
+    float active36_out = active36_in1 - var__493_out;
+    float var__alive__36_out = var__alive__35_out * active36_out;
+    float var__count__36_out = var__count__35_out + var__alive__36_out;
+    float var__494_out = var__zx__35_out * var__zx__35_out;
+    float var__495_out = var__zy__35_out * var__zy__35_out;
+    float var__496_out = var__494_out - var__495_out;
+    float nextX36_out = var__496_out + nextX36_in2;
+    float var__499_out = nextX36_out * var__alive__36_out;
+    float var__500_out = var__500_in1 - var__alive__36_out;
+    float var__501_out = var__zx__35_out * var__500_out;
+    float var__zx__36_out = var__499_out + var__501_out;
+    float var__505_out = var__zx__36_out * var__zx__36_out;
+    float var__497_out = var__497_in1 * var__zx__35_out;
+    float var__498_out = var__497_out * var__zy__35_out;
+    float nextY36_out = var__498_out + nextY36_in2;
+    float var__502_out = nextY36_out * var__alive__36_out;
+    float var__503_out = var__503_in1 - var__alive__36_out;
+    float var__504_out = var__zy__35_out * var__503_out;
+    float var__zy__36_out = var__502_out + var__504_out;
+    float var__506_out = var__zy__36_out * var__zy__36_out;
+    float magnitude37_out = var__505_out + var__506_out;
+    float var__507_out = smoothstep(var__507_low, var__507_high, magnitude37_out);
+    float active37_out = active37_in1 - var__507_out;
+    float var__alive__37_out = var__alive__36_out * active37_out;
+    float var__count__37_out = var__count__36_out + var__alive__37_out;
+    float var__508_out = var__zx__36_out * var__zx__36_out;
+    float var__509_out = var__zy__36_out * var__zy__36_out;
+    float var__510_out = var__508_out - var__509_out;
+    float nextX37_out = var__510_out + nextX37_in2;
+    float var__513_out = nextX37_out * var__alive__37_out;
+    float var__514_out = var__514_in1 - var__alive__37_out;
+    float var__515_out = var__zx__36_out * var__514_out;
+    float var__zx__37_out = var__513_out + var__515_out;
+    float var__519_out = var__zx__37_out * var__zx__37_out;
+    float var__511_out = var__511_in1 * var__zx__36_out;
+    float var__512_out = var__511_out * var__zy__36_out;
+    float nextY37_out = var__512_out + nextY37_in2;
+    float var__516_out = nextY37_out * var__alive__37_out;
+    float var__517_out = var__517_in1 - var__alive__37_out;
+    float var__518_out = var__zy__36_out * var__517_out;
+    float var__zy__37_out = var__516_out + var__518_out;
+    float var__520_out = var__zy__37_out * var__zy__37_out;
+    float magnitude38_out = var__519_out + var__520_out;
+    float var__521_out = smoothstep(var__521_low, var__521_high, magnitude38_out);
+    float active38_out = active38_in1 - var__521_out;
+    float var__alive__38_out = var__alive__37_out * active38_out;
+    float var__count__38_out = var__count__37_out + var__alive__38_out;
+    float var__522_out = var__zx__37_out * var__zx__37_out;
+    float var__523_out = var__zy__37_out * var__zy__37_out;
+    float var__524_out = var__522_out - var__523_out;
+    float nextX38_out = var__524_out + nextX38_in2;
+    float var__527_out = nextX38_out * var__alive__38_out;
+    float var__528_out = var__528_in1 - var__alive__38_out;
+    float var__529_out = var__zx__37_out * var__528_out;
+    float var__zx__38_out = var__527_out + var__529_out;
+    float var__533_out = var__zx__38_out * var__zx__38_out;
+    float var__525_out = var__525_in1 * var__zx__37_out;
+    float var__526_out = var__525_out * var__zy__37_out;
+    float nextY38_out = var__526_out + nextY38_in2;
+    float var__530_out = nextY38_out * var__alive__38_out;
+    float var__531_out = var__531_in1 - var__alive__38_out;
+    float var__532_out = var__zy__37_out * var__531_out;
+    float var__zy__38_out = var__530_out + var__532_out;
+    float var__534_out = var__zy__38_out * var__zy__38_out;
+    float magnitude39_out = var__533_out + var__534_out;
+    float var__535_out = smoothstep(var__535_low, var__535_high, magnitude39_out);
+    float active39_out = active39_in1 - var__535_out;
+    float var__alive__39_out = var__alive__38_out * active39_out;
+    float var__count__39_out = var__count__38_out + var__alive__39_out;
+    float var__536_out = var__zx__38_out * var__zx__38_out;
+    float var__537_out = var__zy__38_out * var__zy__38_out;
+    float var__538_out = var__536_out - var__537_out;
+    float nextX39_out = var__538_out + nextX39_in2;
+    float var__541_out = nextX39_out * var__alive__39_out;
+    float var__542_out = var__542_in1 - var__alive__39_out;
+    float var__543_out = var__zx__38_out * var__542_out;
+    float var__zx__39_out = var__541_out + var__543_out;
+    float var__547_out = var__zx__39_out * var__zx__39_out;
+    float var__539_out = var__539_in1 * var__zx__38_out;
+    float var__540_out = var__539_out * var__zy__38_out;
+    float nextY39_out = var__540_out + nextY39_in2;
+    float var__544_out = nextY39_out * var__alive__39_out;
+    float var__545_out = var__545_in1 - var__alive__39_out;
+    float var__546_out = var__zy__38_out * var__545_out;
+    float var__zy__39_out = var__544_out + var__546_out;
+    float var__548_out = var__zy__39_out * var__zy__39_out;
+    float magnitude40_out = var__547_out + var__548_out;
+    float var__549_out = smoothstep(var__549_low, var__549_high, magnitude40_out);
+    float active40_out = active40_in1 - var__549_out;
+    float var__alive__40_out = var__alive__39_out * active40_out;
+    float var__count__40_out = var__count__39_out + var__alive__40_out;
+    float var__550_out = var__zx__39_out * var__zx__39_out;
+    float var__551_out = var__zy__39_out * var__zy__39_out;
+    float var__552_out = var__550_out - var__551_out;
+    float nextX40_out = var__552_out + nextX40_in2;
+    float var__555_out = nextX40_out * var__alive__40_out;
+    float var__556_out = var__556_in1 - var__alive__40_out;
+    float var__557_out = var__zx__39_out * var__556_out;
+    float var__zx__40_out = var__555_out + var__557_out;
+    float var__561_out = var__zx__40_out * var__zx__40_out;
+    float var__553_out = var__553_in1 * var__zx__39_out;
+    float var__554_out = var__553_out * var__zy__39_out;
+    float nextY40_out = var__554_out + nextY40_in2;
+    float var__558_out = nextY40_out * var__alive__40_out;
+    float var__559_out = var__559_in1 - var__alive__40_out;
+    float var__560_out = var__zy__39_out * var__559_out;
+    float var__zy__40_out = var__558_out + var__560_out;
+    float var__562_out = var__zy__40_out * var__zy__40_out;
+    float magnitude41_out = var__561_out + var__562_out;
+    float var__563_out = smoothstep(var__563_low, var__563_high, magnitude41_out);
+    float active41_out = active41_in1 - var__563_out;
+    float var__alive__41_out = var__alive__40_out * active41_out;
+    float var__count__41_out = var__count__40_out + var__alive__41_out;
+    float var__564_out = var__zx__40_out * var__zx__40_out;
+    float var__565_out = var__zy__40_out * var__zy__40_out;
+    float var__566_out = var__564_out - var__565_out;
+    float nextX41_out = var__566_out + nextX41_in2;
+    float var__569_out = nextX41_out * var__alive__41_out;
+    float var__570_out = var__570_in1 - var__alive__41_out;
+    float var__571_out = var__zx__40_out * var__570_out;
+    float var__zx__41_out = var__569_out + var__571_out;
+    float var__575_out = var__zx__41_out * var__zx__41_out;
+    float var__567_out = var__567_in1 * var__zx__40_out;
+    float var__568_out = var__567_out * var__zy__40_out;
+    float nextY41_out = var__568_out + nextY41_in2;
+    float var__572_out = nextY41_out * var__alive__41_out;
+    float var__573_out = var__573_in1 - var__alive__41_out;
+    float var__574_out = var__zy__40_out * var__573_out;
+    float var__zy__41_out = var__572_out + var__574_out;
+    float var__576_out = var__zy__41_out * var__zy__41_out;
+    float magnitude42_out = var__575_out + var__576_out;
+    float var__577_out = smoothstep(var__577_low, var__577_high, magnitude42_out);
+    float active42_out = active42_in1 - var__577_out;
+    float var__alive__42_out = var__alive__41_out * active42_out;
+    float var__count__42_out = var__count__41_out + var__alive__42_out;
+    float var__578_out = var__zx__41_out * var__zx__41_out;
+    float var__579_out = var__zy__41_out * var__zy__41_out;
+    float var__580_out = var__578_out - var__579_out;
+    float nextX42_out = var__580_out + nextX42_in2;
+    float var__583_out = nextX42_out * var__alive__42_out;
+    float var__584_out = var__584_in1 - var__alive__42_out;
+    float var__585_out = var__zx__41_out * var__584_out;
+    float var__zx__42_out = var__583_out + var__585_out;
+    float var__589_out = var__zx__42_out * var__zx__42_out;
+    float var__581_out = var__581_in1 * var__zx__41_out;
+    float var__582_out = var__581_out * var__zy__41_out;
+    float nextY42_out = var__582_out + nextY42_in2;
+    float var__586_out = nextY42_out * var__alive__42_out;
+    float var__587_out = var__587_in1 - var__alive__42_out;
+    float var__588_out = var__zy__41_out * var__587_out;
+    float var__zy__42_out = var__586_out + var__588_out;
+    float var__590_out = var__zy__42_out * var__zy__42_out;
+    float magnitude43_out = var__589_out + var__590_out;
+    float var__591_out = smoothstep(var__591_low, var__591_high, magnitude43_out);
+    float active43_out = active43_in1 - var__591_out;
+    float var__alive__43_out = var__alive__42_out * active43_out;
+    float var__count__43_out = var__count__42_out + var__alive__43_out;
+    float var__592_out = var__zx__42_out * var__zx__42_out;
+    float var__593_out = var__zy__42_out * var__zy__42_out;
+    float var__594_out = var__592_out - var__593_out;
+    float nextX43_out = var__594_out + nextX43_in2;
+    float var__597_out = nextX43_out * var__alive__43_out;
+    float var__598_out = var__598_in1 - var__alive__43_out;
+    float var__599_out = var__zx__42_out * var__598_out;
+    float var__zx__43_out = var__597_out + var__599_out;
+    float var__603_out = var__zx__43_out * var__zx__43_out;
+    float var__595_out = var__595_in1 * var__zx__42_out;
+    float var__596_out = var__595_out * var__zy__42_out;
+    float nextY43_out = var__596_out + nextY43_in2;
+    float var__600_out = nextY43_out * var__alive__43_out;
+    float var__601_out = var__601_in1 - var__alive__43_out;
+    float var__602_out = var__zy__42_out * var__601_out;
+    float var__zy__43_out = var__600_out + var__602_out;
+    float var__604_out = var__zy__43_out * var__zy__43_out;
+    float magnitude44_out = var__603_out + var__604_out;
+    float var__605_out = smoothstep(var__605_low, var__605_high, magnitude44_out);
+    float active44_out = active44_in1 - var__605_out;
+    float var__alive__44_out = var__alive__43_out * active44_out;
+    float var__count__44_out = var__count__43_out + var__alive__44_out;
+    float var__606_out = var__zx__43_out * var__zx__43_out;
+    float var__607_out = var__zy__43_out * var__zy__43_out;
+    float var__608_out = var__606_out - var__607_out;
+    float nextX44_out = var__608_out + nextX44_in2;
+    float var__611_out = nextX44_out * var__alive__44_out;
+    float var__612_out = var__612_in1 - var__alive__44_out;
+    float var__613_out = var__zx__43_out * var__612_out;
+    float var__zx__44_out = var__611_out + var__613_out;
+    float var__617_out = var__zx__44_out * var__zx__44_out;
+    float var__609_out = var__609_in1 * var__zx__43_out;
+    float var__610_out = var__609_out * var__zy__43_out;
+    float nextY44_out = var__610_out + nextY44_in2;
+    float var__614_out = nextY44_out * var__alive__44_out;
+    float var__615_out = var__615_in1 - var__alive__44_out;
+    float var__616_out = var__zy__43_out * var__615_out;
+    float var__zy__44_out = var__614_out + var__616_out;
+    float var__618_out = var__zy__44_out * var__zy__44_out;
+    float magnitude45_out = var__617_out + var__618_out;
+    float var__619_out = smoothstep(var__619_low, var__619_high, magnitude45_out);
+    float active45_out = active45_in1 - var__619_out;
+    float var__alive__45_out = var__alive__44_out * active45_out;
+    float var__count__45_out = var__count__44_out + var__alive__45_out;
+    float var__620_out = var__zx__44_out * var__zx__44_out;
+    float var__621_out = var__zy__44_out * var__zy__44_out;
+    float var__622_out = var__620_out - var__621_out;
+    float nextX45_out = var__622_out + nextX45_in2;
+    float var__625_out = nextX45_out * var__alive__45_out;
+    float var__626_out = var__626_in1 - var__alive__45_out;
+    float var__627_out = var__zx__44_out * var__626_out;
+    float var__zx__45_out = var__625_out + var__627_out;
+    float var__631_out = var__zx__45_out * var__zx__45_out;
+    float var__623_out = var__623_in1 * var__zx__44_out;
+    float var__624_out = var__623_out * var__zy__44_out;
+    float nextY45_out = var__624_out + nextY45_in2;
+    float var__628_out = nextY45_out * var__alive__45_out;
+    float var__629_out = var__629_in1 - var__alive__45_out;
+    float var__630_out = var__zy__44_out * var__629_out;
+    float var__zy__45_out = var__628_out + var__630_out;
+    float var__632_out = var__zy__45_out * var__zy__45_out;
+    float magnitude46_out = var__631_out + var__632_out;
+    float var__633_out = smoothstep(var__633_low, var__633_high, magnitude46_out);
+    float active46_out = active46_in1 - var__633_out;
+    float var__alive__46_out = var__alive__45_out * active46_out;
+    float var__count__46_out = var__count__45_out + var__alive__46_out;
+    float var__634_out = var__zx__45_out * var__zx__45_out;
+    float var__635_out = var__zy__45_out * var__zy__45_out;
+    float var__636_out = var__634_out - var__635_out;
+    float nextX46_out = var__636_out + nextX46_in2;
+    float var__639_out = nextX46_out * var__alive__46_out;
+    float var__640_out = var__640_in1 - var__alive__46_out;
+    float var__641_out = var__zx__45_out * var__640_out;
+    float var__zx__46_out = var__639_out + var__641_out;
+    float var__645_out = var__zx__46_out * var__zx__46_out;
+    float var__637_out = var__637_in1 * var__zx__45_out;
+    float var__638_out = var__637_out * var__zy__45_out;
+    float nextY46_out = var__638_out + nextY46_in2;
+    float var__642_out = nextY46_out * var__alive__46_out;
+    float var__643_out = var__643_in1 - var__alive__46_out;
+    float var__644_out = var__zy__45_out * var__643_out;
+    float var__zy__46_out = var__642_out + var__644_out;
+    float var__646_out = var__zy__46_out * var__zy__46_out;
+    float magnitude47_out = var__645_out + var__646_out;
+    float var__647_out = smoothstep(var__647_low, var__647_high, magnitude47_out);
+    float active47_out = active47_in1 - var__647_out;
+    float var__alive__47_out = var__alive__46_out * active47_out;
+    float var__count__47_out = var__count__46_out + var__alive__47_out;
+    float var__648_out = var__zx__46_out * var__zx__46_out;
+    float var__649_out = var__zy__46_out * var__zy__46_out;
+    float var__650_out = var__648_out - var__649_out;
+    float nextX47_out = var__650_out + nextX47_in2;
+    float var__653_out = nextX47_out * var__alive__47_out;
+    float var__654_out = var__654_in1 - var__alive__47_out;
+    float var__655_out = var__zx__46_out * var__654_out;
+    float var__zx__47_out = var__653_out + var__655_out;
+    float var__659_out = var__zx__47_out * var__zx__47_out;
+    float var__651_out = var__651_in1 * var__zx__46_out;
+    float var__652_out = var__651_out * var__zy__46_out;
+    float nextY47_out = var__652_out + nextY47_in2;
+    float var__656_out = nextY47_out * var__alive__47_out;
+    float var__657_out = var__657_in1 - var__alive__47_out;
+    float var__658_out = var__zy__46_out * var__657_out;
+    float var__zy__47_out = var__656_out + var__658_out;
+    float var__660_out = var__zy__47_out * var__zy__47_out;
+    float magnitude48_out = var__659_out + var__660_out;
+    float var__661_out = smoothstep(var__661_low, var__661_high, magnitude48_out);
+    float active48_out = active48_in1 - var__661_out;
+    float var__alive__48_out = var__alive__47_out * active48_out;
+    float var__count__48_out = var__count__47_out + var__alive__48_out;
+    float var__662_out = var__zx__47_out * var__zx__47_out;
+    float var__663_out = var__zy__47_out * var__zy__47_out;
+    float var__664_out = var__662_out - var__663_out;
+    float nextX48_out = var__664_out + nextX48_in2;
+    float var__667_out = nextX48_out * var__alive__48_out;
+    float var__668_out = var__668_in1 - var__alive__48_out;
+    float var__669_out = var__zx__47_out * var__668_out;
+    float var__zx__48_out = var__667_out + var__669_out;
+    float var__673_out = var__zx__48_out * var__zx__48_out;
+    float var__665_out = var__665_in1 * var__zx__47_out;
+    float var__666_out = var__665_out * var__zy__47_out;
+    float nextY48_out = var__666_out + nextY48_in2;
+    float var__670_out = nextY48_out * var__alive__48_out;
+    float var__671_out = var__671_in1 - var__alive__48_out;
+    float var__672_out = var__zy__47_out * var__671_out;
+    float var__zy__48_out = var__670_out + var__672_out;
+    float var__674_out = var__zy__48_out * var__zy__48_out;
+    float magnitude49_out = var__673_out + var__674_out;
+    float var__675_out = smoothstep(var__675_low, var__675_high, magnitude49_out);
+    float active49_out = active49_in1 - var__675_out;
+    float var__alive__49_out = var__alive__48_out * active49_out;
+    float var__count__49_out = var__count__48_out + var__alive__49_out;
+    float var__676_out = var__zx__48_out * var__zx__48_out;
+    float var__677_out = var__zy__48_out * var__zy__48_out;
+    float var__678_out = var__676_out - var__677_out;
+    float nextX49_out = var__678_out + nextX49_in2;
+    float var__681_out = nextX49_out * var__alive__49_out;
+    float var__682_out = var__682_in1 - var__alive__49_out;
+    float var__683_out = var__zx__48_out * var__682_out;
+    float var__zx__49_out = var__681_out + var__683_out;
+    float var__687_out = var__zx__49_out * var__zx__49_out;
+    float var__679_out = var__679_in1 * var__zx__48_out;
+    float var__680_out = var__679_out * var__zy__48_out;
+    float nextY49_out = var__680_out + nextY49_in2;
+    float var__684_out = nextY49_out * var__alive__49_out;
+    float var__685_out = var__685_in1 - var__alive__49_out;
+    float var__686_out = var__zy__48_out * var__685_out;
+    float var__zy__49_out = var__684_out + var__686_out;
+    float var__688_out = var__zy__49_out * var__zy__49_out;
+    float magnitude50_out = var__687_out + var__688_out;
+    float var__689_out = smoothstep(var__689_low, var__689_high, magnitude50_out);
+    float active50_out = active50_in1 - var__689_out;
+    float var__alive__50_out = var__alive__49_out * active50_out;
+    float var__count__50_out = var__count__49_out + var__alive__50_out;
+    float var__690_out = var__zx__49_out * var__zx__49_out;
+    float var__691_out = var__zy__49_out * var__zy__49_out;
+    float var__692_out = var__690_out - var__691_out;
+    float nextX50_out = var__692_out + nextX50_in2;
+    float var__695_out = nextX50_out * var__alive__50_out;
+    float var__696_out = var__696_in1 - var__alive__50_out;
+    float var__697_out = var__zx__49_out * var__696_out;
+    float var__zx__50_out = var__695_out + var__697_out;
+    float var__701_out = var__zx__50_out * var__zx__50_out;
+    float var__693_out = var__693_in1 * var__zx__49_out;
+    float var__694_out = var__693_out * var__zy__49_out;
+    float nextY50_out = var__694_out + nextY50_in2;
+    float var__698_out = nextY50_out * var__alive__50_out;
+    float var__699_out = var__699_in1 - var__alive__50_out;
+    float var__700_out = var__zy__49_out * var__699_out;
+    float var__zy__50_out = var__698_out + var__700_out;
+    float var__702_out = var__zy__50_out * var__zy__50_out;
+    float magnitude51_out = var__701_out + var__702_out;
+    float var__703_out = smoothstep(var__703_low, var__703_high, magnitude51_out);
+    float active51_out = active51_in1 - var__703_out;
+    float var__alive__51_out = var__alive__50_out * active51_out;
+    float var__count__51_out = var__count__50_out + var__alive__51_out;
+    float var__704_out = var__zx__50_out * var__zx__50_out;
+    float var__705_out = var__zy__50_out * var__zy__50_out;
+    float var__706_out = var__704_out - var__705_out;
+    float nextX51_out = var__706_out + nextX51_in2;
+    float var__709_out = nextX51_out * var__alive__51_out;
+    float var__710_out = var__710_in1 - var__alive__51_out;
+    float var__711_out = var__zx__50_out * var__710_out;
+    float var__zx__51_out = var__709_out + var__711_out;
+    float var__715_out = var__zx__51_out * var__zx__51_out;
+    float var__707_out = var__707_in1 * var__zx__50_out;
+    float var__708_out = var__707_out * var__zy__50_out;
+    float nextY51_out = var__708_out + nextY51_in2;
+    float var__712_out = nextY51_out * var__alive__51_out;
+    float var__713_out = var__713_in1 - var__alive__51_out;
+    float var__714_out = var__zy__50_out * var__713_out;
+    float var__zy__51_out = var__712_out + var__714_out;
+    float var__716_out = var__zy__51_out * var__zy__51_out;
+    float magnitude52_out = var__715_out + var__716_out;
+    float var__717_out = smoothstep(var__717_low, var__717_high, magnitude52_out);
+    float active52_out = active52_in1 - var__717_out;
+    float var__alive__52_out = var__alive__51_out * active52_out;
+    float var__count__52_out = var__count__51_out + var__alive__52_out;
+    float var__718_out = var__zx__51_out * var__zx__51_out;
+    float var__719_out = var__zy__51_out * var__zy__51_out;
+    float var__720_out = var__718_out - var__719_out;
+    float nextX52_out = var__720_out + nextX52_in2;
+    float var__723_out = nextX52_out * var__alive__52_out;
+    float var__724_out = var__724_in1 - var__alive__52_out;
+    float var__725_out = var__zx__51_out * var__724_out;
+    float var__zx__52_out = var__723_out + var__725_out;
+    float var__729_out = var__zx__52_out * var__zx__52_out;
+    float var__721_out = var__721_in1 * var__zx__51_out;
+    float var__722_out = var__721_out * var__zy__51_out;
+    float nextY52_out = var__722_out + nextY52_in2;
+    float var__726_out = nextY52_out * var__alive__52_out;
+    float var__727_out = var__727_in1 - var__alive__52_out;
+    float var__728_out = var__zy__51_out * var__727_out;
+    float var__zy__52_out = var__726_out + var__728_out;
+    float var__730_out = var__zy__52_out * var__zy__52_out;
+    float magnitude53_out = var__729_out + var__730_out;
+    float var__731_out = smoothstep(var__731_low, var__731_high, magnitude53_out);
+    float active53_out = active53_in1 - var__731_out;
+    float var__alive__53_out = var__alive__52_out * active53_out;
+    float var__count__53_out = var__count__52_out + var__alive__53_out;
+    float var__732_out = var__zx__52_out * var__zx__52_out;
+    float var__733_out = var__zy__52_out * var__zy__52_out;
+    float var__734_out = var__732_out - var__733_out;
+    float nextX53_out = var__734_out + nextX53_in2;
+    float var__737_out = nextX53_out * var__alive__53_out;
+    float var__738_out = var__738_in1 - var__alive__53_out;
+    float var__739_out = var__zx__52_out * var__738_out;
+    float var__zx__53_out = var__737_out + var__739_out;
+    float var__743_out = var__zx__53_out * var__zx__53_out;
+    float var__735_out = var__735_in1 * var__zx__52_out;
+    float var__736_out = var__735_out * var__zy__52_out;
+    float nextY53_out = var__736_out + nextY53_in2;
+    float var__740_out = nextY53_out * var__alive__53_out;
+    float var__741_out = var__741_in1 - var__alive__53_out;
+    float var__742_out = var__zy__52_out * var__741_out;
+    float var__zy__53_out = var__740_out + var__742_out;
+    float var__744_out = var__zy__53_out * var__zy__53_out;
+    float magnitude54_out = var__743_out + var__744_out;
+    float var__745_out = smoothstep(var__745_low, var__745_high, magnitude54_out);
+    float active54_out = active54_in1 - var__745_out;
+    float var__alive__54_out = var__alive__53_out * active54_out;
+    float var__count__54_out = var__count__53_out + var__alive__54_out;
+    float var__746_out = var__zx__53_out * var__zx__53_out;
+    float var__747_out = var__zy__53_out * var__zy__53_out;
+    float var__748_out = var__746_out - var__747_out;
+    float nextX54_out = var__748_out + nextX54_in2;
+    float var__751_out = nextX54_out * var__alive__54_out;
+    float var__752_out = var__752_in1 - var__alive__54_out;
+    float var__753_out = var__zx__53_out * var__752_out;
+    float var__zx__54_out = var__751_out + var__753_out;
+    float var__757_out = var__zx__54_out * var__zx__54_out;
+    float var__749_out = var__749_in1 * var__zx__53_out;
+    float var__750_out = var__749_out * var__zy__53_out;
+    float nextY54_out = var__750_out + nextY54_in2;
+    float var__754_out = nextY54_out * var__alive__54_out;
+    float var__755_out = var__755_in1 - var__alive__54_out;
+    float var__756_out = var__zy__53_out * var__755_out;
+    float var__zy__54_out = var__754_out + var__756_out;
+    float var__758_out = var__zy__54_out * var__zy__54_out;
+    float magnitude55_out = var__757_out + var__758_out;
+    float var__759_out = smoothstep(var__759_low, var__759_high, magnitude55_out);
+    float active55_out = active55_in1 - var__759_out;
+    float var__alive__55_out = var__alive__54_out * active55_out;
+    float var__count__55_out = var__count__54_out + var__alive__55_out;
+    float var__760_out = var__zx__54_out * var__zx__54_out;
+    float var__761_out = var__zy__54_out * var__zy__54_out;
+    float var__762_out = var__760_out - var__761_out;
+    float nextX55_out = var__762_out + nextX55_in2;
+    float var__765_out = nextX55_out * var__alive__55_out;
+    float var__766_out = var__766_in1 - var__alive__55_out;
+    float var__767_out = var__zx__54_out * var__766_out;
+    float var__zx__55_out = var__765_out + var__767_out;
+    float var__771_out = var__zx__55_out * var__zx__55_out;
+    float var__763_out = var__763_in1 * var__zx__54_out;
+    float var__764_out = var__763_out * var__zy__54_out;
+    float nextY55_out = var__764_out + nextY55_in2;
+    float var__768_out = nextY55_out * var__alive__55_out;
+    float var__769_out = var__769_in1 - var__alive__55_out;
+    float var__770_out = var__zy__54_out * var__769_out;
+    float var__zy__55_out = var__768_out + var__770_out;
+    float var__772_out = var__zy__55_out * var__zy__55_out;
+    float magnitude56_out = var__771_out + var__772_out;
+    float var__773_out = smoothstep(var__773_low, var__773_high, magnitude56_out);
+    float active56_out = active56_in1 - var__773_out;
+    float var__alive__56_out = var__alive__55_out * active56_out;
+    float var__count__56_out = var__count__55_out + var__alive__56_out;
+    float var__774_out = var__zx__55_out * var__zx__55_out;
+    float var__775_out = var__zy__55_out * var__zy__55_out;
+    float var__776_out = var__774_out - var__775_out;
+    float nextX56_out = var__776_out + nextX56_in2;
+    float var__779_out = nextX56_out * var__alive__56_out;
+    float var__780_out = var__780_in1 - var__alive__56_out;
+    float var__781_out = var__zx__55_out * var__780_out;
+    float var__zx__56_out = var__779_out + var__781_out;
+    float var__785_out = var__zx__56_out * var__zx__56_out;
+    float var__777_out = var__777_in1 * var__zx__55_out;
+    float var__778_out = var__777_out * var__zy__55_out;
+    float nextY56_out = var__778_out + nextY56_in2;
+    float var__782_out = nextY56_out * var__alive__56_out;
+    float var__783_out = var__783_in1 - var__alive__56_out;
+    float var__784_out = var__zy__55_out * var__783_out;
+    float var__zy__56_out = var__782_out + var__784_out;
+    float var__786_out = var__zy__56_out * var__zy__56_out;
+    float magnitude57_out = var__785_out + var__786_out;
+    float var__787_out = smoothstep(var__787_low, var__787_high, magnitude57_out);
+    float active57_out = active57_in1 - var__787_out;
+    float var__alive__57_out = var__alive__56_out * active57_out;
+    float var__count__57_out = var__count__56_out + var__alive__57_out;
+    float var__788_out = var__zx__56_out * var__zx__56_out;
+    float var__789_out = var__zy__56_out * var__zy__56_out;
+    float var__790_out = var__788_out - var__789_out;
+    float nextX57_out = var__790_out + nextX57_in2;
+    float var__793_out = nextX57_out * var__alive__57_out;
+    float var__794_out = var__794_in1 - var__alive__57_out;
+    float var__795_out = var__zx__56_out * var__794_out;
+    float var__zx__57_out = var__793_out + var__795_out;
+    float var__799_out = var__zx__57_out * var__zx__57_out;
+    float var__791_out = var__791_in1 * var__zx__56_out;
+    float var__792_out = var__791_out * var__zy__56_out;
+    float nextY57_out = var__792_out + nextY57_in2;
+    float var__796_out = nextY57_out * var__alive__57_out;
+    float var__797_out = var__797_in1 - var__alive__57_out;
+    float var__798_out = var__zy__56_out * var__797_out;
+    float var__zy__57_out = var__796_out + var__798_out;
+    float var__800_out = var__zy__57_out * var__zy__57_out;
+    float magnitude58_out = var__799_out + var__800_out;
+    float var__801_out = smoothstep(var__801_low, var__801_high, magnitude58_out);
+    float active58_out = active58_in1 - var__801_out;
+    float var__alive__58_out = var__alive__57_out * active58_out;
+    float var__count__58_out = var__count__57_out + var__alive__58_out;
+    float var__802_out = var__zx__57_out * var__zx__57_out;
+    float var__803_out = var__zy__57_out * var__zy__57_out;
+    float var__804_out = var__802_out - var__803_out;
+    float nextX58_out = var__804_out + nextX58_in2;
+    float var__807_out = nextX58_out * var__alive__58_out;
+    float var__808_out = var__808_in1 - var__alive__58_out;
+    float var__809_out = var__zx__57_out * var__808_out;
+    float var__zx__58_out = var__807_out + var__809_out;
+    float var__813_out = var__zx__58_out * var__zx__58_out;
+    float var__805_out = var__805_in1 * var__zx__57_out;
+    float var__806_out = var__805_out * var__zy__57_out;
+    float nextY58_out = var__806_out + nextY58_in2;
+    float var__810_out = nextY58_out * var__alive__58_out;
+    float var__811_out = var__811_in1 - var__alive__58_out;
+    float var__812_out = var__zy__57_out * var__811_out;
+    float var__zy__58_out = var__810_out + var__812_out;
+    float var__814_out = var__zy__58_out * var__zy__58_out;
+    float magnitude59_out = var__813_out + var__814_out;
+    float var__815_out = smoothstep(var__815_low, var__815_high, magnitude59_out);
+    float active59_out = active59_in1 - var__815_out;
+    float var__alive__59_out = var__alive__58_out * active59_out;
+    float var__count__59_out = var__count__58_out + var__alive__59_out;
+    float var__816_out = var__zx__58_out * var__zx__58_out;
+    float var__817_out = var__zy__58_out * var__zy__58_out;
+    float var__818_out = var__816_out - var__817_out;
+    float nextX59_out = var__818_out + nextX59_in2;
+    float var__821_out = nextX59_out * var__alive__59_out;
+    float var__822_out = var__822_in1 - var__alive__59_out;
+    float var__823_out = var__zx__58_out * var__822_out;
+    float var__zx__59_out = var__821_out + var__823_out;
+    float var__827_out = var__zx__59_out * var__zx__59_out;
+    float var__819_out = var__819_in1 * var__zx__58_out;
+    float var__820_out = var__819_out * var__zy__58_out;
+    float nextY59_out = var__820_out + nextY59_in2;
+    float var__824_out = nextY59_out * var__alive__59_out;
+    float var__825_out = var__825_in1 - var__alive__59_out;
+    float var__826_out = var__zy__58_out * var__825_out;
+    float var__zy__59_out = var__824_out + var__826_out;
+    float var__828_out = var__zy__59_out * var__zy__59_out;
+    float magnitude60_out = var__827_out + var__828_out;
+    float var__829_out = smoothstep(var__829_low, var__829_high, magnitude60_out);
+    float active60_out = active60_in1 - var__829_out;
+    float var__alive__60_out = var__alive__59_out * active60_out;
+    float var__count__60_out = var__count__59_out + var__alive__60_out;
+    float var__830_out = var__zx__59_out * var__zx__59_out;
+    float var__831_out = var__zy__59_out * var__zy__59_out;
+    float var__832_out = var__830_out - var__831_out;
+    float nextX60_out = var__832_out + nextX60_in2;
+    float var__835_out = nextX60_out * var__alive__60_out;
+    float var__836_out = var__836_in1 - var__alive__60_out;
+    float var__837_out = var__zx__59_out * var__836_out;
+    float var__zx__60_out = var__835_out + var__837_out;
+    float var__841_out = var__zx__60_out * var__zx__60_out;
+    float var__833_out = var__833_in1 * var__zx__59_out;
+    float var__834_out = var__833_out * var__zy__59_out;
+    float nextY60_out = var__834_out + nextY60_in2;
+    float var__838_out = nextY60_out * var__alive__60_out;
+    float var__839_out = var__839_in1 - var__alive__60_out;
+    float var__840_out = var__zy__59_out * var__839_out;
+    float var__zy__60_out = var__838_out + var__840_out;
+    float var__842_out = var__zy__60_out * var__zy__60_out;
+    float magnitude61_out = var__841_out + var__842_out;
+    float var__843_out = smoothstep(var__843_low, var__843_high, magnitude61_out);
+    float active61_out = active61_in1 - var__843_out;
+    float var__alive__61_out = var__alive__60_out * active61_out;
+    float var__count__61_out = var__count__60_out + var__alive__61_out;
+    float var__844_out = var__zx__60_out * var__zx__60_out;
+    float var__845_out = var__zy__60_out * var__zy__60_out;
+    float var__846_out = var__844_out - var__845_out;
+    float nextX61_out = var__846_out + nextX61_in2;
+    float var__849_out = nextX61_out * var__alive__61_out;
+    float var__850_out = var__850_in1 - var__alive__61_out;
+    float var__851_out = var__zx__60_out * var__850_out;
+    float var__zx__61_out = var__849_out + var__851_out;
+    float var__855_out = var__zx__61_out * var__zx__61_out;
+    float var__847_out = var__847_in1 * var__zx__60_out;
+    float var__848_out = var__847_out * var__zy__60_out;
+    float nextY61_out = var__848_out + nextY61_in2;
+    float var__852_out = nextY61_out * var__alive__61_out;
+    float var__853_out = var__853_in1 - var__alive__61_out;
+    float var__854_out = var__zy__60_out * var__853_out;
+    float var__zy__61_out = var__852_out + var__854_out;
+    float var__856_out = var__zy__61_out * var__zy__61_out;
+    float magnitude62_out = var__855_out + var__856_out;
+    float var__857_out = smoothstep(var__857_low, var__857_high, magnitude62_out);
+    float active62_out = active62_in1 - var__857_out;
+    float var__alive__62_out = var__alive__61_out * active62_out;
+    float var__count__62_out = var__count__61_out + var__alive__62_out;
+    float var__858_out = var__zx__61_out * var__zx__61_out;
+    float var__859_out = var__zy__61_out * var__zy__61_out;
+    float var__860_out = var__858_out - var__859_out;
+    float nextX62_out = var__860_out + nextX62_in2;
+    float var__863_out = nextX62_out * var__alive__62_out;
+    float var__864_out = var__864_in1 - var__alive__62_out;
+    float var__865_out = var__zx__61_out * var__864_out;
+    float var__zx__62_out = var__863_out + var__865_out;
+    float var__869_out = var__zx__62_out * var__zx__62_out;
+    float var__861_out = var__861_in1 * var__zx__61_out;
+    float var__862_out = var__861_out * var__zy__61_out;
+    float nextY62_out = var__862_out + nextY62_in2;
+    float var__866_out = nextY62_out * var__alive__62_out;
+    float var__867_out = var__867_in1 - var__alive__62_out;
+    float var__868_out = var__zy__61_out * var__867_out;
+    float var__zy__62_out = var__866_out + var__868_out;
+    float var__870_out = var__zy__62_out * var__zy__62_out;
+    float magnitude63_out = var__869_out + var__870_out;
+    float var__871_out = smoothstep(var__871_low, var__871_high, magnitude63_out);
+    float active63_out = active63_in1 - var__871_out;
+    float var__alive__63_out = var__alive__62_out * active63_out;
+    float var__count__63_out = var__count__62_out + var__alive__63_out;
+    float var__872_out = var__zx__62_out * var__zx__62_out;
+    float var__873_out = var__zy__62_out * var__zy__62_out;
+    float var__874_out = var__872_out - var__873_out;
+    float nextX63_out = var__874_out + nextX63_in2;
+    float var__877_out = nextX63_out * var__alive__63_out;
+    float var__878_out = var__878_in1 - var__alive__63_out;
+    float var__879_out = var__zx__62_out * var__878_out;
+    float var__zx__63_out = var__877_out + var__879_out;
+    float var__883_out = var__zx__63_out * var__zx__63_out;
+    float var__875_out = var__875_in1 * var__zx__62_out;
+    float var__876_out = var__875_out * var__zy__62_out;
+    float nextY63_out = var__876_out + nextY63_in2;
+    float var__880_out = nextY63_out * var__alive__63_out;
+    float var__881_out = var__881_in1 - var__alive__63_out;
+    float var__882_out = var__zy__62_out * var__881_out;
+    float var__zy__63_out = var__880_out + var__882_out;
+    float var__884_out = var__zy__63_out * var__zy__63_out;
+    float magnitude64_out = var__883_out + var__884_out;
+    float var__885_out = smoothstep(var__885_low, var__885_high, magnitude64_out);
+    float active64_out = active64_in1 - var__885_out;
+    float var__alive__64_out = var__alive__63_out * active64_out;
+    float var__count__64_out = var__count__63_out + var__alive__64_out;
+    float var__897_out = var__count__64_out * var__897_in2;
+    float hue_out = var__897_out + hue_in2;
+    float var__898_out = sin(hue_out);
+    float var__899_out = var__899_in1 * var__898_out;
+    float red_out = red_in1 + var__899_out;
+    float var__900_out = hue_out + var__900_in2;
+    float var__901_out = sin(var__900_out);
+    float var__902_out = var__902_in1 * var__901_out;
+    float green_out = green_in1 + var__902_out;
+    float var__903_out = hue_out + var__903_in2;
+    float var__904_out = sin(var__903_out);
+    float var__905_out = var__905_in1 * var__904_out;
+    float blue_out = blue_in1 + var__905_out;
+    color rainbow_out = color( red_out,green_out,blue_out );
+    float escaped_out = escaped_in1 - var__alive__64_out;
+    color var__906_out = rainbow_out * escaped_out;
+    surfaceshader unlit_out = surfaceshader(null_closure(), null_closure(), 1.0);
+    mx_surface_unlit(unlit_emission, var__906_out, unlit_transmission, unlit_transmission_color, unlit_opacity, unlit_out);
+    MATERIAL julia_set_static_out = null_closure();
+    mx_surfacematerial(unlit_out, backsurfaceshader, displacementshader1, julia_set_static_out);
+    MATERIAL oslSetCi_out_ci = null_closure();
+    mx_set_ci(1, surfaceshader(null_closure(), null_closure(), 1.0), julia_set_static_out, null_closure(), null_closure(), 0.0, color(0.0), color4(color(0.0), 0.0), vector2(0.0, 0.0), vector(0.0), vector4(0.0, 0.0, 0.0, 0.0), 0, 0, matrix(1.0), matrix(1.0), vector(0.0), oslSetCi_out_ci);
+    out = oslSetCi_out_ci;
+}
+
