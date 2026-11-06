@@ -293,6 +293,8 @@ def _start_trace(config):
         # The xdist controller runs no tests; its workers trace them.
         return
     path = Path(trace_path)
+    if path.is_dir():
+        raise pytest.UsageError(f"--perfetto-trace needs a file path, not a directory: {path}")
     if worker:
         path = path.with_name(f"{path.stem}_{worker}{path.suffix}")
     path.parent.mkdir(parents=True, exist_ok=True)
