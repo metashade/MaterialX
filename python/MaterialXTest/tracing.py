@@ -11,7 +11,9 @@ import MaterialX.PyMaterialXGenGlsl as mx_gen_glsl
 
 try:
     import MaterialX.PyMaterialXTrace as mx_trace
-except ImportError:
+except ModuleNotFoundError as e:
+    if e.name != "MaterialX.PyMaterialXTrace":
+        raise
     mx_trace = None
 
 @unittest.skipIf(mx_trace is None, "PyMaterialXTrace requires Perfetto tracing and shared libraries")
