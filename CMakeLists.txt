@@ -695,5 +695,14 @@ endif()
 
 # Run pip install after all install steps
 if(MATERIALX_BUILD_PYTHON AND MATERIALX_INSTALL_PYTHON AND PYTHON_EXECUTABLE AND NOT SKBUILD)
+    if(WIN32 AND MATERIALX_BUILD_SHARED_LIBS)
+        # Python 3.8+ doesn't search PATH for the DLLs that extension modules depend on,
+        # so bundle them with the package that pip installs.
+        install(CODE "
+            file(GLOB MATERIALX_RUNTIME_DLLS \"${CMAKE_INSTALL_PREFIX}/${MATERIALX_INSTALL_BIN_PATH}/*.dll\")
+            if(MATERIALX_RUNTIME_DLLS)
+                file(COPY \${MATERIALX_RUNTIME_DLLS} DESTINATION \"${CMAKE_INSTALL_PREFIX}/${MATERIALX_PYTHON_FOLDER_NAME}\")
+            endif()")
+    endif()
     install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} -m pip install . WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/python)")
 endif()
