@@ -12,6 +12,7 @@ if(SKBUILD)
 endif()
 
 if(MATERIALX_INSTALL_PYTHON AND PYTHON_EXECUTABLE AND NOT SKBUILD)
-  set(PYPROJECT_TOML "${CMAKE_INSTALL_PREFIX}/python/pyproject.toml")
+  set(PYPROJECT_TOML "${CMAKE_CURRENT_BINARY_DIR}/pyproject.toml")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml.in" "${PYPROJECT_TOML}")
+  install(FILES "${PYPROJECT_TOML}" DESTINATION "python")
 endif()
