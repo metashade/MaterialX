@@ -42,10 +42,15 @@ class MetashadeOverrideTestBase:
     SUBDIR = None
     IMAGE_REF_ENV_SUBPATH = None
 
-    @pytest.fixture(scope="class")
-    def override_backend_id(self):
+    @pytest.fixture(
+        scope="class",
+        params=[
+            pytest.param(GlslBackend.id, marks=getattr(pytest.mark, GlslBackend.id))
+        ],
+    )
+    def override_backend_id(self, request):
         """Backend to render with; parametrize to run on several."""
-        return GlslBackend.id
+        return request.param
 
     @pytest.fixture(scope="class")
     def override_search_path(self, search_path, repo_root, override_backend_id):
@@ -430,6 +435,9 @@ class TestRenderMetashadeAdskMaterialsPruned(MetashadeOverrideTestBase):
     """
     SUBDIR = "standard_surface_pruned"
     IMAGE_REF_ENV_SUBPATH = Path("renders")
+    # The fixtures below hard-code GLSL instead of using override_backend_id,
+    # so the class doesn't get that fixture's marker.
+    pytestmark = pytest.mark.glsl
 
     @pytest.fixture(scope="class")
     def override_search_path(self, search_path, repo_root):
