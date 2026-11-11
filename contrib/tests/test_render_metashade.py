@@ -256,12 +256,11 @@ class TestRenderMetashadeJulia2d(_AllBackends, MetashadeOverrideTestBase):
         override_env.run_test(case, subtests)
 
 
-class TestRenderMetashadeNoisySquares2d(MetashadeOverrideTestBase):
+class TestRenderMetashadeNoisySquares2d(_AllBackends, MetashadeOverrideTestBase):
     """Test rendering the ``noisy_squares2d`` cell pattern node.
 
     The node comes from ``metashade.std.procedural``, and the material
     leaves its inputs at the nodedef defaults, so ``texcoord`` reads UV0.
-    GLSL only: Metashade doesn't generate this node for OSL yet.
     """
     SUBDIR = "noisy_squares2d"
 
