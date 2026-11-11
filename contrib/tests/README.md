@@ -78,6 +78,7 @@ environment's identity in the output tree.
 | Metashade broken schlick | `tests/metashade_ref/renders/broken_schlick/` |
 | Metashade basic | `tests/metashade_ref/renders/basic/` |
 | Metashade julia2d | `tests/metashade_ref/renders/julia2d/` |
+| Metashade noisy_squares2d | `tests/metashade_ref/renders/noisy_squares2d/` |
 | Metashade standard surface | `tests/metashade_ref/renders/standard_surface/` |
 | Metashade standard surface pruned | `tests/metashade_ref/renders/standard_surface_pruned/` |
 
@@ -140,6 +141,7 @@ path logic — those are properties of the test collection.
 | Metashade broken schlick | Schlick-related subset | Diagnostic override |
 | Metashade basic | `metashade_ref/materials/basic/` | Baseline for new Metashade nodes |
 | Metashade julia2d | `metashade_ref/materials/julia2d/` | Julia set pattern node |
+| Metashade noisy_squares2d | `metashade_ref/materials/noisy_squares2d/` | Cell pattern node, GLSL only |
 | Metashade standard surface | Standard Surface subset | SS reimplementation, FLIP vs stdlib |
 | Metashade standard surface pruned | Non-subsurface SS subset | Pruned variant, FLIP vs stdlib |
 
