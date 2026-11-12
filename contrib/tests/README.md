@@ -141,7 +141,7 @@ path logic — those are properties of the test collection.
 | Metashade broken schlick | Schlick-related subset | Diagnostic override |
 | Metashade basic | `metashade_ref/materials/basic/` | Baseline for new Metashade nodes |
 | Metashade julia2d | `metashade_ref/materials/julia2d/` | Julia set pattern node |
-| Metashade noisy_squares2d | `metashade_ref/materials/noisy_squares2d/` | Cell pattern node, GLSL only |
+| Metashade noisy_squares2d | `metashade_ref/materials/noisy_squares2d/` | Cell pattern node |
 | Metashade standard surface | Standard Surface subset | SS reimplementation, FLIP vs stdlib |
 | Metashade standard surface pruned | Non-subsurface SS subset | Pruned variant, FLIP vs stdlib |
 
